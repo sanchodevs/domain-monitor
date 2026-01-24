@@ -4,6 +4,7 @@ import cron from "node-cron";
 import fs from "fs";
 import path from "path";
 import "dotenv/config";
+import db from "./database.js";
 
 // Validate required environment variables
 if (!process.env.APILAYER_KEY) {
@@ -15,7 +16,6 @@ if (!process.env.APILAYER_KEY) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.resolve("./domains.json");
 const WHOIS_URL = "https://api.apilayer.com/whois/query";
 const DAY_MS = 86400000;
 
@@ -35,6 +35,16 @@ let refreshStatus = {
 app.use(express.json());
 
 /* ======================================================
+   Migration: Check for existing JSON data
+====================================================== */
+const JSON_DATA_FILE = path.resolve("./domains.json");
+if (fs.existsSync(JSON_DATA_FILE)) {
+  console.log("📦 Found existing domains.json, migrating to SQLite...");
+  const result = db.migrateFromJSON(JSON_DATA_FILE);
+  console.log(`✅ Migration complete: ${result.migrated} migrated, ${result.skipped} skipped`);
+}
+
+/* ======================================================
    Utilities
 ====================================================== */
 const normalizeDomain = (v = "") => v.trim().toLowerCase();
@@ -43,42 +53,6 @@ const validateDomain = (domain) => {
   // RFC-compliant domain validation
   const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
   return domainRegex.test(domain);
-};
-
-const ensureDataFile = () => {
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]", "utf-8");
-};
-
-const readDomains = () => {
-  ensureDataFile();
-  try { 
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-    return Array.isArray(data) ? data : [];
-  }
-  catch (err) { 
-    console.error("Failed to read domains.json:", err); 
-    // Create backup of corrupted file
-    if (fs.existsSync(DATA_FILE)) {
-      const backup = `${DATA_FILE}.backup.${Date.now()}`;
-      fs.copyFileSync(DATA_FILE, backup);
-      console.log(`Created backup: ${backup}`);
-    }
-    return []; 
-  }
-};
-
-const writeDomains = domains => {
-  try {
-    // Create backup before overwrite
-    if (fs.existsSync(DATA_FILE)) {
-      const backup = `${DATA_FILE}.bak`;
-      fs.copyFileSync(DATA_FILE, backup);
-    }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(domains, null, 2));
-  } catch (err) {
-    console.error("Failed to write domains.json:", err);
-    throw err;
-  }
 };
 
 const escapeCSV = value => value == null ? '""' : `"${String(value).replace(/"/g, '""')}"`;
@@ -128,6 +102,9 @@ async function refreshDomain(domainObj) {
   const nsChanged = JSON.stringify([...domainObj.name_servers_prev].sort()) !==
                     JSON.stringify([...domainObj.name_servers].sort());
   if (nsChanged) console.log(`⚠️  NS change detected for ${domainObj.domain}`);
+
+  // Save to database immediately after refresh
+  db.updateDomain(domainObj);
 }
 
 async function refreshAllDomains(domains) {
@@ -138,18 +115,19 @@ async function refreshAllDomains(domains) {
 
   for (let i = 0; i < domains.length; i++) {
     const d = domains[i];
-    try { 
+    try {
       await refreshDomain(d);
       console.log(`✓ Refreshed ${d.domain} (${i + 1}/${domains.length})`);
     }
-    catch (err) { 
+    catch (err) {
       console.error(`WHOIS failed for ${d.domain}:`, err.message);
       d.error = err.message;
       d.last_checked = new Date().toISOString();
+      db.updateDomain(d); // Save error state
     }
-    
+
     refreshStatus.completed = i + 1;
-    
+
     // Rate limiting: wait between requests (except for last one)
     if (i < domains.length - 1) {
       await sleep(WHOIS_DELAY_MS);
@@ -177,7 +155,8 @@ app.use(express.static("public"));
 // Get all domains
 app.get("/api/domains", (_, res) => {
   try {
-    res.json(readDomains());
+    const domains = db.getAllDomains();
+    res.json(domains);
   } catch (err) {
     console.error("Error reading domains:", err);
     res.status(500).json({ message: "Failed to load domains", error: err.message });
@@ -190,30 +169,28 @@ app.post("/api/domains", (req, res) => {
   if (!raw) return res.status(400).json({ message: "Domain required" });
 
   const domain = normalizeDomain(raw);
-  
+
   // Validate domain format
   if (!validateDomain(domain)) {
     return res.status(400).json({ message: "Invalid domain format. Use format: example.com" });
   }
 
   try {
-    const domains = readDomains();
-    if (domains.some(d => normalizeDomain(d.domain) === domain)) {
+    if (db.domainExists(domain)) {
       return res.status(400).json({ message: "Domain already exists" });
     }
 
-    domains.push({ 
-      domain, 
-      registrar: "", 
-      created_date: "", 
-      expiry_date: "", 
-      name_servers: [], 
-      name_servers_prev: [], 
+    db.addDomain({
+      domain,
+      registrar: "",
+      created_date: "",
+      expiry_date: "",
+      name_servers: [],
+      name_servers_prev: [],
       last_checked: null,
       error: null
     });
-    
-    writeDomains(domains);
+
     res.json({ success: true });
   } catch (err) {
     console.error("Error adding domain:", err);
@@ -225,14 +202,12 @@ app.post("/api/domains", (req, res) => {
 app.delete("/api/domains/:domain", (req, res) => {
   try {
     const target = normalizeDomain(decodeURIComponent(req.params.domain));
-    const domains = readDomains();
-    const filtered = domains.filter(d => normalizeDomain(d.domain) !== target);
-    
-    if (filtered.length === domains.length) {
+
+    if (!db.domainExists(target)) {
       return res.status(404).json({ message: "Domain not found" });
     }
 
-    writeDomains(filtered);
+    db.deleteDomain(target);
     res.json({ success: true });
   } catch (err) {
     console.error("Error deleting domain:", err);
@@ -249,26 +224,25 @@ app.get("/api/refresh/status", (_, res) => {
 app.post("/api/refresh", async (_, res) => {
   try {
     if (refreshStatus.isRefreshing) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         message: "Refresh already in progress",
         ...refreshStatus
       });
     }
 
-    const domains = readDomains();
+    const domains = db.getAllDomains();
     if (domains.length === 0) {
       return res.status(400).json({ message: "No domains to refresh" });
     }
-    
+
     // Start refresh in background
     refreshAllDomains(domains).then(() => {
-      writeDomains(domains);
       console.log("✅ Refresh complete");
     }).catch(err => {
       console.error("Refresh error:", err);
       refreshStatus.isRefreshing = false;
     });
-    
+
     res.json({ success: true, message: `Refreshing ${domains.length} domain(s)...`, total: domains.length });
   } catch (err) {
     console.error("Error starting refresh:", err);
@@ -280,31 +254,29 @@ app.post("/api/refresh", async (_, res) => {
 app.post("/api/refresh/:domain", async (req, res) => {
   try {
     const target = normalizeDomain(decodeURIComponent(req.params.domain));
-    const domains = readDomains();
-    const domain = domains.find(d => normalizeDomain(d.domain) === target);
-    
+    const domain = db.getDomain(target);
+
     if (!domain) return res.status(404).json({ message: "Domain not found" });
 
     await refreshDomain(domain);
-    writeDomains(domains);
     res.json({ success: true });
-  } catch (err) { 
-    console.error(err); 
-    res.status(500).json({ message: "WHOIS lookup failed", error: err.message }); 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "WHOIS lookup failed", error: err.message });
   }
 });
 
 // Export CSV with timestamped filename
 app.get("/api/export/csv", (_, res) => {
   try {
-    const domains = readDomains();
+    const domains = db.getAllDomains();
     const headers = ["Domain","Registrar","Created","Age","Expires","Days Left","Name Servers","Last Checked","Status"];
 
     const rows = domains.map(d => {
       const created = d.created_date ? new Date(d.created_date) : null;
       const expiry = d.expiry_date ? new Date(d.expiry_date) : null;
       const status = d.error ? "Error" : "OK";
-      
+
       return [
         escapeCSV(d.domain),
         escapeCSV(d.registrar),
@@ -339,9 +311,8 @@ app.get("/api/export/csv", (_, res) => {
 cron.schedule("0 2 * * 0", async () => {
   console.log("⏰ Weekly WHOIS refresh started");
   try {
-    const domains = readDomains();
+    const domains = db.getAllDomains();
     await refreshAllDomains(domains);
-    writeDomains(domains);
     console.log("✅ Weekly refresh complete");
   } catch (err) {
     console.error("Weekly refresh error:", err);
@@ -352,5 +323,6 @@ cron.schedule("0 2 * * 0", async () => {
    Start server
 ====================================================== */
 app.listen(PORT, () => {
-  console.log(`✅ Infra Whois Monitor running at http://localhost:${PORT}`);
+  console.log(`✅ Domain Monitor running at http://localhost:${PORT}`);
+  console.log(`📊 Database: SQLite (domains.db)`);
 });
