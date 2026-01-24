@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infra Whois Monitor</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <h1><img alt="Infra" src="favicon.png" /> Infra Whois Monitor</h1>
+      <div class="header-actions">
+        <button class="btn btn-refresh" onclick="refreshAll()">
+          <i class="fa-solid fa-arrows-rotate"></i> Refresh All
+        </button>
+        <button class="btn btn-export" onclick="exportCSV()">
+          <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+      </div>
+    </header>
+
+    <!-- Dashboard Cards -->
+    <section class="dashboard-cards">
+      <div class="card"><h3>Total Domains</h3><p id="totalDomains">0</p></div>
+      <div class="card card-expired"><h3>Expired</h3><p id="expired">0</p></div>
+      <div class="card card-15"><h3>Expiring ≤ 15 days</h3><p id="exp15">0</p></div>
+      <div class="card card-30"><h3>Expiring ≤ 30 days</h3><p id="exp30">0</p></div>
+      <div class="card card-90"><h3>Expiring ≤ 3 months</h3><p id="exp90">0</p></div>
+      <div class="card card-180"><h3>Expiring ≤ 6 months</h3><p id="exp180">0</p></div>
+      <div class="card card-unchecked"><h3>Unchecked</h3><p id="unchecked">0</p></div>
+    </section>
+
+    <!-- Domain Actions -->
+    <section class="domain-actions">
+      <div class="single-domain">
+        <input id="domainInput" placeholder="example.com" autocomplete="off">
+        <button class="btn btn-add" onclick="addDomain()">
+          <i class="fa-solid fa-plus"></i> Add Domain
+        </button>
+      </div>
+      <button class="btn btn-toggle" onclick="toggleBulkUpload()">
+        <i class="fas fa-plus-circle"></i> Add Domains in Bulk
+      </button>
+    </section>
+
+    <!-- Bulk Upload -->
+    <section id="bulkContainer" class="bulk-container" style="display: none;">
+      <textarea id="bulkInput" placeholder="Enter domains separated by commas or new lines:&#10;example.com&#10;anotherdomain.net&#10;mysite.org"></textarea>
+      <button class="btn btn-add" onclick="addBulkDomains()">
+        <i class="fa-solid fa-plus"></i> Add Domains
+      </button>
+    </section>
+
+
+<!-- Filter Controls -->
+<section class="filter-controls">
+  <div class="filter-row">
+    <!-- Search -->
+    <div class="filter-group">
+      <label for="searchInput">
+        <i class="fa-solid fa-magnifying-glass"></i> Search
+      </label>
+      <input 
+        id="searchInput" 
+        type="text" 
+        placeholder="Search domains, registrars, nameservers..."
+        autocomplete="off"
+      >
+    </div>
+    
+    <!-- Status Filter -->
+    <div class="filter-group">
+      <label for="filterStatus">
+        <i class="fa-solid fa-filter"></i> Status
+      </label>
+      <select id="filterStatus">
+        <option value="all">All Statuses</option>
+        <option value="expired">Expired</option>
+        <option value="expiring30">Expiring ≤ 30 days</option>
+        <option value="expiring90">Expiring ≤ 90 days</option>
+        <option value="expiring180">Expiring ≤ 180 days</option>
+        <option value="safe">Safe (>180 days)</option>
+        <option value="error">Has Errors</option>
+        <option value="unchecked">Never Checked</option>
+      </select>
+    </div>
+    
+    <!-- Registrar Filter -->
+    <div class="filter-group">
+      <label for="filterRegistrar">
+        <i class="fa-solid fa-building"></i> Registrar
+      </label>
+      <select id="filterRegistrar">
+        <option value="all">All Registrars</option>
+        <!-- Populated dynamically -->
+      </select>
+    </div>
+
+<!-- Sort By -->
+    <div class="filter-group">
+      <label for="sortBy">
+        <i class="fa-solid fa-arrow-down-a-z"></i> Sort By
+      </label>
+      <select id="sortBy">
+        <option value="expiry">Expiry Date</option>
+        <option value="domain">Domain Name</option>
+        <option value="registrar">Registrar</option>
+        <option value="age">Domain Age</option>
+        <option value="lastChecked">Last Checked</option>
+      </select>
+    </div>
+    
+    <!-- Sort Order -->
+    <div class="filter-group">
+      <label for="sortOrder">
+        <i class="fa-solid fa-sort"></i> Order
+      </label>
+      <select id="sortOrder">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+    </div>
+    
+    <!-- Clear Filters -->
+    <div class="filter-group filter-actions">
+      <button class="btn btn-clear" onclick="clearFilters()">
+        <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
+      </button>
+    </div>
+  </div>
+
+</section>
+
+    <!-- Bulk Actions Bar (hidden by default) -->
+    <section id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
+      <div class="bulk-actions-left">
+        <span id="selectedCount">0 selected</span>
+      </div>
+      <div class="bulk-actions-right">
+        <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
+          <i class="fa-solid fa-arrows-rotate"></i> Refresh Selected
+        </button>
+        <button class="btn btn-bulk-delete" onclick="deleteSelected()">
+          <i class="fa-solid fa-trash"></i> Delete Selected
+        </button>
+        <button class="btn btn-clear-selection" onclick="clearSelection()">
+          <i class="fa-solid fa-xmark"></i> Clear Selection
+        </button>
+      </div>
+    </section>
+
+    <!-- Domain Table -->
+    <section class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
+            <th class="sortable-header" data-sort="domain">Domain</th>
+            <th class="sortable-header" data-sort="registrar">Registrar</th>
+            <th class="sortable-header" data-sort="expiry">Expires</th>
+            <th>Days Left</th>
+            <th>Name Servers</th>
+            <th>Created</th>
+            <th class="sortable-header" data-sort="age">Age</th>
+            <th class="sortable-header" data-sort="lastChecked">Last Check</th>
+            <th class="less"></th>
+            <th class="less"></th>
+          </tr>
+        </thead>
+        <tbody id="table"></tbody>
+      </table>
+    </section>
+
+  </div>
+
+ <!-- Footer -->
+  <footer class="footer">
+    &copy; %%YEAR%% Infra Whois Monitor.
+  </footer>
+
+  <!-- Notification container will be created by JavaScript -->
+  
+  <!-- Scripts -->
+  <script src="app.js"></script>
+ 
+</body>
+</html>

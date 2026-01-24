@@ -1,0 +1,12 @@
+[
+  {
+    "domain": "example.com",
+    "registrar": "",
+    "created_date": "",
+    "expiry_date": "",
+    "name_servers": [],
+    "name_servers_prev": [],
+    "last_checked": null,
+    "error": null
+  }
+]

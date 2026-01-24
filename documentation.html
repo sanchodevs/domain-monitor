@@ -1,0 +1,176 @@
+<!--
+=========================================================================
+                         DOMAIN MONITOR
+=========================================================================
+Project: Domain Expiry Monitor
+Author: JC Sancho
+=========================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domain Monitor - Documentation</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: #121212;
+      color: #e5e7eb;
+    }
+    header {
+      background: linear-gradient(90deg, #3b82f6, #6366f1);
+      padding: 20px;
+      text-align: center;
+      color: #fff;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+    main {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+    h2 {
+      color: #3b82f6;
+      margin-top: 40px;
+      border-bottom: 2px solid #3b82f6;
+      display: inline-block;
+      padding-bottom: 4px;
+    }
+    code {
+      background: #1e1e2f;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #10b981;
+      font-size: 0.95rem;
+    }
+    pre {
+      background: #1e1e2f;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #10b981;
+    }
+    ul {
+      margin-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #374151;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background: #1f2937;
+      color: #e5e7eb;
+    }
+    a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Domain Monitor - Documentation</h1>
+  </header>
+  <main>
+    <h2>Stack</h2>
+    <ul>
+      <li>Node.js</li>
+      <li>Express (Backend)</li>
+      <li>Vanilla HTML/CSS/JS (Frontend)</li>
+    </ul>
+
+    <h2>Installation</h2>
+    <p>install dependencies:</p>
+    <pre><code>npm install express axios dotenv</code></pre>
+    <p>Run the server:</p>
+    <pre><code>node server.js</code></pre>
+
+    <h2>Project Structure</h2>
+    <table>
+      <tr><th>File / Folder</th><th>Description</th></tr>
+      <tr><td>server.js</td><td>Node.js server: serves frontend</td></tr>
+      <tr><td>main.js</td><td>Handles jobs</td></tr>
+      <tr><td>domains.js</td><td>Stores domains, calculates expiry, detects changes</td></tr>
+      <tr><td>.env</td><td>Variables</td></tr>
+      <tr><td>package.json</td><td>Node.js dependencies and scripts</td></tr>
+      <tr><td>public/</td><td>Frontend files</td></tr>
+      <tr><td>public/index.html</td><td>Main UI</td></tr>
+      <tr><td>public/styles.css</td><td>CSS styles</td></tr>
+      <tr><td>public/app.js</td><td>Frontend logic for table, dashboard, and actions</td></tr>
+    </table>
+
+    <h2>Flow Overview</h2>
+    <ol>
+      <li>Server serves static files from <code>/public</code>.</li>
+      <li>Frontend requests domain data from <code>/api/domains</code>.</li>
+      <li>Backend loads domains from <code>domains.js</code> and calculates:
+        <ul>
+          <li>Expiry dates</li>
+          <li>Days remaining</li>
+          <li>Name server changes</li>
+        </ul>
+      </li>
+      <li>Frontend renders:
+        <ul>
+          <li>Table of domains</li>
+          <li>Dashboard cards (expiring soon, total domains, etc.)</li>
+        </ul>
+      </li>
+      <li>User can:
+        <ul>
+          <li>Add single or bulk domains</li>
+          <li>Delete domains</li>
+          <li>Refresh individual or all domains</li>
+          <li>Export CSV</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h2>Endpoints</h2>
+    <ul>
+      <li><code>GET /api/domains</code> - Retrieve all domains</li>
+      <li><code>POST /api/domains</code> - Add new domain</li>
+      <li><code>DELETE /api/domains/:domain</code> - Delete a domain</li>
+      <li><code>POST /api/refresh</code> - Refresh all domains</li>
+      <li><code>POST /api/refresh/:domain</code> - Refresh single domain</li>
+      <li><code>/api/export/csv</code> - Export domains as CSV</li>
+    </ul>
+
+    <h2>Frontend Features</h2>
+    <ul>
+      <li>Responsive dark-mode UI</li>
+      <li>Premium modern dashboard cards</li>
+      <li>Sortable table by expiry date</li>
+      <li>Inline and bulk domain additions</li>
+      <li>Delete and refresh buttons per row</li>
+      <li>CSV export</li>
+    </ul>
+
+    <h2>Notes</h2>
+    <ul>
+      <li>All dates are formatted as <code>MMM D YYYY HH:mm:ss</code></li>
+      <li>Domains expiring soon are highlighted in dashboard cards</li>
+      <li>Bulk upload accepts comma-separated domain names</li>
+    </ul>
+  </main>
+</body>
+</html>
