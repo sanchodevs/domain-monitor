@@ -10,6 +10,12 @@ node_modules/
 domains.json
 domains.json.bak
 domains.json.backup.*
+domains.json.migrated
+
+# SQLite database
+domains.db
+domains.db-wal
+domains.db-shm
 
 # Logs
 logs/

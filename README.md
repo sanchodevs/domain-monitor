@@ -83,22 +83,37 @@ curl -X POST http://localhost:3000/api/domains \
 
 ## Data Storage
 
-Domain data is stored in `domains.json` in the project root. A backup (`domains.json.bak`) is created before each write operation.
+Domain data is stored in a SQLite database (`domains.db`) using [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) for:
 
-### Data Structure
+- **ACID compliance** - Atomic transactions prevent data corruption
+- **WAL mode** - Better performance and crash recovery
+- **Zero configuration** - No database server required
 
-```json
-{
-  "domain": "example.com",
-  "registrar": "Example Registrar Inc.",
-  "created_date": "2020-01-01 00:00:00+00:00",
-  "expiry_date": "2025-01-01 00:00:00+00:00",
-  "name_servers": ["ns1.example.com", "ns2.example.com"],
-  "name_servers_prev": [],
-  "last_checked": "2024-01-15T10:30:00.000Z",
-  "error": null
-}
+### Automatic Migration
+
+If you're upgrading from a previous version using `domains.json`, the application will automatically migrate your data to SQLite on first startup. The original JSON file will be renamed to `domains.json.migrated`.
+
+### Database Schema
+
+```sql
+CREATE TABLE domains (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain TEXT UNIQUE NOT NULL,
+  registrar TEXT DEFAULT '',
+  created_date TEXT DEFAULT '',
+  expiry_date TEXT DEFAULT '',
+  name_servers TEXT DEFAULT '[]',      -- JSON array
+  name_servers_prev TEXT DEFAULT '[]', -- JSON array
+  last_checked TEXT,
+  error TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 ```
+
+### Backup
+
+The database uses SQLite's WAL (Write-Ahead Logging) mode for crash recovery. To backup your data, simply copy the `domains.db` file while the server is stopped, or use SQLite's backup API.
 
 ## Scheduled Tasks
 
@@ -132,12 +147,13 @@ npm start
 
 # Project structure
 ├── server.js          # Express API server
+├── database.js        # SQLite database module
 ├── main.js            # Electron entry point
 ├── public/
 │   ├── index.html     # Dashboard UI
 │   ├── app.js         # Frontend JavaScript
 │   └── styles.css     # Styling
-├── domains.json       # Data storage (gitignored)
+├── domains.db         # SQLite database (gitignored)
 └── package.json
 ```
 
