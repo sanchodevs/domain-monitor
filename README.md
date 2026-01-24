@@ -1,33 +1,53 @@
-# Infra Whois Monitor
+# Domain Monitor
 
 A self-hosted domain monitoring dashboard that tracks WHOIS information, expiration dates, and nameserver changes for your domains.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green)
+![SQLite](https://img.shields.io/badge/SQLite-3-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## Features
 
-- **Domain Tracking** - Monitor multiple domains from a single dashboard
-- **Expiration Alerts** - Visual indicators for domains expiring soon (15/30/90/180 days)
-- **Nameserver Monitoring** - Detects and highlights nameserver changes
-- **Bulk Import** - Add multiple domains at once (comma or newline separated)
+### Domain Management
+- **Single & Bulk Import** - Add domains individually or paste multiple (comma/newline separated)
+- **Bulk Operations** - Select multiple domains with checkboxes for batch delete or refresh
 - **CSV Export** - Export all domain data with timestamps
-- **Auto-Refresh** - Weekly automatic WHOIS updates via cron
-- **Desktop App** - Optional Electron wrapper for desktop use
+
+### Monitoring & Alerts
+- **Expiration Tracking** - Visual indicators for domains expiring in 15/30/90/180 days
+- **Nameserver Change Detection** - Highlights when nameservers change between refreshes
+- **Domain Age Display** - Shows how long each domain has been registered
+- **Error Tracking** - Displays WHOIS lookup failures per domain
+
+### Dashboard
+- **Status Cards** - At-a-glance counts for total, expired, expiring soon, and unchecked domains
+- **Smart Filtering** - Filter by status (expired, expiring, safe, error, unchecked) or registrar
+- **Search** - Find domains by name, registrar, or nameserver
+- **Sortable Columns** - Sort by expiry date, domain name, registrar, age, or last checked
+
+### Automation
+- **Scheduled Refresh** - Automatic weekly WHOIS updates (Sundays at 2:00 AM)
+- **Rate Limiting** - Built-in 2-second delays between API requests
+- **Retry Logic** - Up to 3 retries with 5-second delays on failures
+
+### Technical
+- **SQLite Database** - ACID-compliant storage with WAL mode for crash recovery
 - **Dark Theme** - Modern, eye-friendly monochrome UI
+- **Responsive Design** - Works on desktop and mobile
+- **Desktop App** - Optional Electron wrapper
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- APILayer API key ([get one here](https://apilayer.com/marketplace/whois-api))
+- APILayer WHOIS API key ([get one free](https://apilayer.com/marketplace/whois-api))
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/domain-monitor.git
+git clone https://github.com/sanchodevs/domain-monitor.git
 cd domain-monitor
 
 # Install dependencies
@@ -46,7 +66,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Desktop App (Optional)
 
 ```bash
-# Run as Electron app
 npm run desktop
 ```
 
@@ -62,108 +81,81 @@ APILAYER_KEY=your_api_key_here
 PORT=3000
 ```
 
-## API Endpoints
+## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/domains` | List all tracked domains |
 | `POST` | `/api/domains` | Add a new domain |
 | `DELETE` | `/api/domains/:domain` | Remove a domain |
-| `POST` | `/api/refresh` | Refresh all domains |
+| `POST` | `/api/refresh` | Refresh all domains (async) |
 | `POST` | `/api/refresh/:domain` | Refresh single domain |
+| `GET` | `/api/refresh/status` | Get bulk refresh progress |
 | `GET` | `/api/export/csv` | Download CSV report |
 
-### Example: Add a Domain
+### Examples
 
+**Add a domain:**
 ```bash
 curl -X POST http://localhost:3000/api/domains \
   -H "Content-Type: application/json" \
   -d '{"domain": "example.com"}'
 ```
 
+**Refresh all domains:**
+```bash
+curl -X POST http://localhost:3000/api/refresh
+```
+
+**Check refresh progress:**
+```bash
+curl http://localhost:3000/api/refresh/status
+```
+
 ## Data Storage
 
-Domain data is stored in a SQLite database (`domains.db`) using [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) for:
+Domain data is stored in a SQLite database (`domains.db`) using [better-sqlite3](https://github.com/WiseLibs/better-sqlite3):
 
-- **ACID compliance** - Atomic transactions prevent data corruption
-- **WAL mode** - Better performance and crash recovery
-- **Zero configuration** - No database server required
+- **ACID Compliance** - Atomic transactions prevent data corruption
+- **WAL Mode** - Better performance and automatic crash recovery
+- **Zero Configuration** - No database server required
 
 ### Automatic Migration
 
-If you're upgrading from a previous version using `domains.json`, the application will automatically migrate your data to SQLite on first startup. The original JSON file will be renamed to `domains.json.migrated`.
-
-### Database Schema
-
-```sql
-CREATE TABLE domains (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  domain TEXT UNIQUE NOT NULL,
-  registrar TEXT DEFAULT '',
-  created_date TEXT DEFAULT '',
-  expiry_date TEXT DEFAULT '',
-  name_servers TEXT DEFAULT '[]',      -- JSON array
-  name_servers_prev TEXT DEFAULT '[]', -- JSON array
-  last_checked TEXT,
-  error TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
-);
-```
+If upgrading from a previous JSON-based version, existing `domains.json` data is automatically migrated to SQLite on first startup.
 
 ### Backup
 
-The database uses SQLite's WAL (Write-Ahead Logging) mode for crash recovery. To backup your data, simply copy the `domains.db` file while the server is stopped, or use SQLite's backup API.
-
-## Scheduled Tasks
-
-The application includes a weekly WHOIS refresh that runs automatically:
-
-- **Schedule**: Every Sunday at 2:00 AM
-- **Rate Limiting**: 2-second delay between API requests
-- **Retry Logic**: Up to 3 retries with 5-second delays
-
-## Dashboard Features
-
-### Status Cards
-
-- **Total Domains** - Count of all tracked domains
-- **Expired** - Domains past expiration date
-- **Expiring ≤ 15/30/90/180 days** - Domains expiring within timeframe
-- **Unchecked** - Domains never refreshed
-
-### Filtering & Sorting
-
-- Search by domain name, registrar, or nameserver
-- Filter by status (expired, expiring, safe, errors, unchecked)
-- Filter by registrar
-- Sort by expiry, domain name, registrar, age, or last checked
-
-## Development
+Copy `domains.db` while the server is stopped, or use SQLite's backup commands:
 
 ```bash
-# Run in development
-npm start
+sqlite3 domains.db ".backup backup.db"
+```
 
-# Project structure
+## Project Structure
+
+```
+domain-monitor/
 ├── server.js          # Express API server
 ├── database.js        # SQLite database module
 ├── main.js            # Electron entry point
 ├── public/
 │   ├── index.html     # Dashboard UI
 │   ├── app.js         # Frontend JavaScript
-│   └── styles.css     # Styling
+│   └── styles.css     # Dark theme styling
 ├── domains.db         # SQLite database (gitignored)
+├── .env               # Environment config (gitignored)
 └── package.json
 ```
 
-## Rate Limits
+## Tech Stack
 
-The WHOIS API has rate limits. The application includes:
-
-- 2-second delay between requests during bulk refresh
-- Retry logic with exponential backoff
-- Error tracking per domain
+- **Backend**: Node.js, Express
+- **Database**: SQLite (better-sqlite3)
+- **Frontend**: Vanilla HTML/CSS/JavaScript
+- **Icons**: Font Awesome
+- **Fonts**: Urbanist, Outfit (Google Fonts)
+- **Desktop**: Electron (optional)
 
 ## License
 
