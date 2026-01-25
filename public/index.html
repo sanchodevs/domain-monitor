@@ -3,25 +3,350 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infra Whois Monitor</title>
+  <title>Domain Monitor</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Error Boundary Overlay -->
+  <div id="error-boundary" class="error-boundary" style="display: none;">
+    <div class="error-boundary-content">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <h2>Something went wrong</h2>
+      <p id="error-boundary-message">An unexpected error occurred.</p>
+      <button class="btn" onclick="window.location.reload()">
+        <i class="fa-solid fa-arrows-rotate"></i> Reload Page
+      </button>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal" style="display: none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-lock"></i> Login Required</h2>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="loginUsername">Username</label>
+          <input type="text" id="loginUsername" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password">
+        </div>
+        <div id="loginError" class="form-error" style="display: none;"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-sign-in-alt"></i> Login
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-cog"></i> Settings</h2>
+        <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-tabs">
+          <button class="tab-btn active" data-tab="general">General</button>
+          <button class="tab-btn" data-tab="schedule">Schedule</button>
+          <button class="tab-btn" data-tab="email">Email Alerts</button>
+          <button class="tab-btn" data-tab="apikeys">API Keys</button>
+        </div>
+
+        <!-- General Tab -->
+        <div class="tab-content active" id="tab-general">
+          <h3>General Settings</h3>
+          <div class="form-group">
+            <label for="settingAlertDays">Expiration Alert Days</label>
+            <input type="number" id="settingAlertDays" min="1" max="365" value="30">
+            <small>Days before expiration to show warnings</small>
+          </div>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div class="tab-content" id="tab-schedule">
+          <h3>Auto-Refresh Schedule</h3>
+          <div class="form-group">
+            <label for="settingCron">Cron Expression</label>
+            <input type="text" id="settingCron" placeholder="0 0 * * *">
+            <small>Default: 0 0 * * * (daily at midnight)</small>
+          </div>
+          <div class="schedule-presets">
+            <button class="preset-btn" onclick="setCronPreset('0 0 * * *')">Daily</button>
+            <button class="preset-btn" onclick="setCronPreset('0 0 * * 0')">Weekly</button>
+            <button class="preset-btn" onclick="setCronPreset('0 */6 * * *')">Every 6 hours</button>
+            <button class="preset-btn" onclick="setCronPreset('0 */12 * * *')">Every 12 hours</button>
+          </div>
+        </div>
+
+        <!-- Email Tab -->
+        <div class="tab-content" id="tab-email">
+          <h3>Email Alert Settings</h3>
+          <div class="form-group">
+            <label for="settingSmtpHost">SMTP Host</label>
+            <input type="text" id="settingSmtpHost" placeholder="smtp.example.com">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="settingSmtpPort">SMTP Port</label>
+              <input type="number" id="settingSmtpPort" placeholder="587">
+            </div>
+            <div class="form-group">
+              <label for="settingSmtpSecure">
+                <input type="checkbox" id="settingSmtpSecure"> Use TLS/SSL
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpUser">SMTP Username</label>
+            <input type="text" id="settingSmtpUser" placeholder="user@example.com">
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpPass">SMTP Password</label>
+            <input type="password" id="settingSmtpPass" placeholder="********">
+          </div>
+          <div class="form-group">
+            <label for="settingEmailTo">Alert Recipients</label>
+            <input type="text" id="settingEmailTo" placeholder="admin@example.com">
+            <small>Comma-separated email addresses</small>
+          </div>
+          <button class="btn" onclick="testEmailSettings()">
+            <i class="fa-solid fa-paper-plane"></i> Send Test Email
+          </button>
+        </div>
+
+        <!-- API Keys Tab -->
+        <div class="tab-content" id="tab-apikeys">
+          <h3>API Key Management</h3>
+          <p class="info-text">Manage multiple API keys for load balancing and rotation.</p>
+          <div id="apiKeysList" class="api-keys-list"></div>
+          <div class="form-group">
+            <label for="newApiKeyName">Add New API Key</label>
+            <div class="input-group">
+              <input type="text" id="newApiKeyName" placeholder="Key name (e.g., Primary)">
+              <input type="password" id="newApiKeyValue" placeholder="API key value">
+              <button class="btn btn-add" onclick="addApiKey()">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">
+          <i class="fa-solid fa-save"></i> Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Groups Modal -->
+  <div id="groupsModal" class="modal" style="display: none;">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-folder"></i> Manage Groups</h2>
+        <button class="modal-close" onclick="closeModal('groupsModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="groupsList" class="groups-list"></div>
+        <div class="form-group">
+          <label>Add New Group</label>
+          <div class="input-group">
+            <input type="text" id="newGroupName" placeholder="Group name">
+            <input type="color" id="newGroupColor" value="#6366f1" class="color-picker">
+            <button class="btn btn-add" onclick="addGroup()">
+              <i class="fa-solid fa-plus"></i> Add
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tags Modal -->
+  <div id="tagsModal" class="modal" style="display: none;">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-tags"></i> Manage Tags</h2>
+        <button class="modal-close" onclick="closeModal('tagsModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="tagsList" class="tags-list"></div>
+        <div class="form-group">
+          <label>Add New Tag</label>
+          <div class="input-group">
+            <input type="text" id="newTagName" placeholder="Tag name">
+            <input type="color" id="newTagColor" value="#8b5cf6" class="color-picker">
+            <button class="btn btn-add" onclick="addTag()">
+              <i class="fa-solid fa-plus"></i> Add
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Domain Details Modal -->
+  <div id="domainModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-globe"></i> <span id="domainModalTitle">Domain Details</span></h2>
+        <button class="modal-close" onclick="closeModal('domainModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="domain-details-grid">
+          <div class="detail-section">
+            <h4>WHOIS Information</h4>
+            <div id="domainWhoisInfo"></div>
+          </div>
+          <div class="detail-section">
+            <h4>Health Status</h4>
+            <div id="domainHealthInfo"></div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Group & Tags</h4>
+          <div class="domain-organization">
+            <div class="form-group">
+              <label>Group</label>
+              <select id="domainGroupSelect">
+                <option value="">No Group</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tags</label>
+              <div id="domainTagsSelect" class="tags-select"></div>
+            </div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Health Check History</h4>
+          <div id="domainHealthHistory" class="health-history"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('domainModal')">Close</button>
+        <button class="btn btn-primary" onclick="saveDomainDetails()">
+          <i class="fa-solid fa-save"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSV Import Modal -->
+  <div id="importModal" class="modal" style="display: none;">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-file-import"></i> Import Domains</h2>
+        <button class="modal-close" onclick="closeModal('importModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-dropzone" id="importDropzone">
+          <i class="fa-solid fa-cloud-upload-alt"></i>
+          <p>Drag & drop a CSV file here, or click to select</p>
+          <input type="file" id="importFile" accept=".csv" onchange="handleFileSelect(event)">
+        </div>
+        <div class="import-format-info">
+          <h4>CSV Format</h4>
+          <code>domain,group,tags<br>example.com,Production,"important,client-a"</code>
+        </div>
+        <div id="importPreview" class="import-preview" style="display: none;"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('importModal')">Cancel</button>
+        <button class="btn btn-primary" id="importBtn" onclick="processImport()" disabled>
+          <i class="fa-solid fa-upload"></i> Import
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Log Modal -->
+  <div id="auditModal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-clipboard-list"></i> Audit Log</h2>
+        <button class="modal-close" onclick="closeModal('auditModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="audit-filters">
+          <select id="auditEntityFilter">
+            <option value="">All Entities</option>
+            <option value="domain">Domains</option>
+            <option value="group">Groups</option>
+            <option value="tag">Tags</option>
+            <option value="settings">Settings</option>
+          </select>
+          <select id="auditActionFilter">
+            <option value="">All Actions</option>
+            <option value="create">Created</option>
+            <option value="update">Updated</option>
+            <option value="delete">Deleted</option>
+          </select>
+          <button class="btn" onclick="loadAuditLog()">
+            <i class="fa-solid fa-filter"></i> Filter
+          </button>
+        </div>
+        <div id="auditLogList" class="audit-log-list"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
 
     <!-- Header -->
     <header class="header">
-      <h1><img alt="Infra" src="favicon.png" /> Infra Whois Monitor</h1>
+      <h1><img alt="Domain Monitor" src="favicon.png" /> Domain Monitor</h1>
       <div class="header-actions">
+        <span id="connectionStatus" class="connection-status" title="WebSocket Status">
+          <i class="fa-solid fa-circle"></i>
+        </span>
         <button class="btn btn-refresh" onclick="refreshAll()">
           <i class="fa-solid fa-arrows-rotate"></i> Refresh All
         </button>
-        <button class="btn btn-export" onclick="exportCSV()">
-          <i class="fa-solid fa-file-csv"></i> Export CSV
+        <button class="btn" onclick="openModal('importModal')">
+          <i class="fa-solid fa-file-import"></i> Import
         </button>
+        <button class="btn btn-export" onclick="exportCSV()">
+          <i class="fa-solid fa-file-csv"></i> Export
+        </button>
+        <div class="dropdown">
+          <button class="btn btn-icon" onclick="toggleDropdown('moreMenu')">
+            <i class="fa-solid fa-ellipsis-v"></i>
+          </button>
+          <div id="moreMenu" class="dropdown-menu">
+            <a href="#" onclick="openModal('groupsModal'); closeDropdown();">
+              <i class="fa-solid fa-folder"></i> Manage Groups
+            </a>
+            <a href="#" onclick="openModal('tagsModal'); closeDropdown();">
+              <i class="fa-solid fa-tags"></i> Manage Tags
+            </a>
+            <a href="#" onclick="runHealthChecks(); closeDropdown();">
+              <i class="fa-solid fa-heart-pulse"></i> Run Health Checks
+            </a>
+            <a href="#" onclick="openModal('auditModal'); loadAuditLog(); closeDropdown();">
+              <i class="fa-solid fa-clipboard-list"></i> Audit Log
+            </a>
+            <hr>
+            <a href="#" onclick="openModal('settingsModal'); loadSettings(); closeDropdown();">
+              <i class="fa-solid fa-cog"></i> Settings
+            </a>
+            <a href="#" id="logoutBtn" onclick="handleLogout(); closeDropdown();" style="display: none;">
+              <i class="fa-solid fa-sign-out-alt"></i> Logout
+            </a>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -29,11 +354,23 @@
     <section class="dashboard-cards">
       <div class="card"><h3>Total Domains</h3><p id="totalDomains">0</p></div>
       <div class="card card-expired"><h3>Expired</h3><p id="expired">0</p></div>
-      <div class="card card-15"><h3>Expiring ≤ 15 days</h3><p id="exp15">0</p></div>
-      <div class="card card-30"><h3>Expiring ≤ 30 days</h3><p id="exp30">0</p></div>
-      <div class="card card-90"><h3>Expiring ≤ 3 months</h3><p id="exp90">0</p></div>
-      <div class="card card-180"><h3>Expiring ≤ 6 months</h3><p id="exp180">0</p></div>
+      <div class="card card-15"><h3>Expiring in 15 days</h3><p id="exp15">0</p></div>
+      <div class="card card-30"><h3>Expiring in 30 days</h3><p id="exp30">0</p></div>
+      <div class="card card-90"><h3>Expiring in 3 months</h3><p id="exp90">0</p></div>
+      <div class="card card-180"><h3>Expiring in 6 months</h3><p id="exp180">0</p></div>
       <div class="card card-unchecked"><h3>Unchecked</h3><p id="unchecked">0</p></div>
+    </section>
+
+    <!-- Charts Section -->
+    <section class="charts-section">
+      <div class="chart-card">
+        <h3><i class="fa-solid fa-chart-pie"></i> Expiration Distribution</h3>
+        <canvas id="expirationChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3><i class="fa-solid fa-chart-bar"></i> Expiration Timeline</h3>
+        <canvas id="timelineChart"></canvas>
+      </div>
     </section>
 
     <!-- Domain Actions -->
@@ -66,14 +403,14 @@
       <label for="searchInput">
         <i class="fa-solid fa-magnifying-glass"></i> Search
       </label>
-      <input 
-        id="searchInput" 
-        type="text" 
+      <input
+        id="searchInput"
+        type="text"
         placeholder="Search domains, registrars, nameservers..."
         autocomplete="off"
       >
     </div>
-    
+
     <!-- Status Filter -->
     <div class="filter-group">
       <label for="filterStatus">
@@ -82,15 +419,15 @@
       <select id="filterStatus">
         <option value="all">All Statuses</option>
         <option value="expired">Expired</option>
-        <option value="expiring30">Expiring ≤ 30 days</option>
-        <option value="expiring90">Expiring ≤ 90 days</option>
-        <option value="expiring180">Expiring ≤ 180 days</option>
+        <option value="expiring30">Expiring in 30 days</option>
+        <option value="expiring90">Expiring in 90 days</option>
+        <option value="expiring180">Expiring in 180 days</option>
         <option value="safe">Safe (>180 days)</option>
         <option value="error">Has Errors</option>
         <option value="unchecked">Never Checked</option>
       </select>
     </div>
-    
+
     <!-- Registrar Filter -->
     <div class="filter-group">
       <label for="filterRegistrar">
@@ -98,6 +435,17 @@
       </label>
       <select id="filterRegistrar">
         <option value="all">All Registrars</option>
+        <!-- Populated dynamically -->
+      </select>
+    </div>
+
+    <!-- Group Filter -->
+    <div class="filter-group">
+      <label for="filterGroup">
+        <i class="fa-solid fa-folder"></i> Group
+      </label>
+      <select id="filterGroup">
+        <option value="all">All Groups</option>
         <!-- Populated dynamically -->
       </select>
     </div>
@@ -115,7 +463,7 @@
         <option value="lastChecked">Last Checked</option>
       </select>
     </div>
-    
+
     <!-- Sort Order -->
     <div class="filter-group">
       <label for="sortOrder">
@@ -126,7 +474,7 @@
         <option value="desc">Descending</option>
       </select>
     </div>
-    
+
     <!-- Clear Filters -->
     <div class="filter-group filter-actions">
       <button class="btn btn-clear" onclick="clearFilters()">
@@ -146,6 +494,9 @@
         <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
           <i class="fa-solid fa-arrows-rotate"></i> Refresh Selected
         </button>
+        <button class="btn" onclick="assignGroupToSelected()">
+          <i class="fa-solid fa-folder"></i> Assign Group
+        </button>
         <button class="btn btn-bulk-delete" onclick="deleteSelected()">
           <i class="fa-solid fa-trash"></i> Delete Selected
         </button>
@@ -162,6 +513,7 @@
           <tr>
             <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
             <th class="sortable-header" data-sort="domain">Domain</th>
+            <th>Group</th>
             <th class="sortable-header" data-sort="registrar">Registrar</th>
             <th class="sortable-header" data-sort="expiry">Expires</th>
             <th>Days Left</th>
@@ -169,6 +521,8 @@
             <th>Created</th>
             <th class="sortable-header" data-sort="age">Age</th>
             <th class="sortable-header" data-sort="lastChecked">Last Check</th>
+            <th>Health</th>
+            <th class="less"></th>
             <th class="less"></th>
             <th class="less"></th>
           </tr>
@@ -181,13 +535,13 @@
 
  <!-- Footer -->
   <footer class="footer">
-    &copy; %%YEAR%% Infra Whois Monitor.
+    &copy; 2024 Domain Monitor. <span id="appVersion"></span>
   </footer>
 
   <!-- Notification container will be created by JavaScript -->
-  
+
   <!-- Scripts -->
   <script src="app.js"></script>
- 
+
 </body>
 </html>

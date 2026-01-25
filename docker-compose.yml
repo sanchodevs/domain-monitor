@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  domain-monitor:
+    build: .
+    container_name: domain-monitor
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - domain-data:/app/data
+      - domain-logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/domains.db
+      - LOG_DIR=/app/logs
+      - LOG_TO_FILE=true
+      - APILAYER_KEY=${APILAYER_KEY}
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HEALTH_CHECK_ENABLED=${HEALTH_CHECK_ENABLED:-true}
+      - HEALTH_CHECK_INTERVAL_HOURS=${HEALTH_CHECK_INTERVAL_HOURS:-24}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  domain-data:
+    name: domain-monitor-data
+  domain-logs:
+    name: domain-monitor-logs

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  domain-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: domain-monitor-dev
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - APILAYER_KEY=${APILAYER_KEY}
+    command: npm run dev

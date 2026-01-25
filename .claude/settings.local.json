@@ -7,7 +7,15 @@
       "Bash(npm install:*)",
       "Bash(timeout 5 node:*)",
       "Bash(node -e:*)",
-      "Bash(PORT=3001 timeout:*)"
+      "Bash(PORT=3001 timeout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 5 npm start)",
+      "Bash(powershell -Command \"Get-ChildItem src/database/*.ts | ForEach-Object { \\(Get-Content $_FullName\\) -replace \"\"from ''./index.js''\"\", \"\"from ''./db.js''\"\" | Set-Content $_FullName }\")",
+      "Bash(timeout 8 npm start)",
+      "Bash(timeout 10 npm start:*)"
     ]
   }
 }
