@@ -7,7 +7,7 @@ const logger = createLogger('database');
 export function runMigrations(): void {
   logger.info('Running database migrations...');
 
-  // Original domains table
+  // Original domains table (without group_id - added via migration)
   db.exec(`
     CREATE TABLE IF NOT EXISTS domains (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,15 +19,24 @@ export function runMigrations(): void {
       name_servers_prev TEXT DEFAULT '[]',
       last_checked TEXT,
       error TEXT,
-      group_id INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_domain ON domains(domain);
     CREATE INDEX IF NOT EXISTS idx_expiry_date ON domains(expiry_date);
-    CREATE INDEX IF NOT EXISTS idx_domains_group ON domains(group_id);
   `);
+
+  // Migration: Add group_id column if it doesn't exist
+  const columns = db.prepare("PRAGMA table_info(domains)").all() as { name: string }[];
+  const hasGroupId = columns.some(col => col.name === 'group_id');
+  if (!hasGroupId) {
+    logger.info('Adding group_id column to domains table');
+    db.exec('ALTER TABLE domains ADD COLUMN group_id INTEGER');
+  }
+
+  // Now create the group_id index (after column exists)
+  db.exec('CREATE INDEX IF NOT EXISTS idx_domains_group ON domains(group_id)');
 
   // Groups table
   db.exec(`
@@ -152,14 +161,6 @@ export function runMigrations(): void {
     CREATE INDEX IF NOT EXISTS idx_alerts_domain ON email_alerts(domain_id);
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON email_alerts(status);
   `);
-
-  // Check if group_id column exists (migration for existing databases)
-  const columns = db.prepare("PRAGMA table_info(domains)").all() as { name: string }[];
-  const hasGroupId = columns.some(col => col.name === 'group_id');
-  if (!hasGroupId) {
-    logger.info('Adding group_id column to domains table');
-    db.exec('ALTER TABLE domains ADD COLUMN group_id INTEGER');
-  }
 
   logger.info('Database migrations completed');
 }
