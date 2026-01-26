@@ -541,6 +541,17 @@ input, textarea, select {
 textarea { margin-bottom: 0.5rem; height: auto; min-height: 100px; }
 ::placeholder { color: var(--text-muted); }
 input:focus, textarea:focus, select:focus { outline: none; border-color: rgba(255,255,255,0.25); background: #161618; }
+
+/* Override browser autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--bg-input) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
 .single-domain { display: flex; gap: 10px; }
 
 select {
