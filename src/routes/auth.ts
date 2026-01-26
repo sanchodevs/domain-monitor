@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, logout, isAuthEnabled, getAuthStatus } from '../middleware/auth.js';
+import { login, logout, isAuthEnabled, getAuthStatus, optionalAuthMiddleware } from '../middleware/auth.js';
 import { loginSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
@@ -68,6 +68,7 @@ router.post(
 // Get current user info
 router.get(
   '/me',
+  optionalAuthMiddleware,
   asyncHandler(async (req, res) => {
     const authReq = req as AuthenticatedRequest;
 
@@ -78,14 +79,10 @@ router.get(
       });
     }
 
-    if (!authReq.isAuthenticated) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
-    }
-
     res.json({
-      authenticated: true,
+      authenticated: authReq.isAuthenticated || false,
       authEnabled: true,
-      username: config.adminUsername,
+      username: authReq.isAuthenticated ? config.adminUsername : undefined,
     });
   })
 );
