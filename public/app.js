@@ -1916,7 +1916,8 @@ async function handleLogin(event) {
   const errorEl = document.getElementById('loginError');
 
   try {
-    const res = await apiFetch('/api/auth/login', {
+    // Use regular fetch for login - don't trigger the 401 handler
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -1931,6 +1932,7 @@ async function handleLogin(event) {
     }
 
     state.isAuthenticated = true;
+    state.authRequired = false;
     errorEl.style.display = 'none';
     closeModal('loginModal');
     document.getElementById('logoutBtn').style.display = 'flex';
@@ -1938,7 +1940,7 @@ async function handleLogin(event) {
     load();
 
   } catch (err) {
-    errorEl.textContent = 'Login failed';
+    errorEl.textContent = err.message || 'Login failed';
     errorEl.style.display = 'block';
   }
 }
@@ -1961,19 +1963,25 @@ async function handleLogout() {
 
 async function checkAuthStatus() {
   try {
-    const res = await apiFetch('/api/auth/me');
+    // Use regular fetch - we handle auth status ourselves here
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+
     if (res.ok) {
-      const data = await res.json();
       state.isAuthenticated = data.authenticated;
-      state.authRequired = data.authRequired;
+      state.authRequired = data.authEnabled;
 
       if (state.isAuthenticated) {
         document.getElementById('logoutBtn').style.display = 'flex';
       }
+    } else {
+      // 401 means auth is enabled but not authenticated
+      state.isAuthenticated = false;
+      state.authRequired = true;
+    }
 
-      if (state.authRequired && !state.isAuthenticated) {
-        openModal('loginModal');
-      }
+    if (state.authRequired && !state.isAuthenticated) {
+      openModal('loginModal');
     }
   } catch (err) {
     console.error('Error checking auth status:', err);
