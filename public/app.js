@@ -1367,6 +1367,9 @@ function setCronPreset(cron) {
 }
 
 async function testEmailSettings() {
+  const btn = document.querySelector('#tab-email .input-group .btn');
+  const originalContent = btn.innerHTML;
+
   try {
     const email = document.getElementById('settingTestEmail').value;
     if (!email) {
@@ -1374,7 +1377,11 @@ async function testEmailSettings() {
       return;
     }
 
-    showLoading(true);
+    // Show loading state on button
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+    showNotification('Sending test email...', 'info');
+
     const res = await apiFetch('/api/settings/email/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1387,12 +1394,13 @@ async function testEmailSettings() {
       throw new Error(data.message || 'Failed to send test email');
     }
 
-    showNotification(data.message || 'Test email sent successfully', 'success');
+    showNotification(data.message || 'Test email sent successfully!', 'success');
 
   } catch (err) {
     showNotification(err.message, 'error');
   } finally {
-    showLoading(false);
+    btn.disabled = false;
+    btn.innerHTML = originalContent;
   }
 }
 

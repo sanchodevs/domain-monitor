@@ -1617,3 +1617,21 @@ td.checkbox-cell {
   color: var(--text-muted);
   margin-bottom: 1rem;
 }
+
+/* ==========================
+   INLINE CHECKBOX IN LABEL
+========================== */
+.form-group label input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  margin-right: 8px;
+  vertical-align: middle;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.form-group label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}

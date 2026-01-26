@@ -38,8 +38,15 @@ export function initializeEmail(): boolean {
 export async function verifyEmailConnection(): Promise<boolean> {
   if (!transporter) return false;
 
+  const timeout = 10000; // 10 second timeout
+
   try {
-    await transporter.verify();
+    await Promise.race([
+      transporter.verify(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Email connection timeout')), timeout)
+      ),
+    ]);
     return true;
   } catch (err) {
     logger.error('Email verification failed', { error: err });
