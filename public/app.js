@@ -640,7 +640,7 @@ async function load() {
 
     // Load domains, groups, and tags in parallel
     const [domainsRes, groupsRes, tagsRes] = await Promise.all([
-      fetch("/api/domains?include=tags"),
+      fetch("/api/domains?include=all"),
       fetch("/api/groups"),
       fetch("/api/tags")
     ]);

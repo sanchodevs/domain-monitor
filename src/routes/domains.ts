@@ -10,6 +10,7 @@ import {
   setDomainGroup,
 } from '../database/domains.js';
 import { getTagsForDomain, setDomainTags, addTagToDomain, removeTagFromDomain } from '../database/tags.js';
+import { getLatestHealth } from '../database/health.js';
 import { auditDomainCreate, auditDomainDelete } from '../database/audit.js';
 import { domainSchema, assignGroupSchema, assignTagsSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
@@ -25,12 +26,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const domains = getAllDomains();
 
-    // Optionally include tags
-    const withTags = req.query.include === 'tags' || req.query.include === 'all';
+    // Optionally include tags and health
+    const include = req.query.include as string || '';
+    const withTags = include === 'tags' || include === 'all';
+    const withHealth = include === 'health' || include === 'all';
 
     const result: DomainWithRelations[] = domains.map((domain) => ({
       ...domain,
       tags: withTags && domain.id ? getTagsForDomain(domain.id) : undefined,
+      health: withHealth && domain.id ? getLatestHealth(domain.id) : undefined,
     }));
 
     res.json(result);
