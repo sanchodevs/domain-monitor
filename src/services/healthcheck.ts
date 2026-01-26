@@ -30,9 +30,21 @@ interface SSLCheckResult {
 
 async function checkDNS(domain: string): Promise<DNSCheckResult> {
   const start = Date.now();
+  const timeout = 5000; // 5 second timeout
+
+  // Helper to add timeout to DNS operations
+  const withTimeout = <T>(promise: Promise<T>): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('DNS timeout')), timeout)
+      ),
+    ]);
+  };
+
   try {
     // Try IPv4 first
-    const records = await dns.resolve4(domain);
+    const records = await withTimeout(dns.resolve4(domain));
     return {
       resolved: true,
       responseTimeMs: Date.now() - start,
@@ -41,20 +53,21 @@ async function checkDNS(domain: string): Promise<DNSCheckResult> {
   } catch {
     // Fall back to IPv6
     try {
-      const records = await dns.resolve6(domain);
+      const records = await withTimeout(dns.resolve6(domain));
       return {
         resolved: true,
         responseTimeMs: Date.now() - start,
         records,
       };
     } catch {
-      // Try any record type as last resort
+      // Try lookup (uses OS resolver which may have cached results)
       try {
-        const records = await dns.resolve(domain);
+        const result = await withTimeout(dns.lookup(domain, { all: true }));
+        const records = result.map((r: { address: string }) => r.address);
         return {
-          resolved: true,
+          resolved: records.length > 0,
           responseTimeMs: Date.now() - start,
-          records: records.map(String),
+          records,
         };
       } catch {
         return {
@@ -68,21 +81,28 @@ async function checkDNS(domain: string): Promise<DNSCheckResult> {
 }
 
 async function checkHTTP(domain: string): Promise<HTTPCheckResult> {
+  const timeout = 5000; // 5 second timeout
+
   return new Promise((resolve) => {
     const start = Date.now();
+    let resolved = false;
+
+    const done = (status: number | null, responseTimeMs: number | null) => {
+      if (!resolved) {
+        resolved = true;
+        resolve({ status, responseTimeMs });
+      }
+    };
 
     // Try HTTPS first
     const httpsReq = https.get(
       `https://${domain}`,
       {
-        timeout: 10000,
+        timeout,
         headers: { 'User-Agent': 'Domain-Monitor-Health-Check/1.0' },
       },
       (res) => {
-        resolve({
-          status: res.statusCode || null,
-          responseTimeMs: Date.now() - start,
-        });
+        done(res.statusCode || null, Date.now() - start);
         res.destroy();
       }
     );
@@ -92,41 +112,64 @@ async function checkHTTP(domain: string): Promise<HTTPCheckResult> {
       const httpReq = http.get(
         `http://${domain}`,
         {
-          timeout: 10000,
+          timeout,
           headers: { 'User-Agent': 'Domain-Monitor-Health-Check/1.0' },
         },
         (res) => {
-          resolve({
-            status: res.statusCode || null,
-            responseTimeMs: Date.now() - start,
-          });
+          done(res.statusCode || null, Date.now() - start);
           res.destroy();
         }
       );
 
-      httpReq.on('error', () => {
-        resolve({ status: null, responseTimeMs: null });
-      });
-
+      httpReq.on('error', () => done(null, null));
       httpReq.on('timeout', () => {
         httpReq.destroy();
-        resolve({ status: null, responseTimeMs: null });
+        done(null, null);
       });
     });
 
     httpsReq.on('timeout', () => {
       httpsReq.destroy();
+      // Try HTTP fallback on timeout too
+      const httpReq = http.get(
+        `http://${domain}`,
+        {
+          timeout,
+          headers: { 'User-Agent': 'Domain-Monitor-Health-Check/1.0' },
+        },
+        (res) => {
+          done(res.statusCode || null, Date.now() - start);
+          res.destroy();
+        }
+      );
+
+      httpReq.on('error', () => done(null, null));
+      httpReq.on('timeout', () => {
+        httpReq.destroy();
+        done(null, null);
+      });
     });
   });
 }
 
 async function checkSSL(domain: string): Promise<SSLCheckResult> {
+  const timeout = 5000; // 5 second timeout
+
   return new Promise((resolve) => {
+    let resolved = false;
+
+    const done = (result: SSLCheckResult) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(result);
+      }
+    };
+
     const socket = tls.connect(
       {
         host: domain,
         port: 443,
-        timeout: 10000,
+        timeout,
         servername: domain,
         rejectUnauthorized: false, // We want to check expired certs too
       },
@@ -136,24 +179,24 @@ async function checkSSL(domain: string): Promise<SSLCheckResult> {
 
         if (cert && cert.valid_to) {
           const expiryDate = new Date(cert.valid_to);
-          resolve({
+          done({
             valid: expiryDate > new Date(),
             expires: cert.valid_to,
             issuer: cert.issuer?.O || cert.issuer?.CN || null,
           });
         } else {
-          resolve({ valid: null, expires: null, issuer: null });
+          done({ valid: null, expires: null, issuer: null });
         }
       }
     );
 
     socket.on('error', () => {
-      resolve({ valid: null, expires: null, issuer: null });
+      done({ valid: null, expires: null, issuer: null });
     });
 
     socket.on('timeout', () => {
       socket.destroy();
-      resolve({ valid: null, expires: null, issuer: null });
+      done({ valid: null, expires: null, issuer: null });
     });
   });
 }
