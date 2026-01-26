@@ -61,9 +61,18 @@ app.get('/', (_req, res) => {
 // Serve static files
 app.use(express.static('public'));
 
-// API routes - auth required for modifications
-app.use('/api/auth', routes); // Auth routes don't need auth middleware
+// API routes
+// Auth routes don't need auth middleware - mount them separately
+import authRouter from './routes/auth.js';
+app.use('/api/auth', authRouter);
+
+// All other API routes with auth check for modifications
 app.use('/api', optionalAuthMiddleware, (req, res, next) => {
+  // Skip auth check for /api/auth routes (handled above)
+  if (req.path.startsWith('/auth')) {
+    next();
+    return;
+  }
   // For GET requests, don't require auth
   if (req.method === 'GET') {
     next();

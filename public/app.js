@@ -7,14 +7,23 @@
    Error Boundary
 ====================================================== */
 window.onerror = function(message, source, lineno, colno, error) {
+  // Ignore ResizeObserver errors - these are non-critical browser warnings
+  if (message && message.toString().includes('ResizeObserver')) {
+    return true;
+  }
   console.error('Global error:', { message, source, lineno, colno, error });
   showErrorBoundary(message);
   return true;
 };
 
 window.onunhandledrejection = function(event) {
+  // Ignore ResizeObserver errors
+  const reason = event.reason?.message || event.reason || '';
+  if (reason.toString().includes('ResizeObserver')) {
+    return;
+  }
   console.error('Unhandled promise rejection:', event.reason);
-  showNotification('An error occurred: ' + (event.reason?.message || 'Unknown error'), 'error');
+  showNotification('An error occurred: ' + (reason || 'Unknown error'), 'error');
 };
 
 function showErrorBoundary(message) {
