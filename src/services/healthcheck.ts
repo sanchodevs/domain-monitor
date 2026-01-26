@@ -31,6 +31,7 @@ interface SSLCheckResult {
 async function checkDNS(domain: string): Promise<DNSCheckResult> {
   const start = Date.now();
   try {
+    // Try IPv4 first
     const records = await dns.resolve4(domain);
     return {
       resolved: true,
@@ -38,11 +39,31 @@ async function checkDNS(domain: string): Promise<DNSCheckResult> {
       records,
     };
   } catch {
-    return {
-      resolved: false,
-      responseTimeMs: Date.now() - start,
-      records: [],
-    };
+    // Fall back to IPv6
+    try {
+      const records = await dns.resolve6(domain);
+      return {
+        resolved: true,
+        responseTimeMs: Date.now() - start,
+        records,
+      };
+    } catch {
+      // Try any record type as last resort
+      try {
+        const records = await dns.resolve(domain);
+        return {
+          resolved: true,
+          responseTimeMs: Date.now() - start,
+          records: records.map(String),
+        };
+      } catch {
+        return {
+          resolved: false,
+          responseTimeMs: Date.now() - start,
+          records: [],
+        };
+      }
+    }
   }
 }
 

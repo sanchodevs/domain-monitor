@@ -27,6 +27,22 @@ function showErrorBoundary(message) {
 }
 
 /* ======================================================
+   API Fetch Wrapper (handles 401 globally)
+====================================================== */
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, options);
+
+  if (res.status === 401) {
+    state.authRequired = true;
+    state.isAuthenticated = false;
+    openModal('loginModal');
+    throw new Error('Authentication required');
+  }
+
+  return res;
+}
+
+/* ======================================================
    Utilities
 ====================================================== */
 const DAY_MS = 86400000;
@@ -1112,7 +1128,7 @@ async function refreshAll() {
 
   // Get domain count for confirmation
   try {
-    const domainsRes = await fetch('/api/domains');
+    const domainsRes = await apiFetch('/api/domains');
     const domains = await domainsRes.json();
 
     if (domains.length === 0) {
@@ -1194,7 +1210,7 @@ async function runHealthChecks() {
 
   try {
     showLoading(true);
-    const res = await fetch('/api/health/check-all', { method: 'POST' });
+    const res = await apiFetch('/api/health/check-all', { method: 'POST' });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1280,7 +1296,7 @@ document.addEventListener('click', (e) => {
 ====================================================== */
 async function loadSettings() {
   try {
-    const res = await fetch('/api/settings');
+    const res = await apiFetch('/api/settings');
     if (!res.ok) return;
 
     const settings = await res.json();
@@ -1317,7 +1333,7 @@ async function saveSettings() {
       alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30]
     };
 
-    const res = await fetch('/api/settings', {
+    const res = await apiFetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
@@ -1350,7 +1366,7 @@ async function testEmailSettings() {
     }
 
     showLoading(true);
-    const res = await fetch('/api/settings/email/test', {
+    const res = await apiFetch('/api/settings/email/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
@@ -1376,7 +1392,7 @@ async function testEmailSettings() {
 ====================================================== */
 async function loadApiKeys() {
   try {
-    const res = await fetch('/api/apikeys');
+    const res = await apiFetch('/api/apikeys');
     if (!res.ok) return;
 
     const keys = await res.json();
@@ -1415,7 +1431,7 @@ async function addApiKey() {
   }
 
   try {
-    const res = await fetch('/api/apikeys', {
+    const res = await apiFetch('/api/apikeys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, key })
@@ -1477,7 +1493,7 @@ async function deleteApiKey(id) {
 ====================================================== */
 async function loadGroups() {
   try {
-    const res = await fetch('/api/groups');
+    const res = await apiFetch('/api/groups');
     if (!res.ok) return;
 
     const groups = await res.json();
@@ -1517,7 +1533,7 @@ async function addGroup() {
   }
 
   try {
-    const res = await fetch('/api/groups', {
+    const res = await apiFetch('/api/groups', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, color })
@@ -1564,7 +1580,7 @@ async function deleteGroup(id) {
 ====================================================== */
 async function loadTags() {
   try {
-    const res = await fetch('/api/tags');
+    const res = await apiFetch('/api/tags');
     if (!res.ok) return;
 
     const tags = await res.json();
@@ -1603,7 +1619,7 @@ async function addTag() {
   }
 
   try {
-    const res = await fetch('/api/tags', {
+    const res = await apiFetch('/api/tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, color })
@@ -1819,7 +1835,7 @@ async function processImport() {
     const formData = new FormData();
     formData.append('file', state.importFile);
 
-    const res = await fetch('/api/import/csv', {
+    const res = await apiFetch('/api/import/csv', {
       method: 'POST',
       body: formData
     });
@@ -1900,7 +1916,7 @@ async function handleLogin(event) {
   const errorEl = document.getElementById('loginError');
 
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -1929,7 +1945,7 @@ async function handleLogin(event) {
 
 async function handleLogout() {
   try {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     state.isAuthenticated = false;
     document.getElementById('logoutBtn').style.display = 'none';
     showNotification('Logged out', 'info');
@@ -1945,7 +1961,7 @@ async function handleLogout() {
 
 async function checkAuthStatus() {
   try {
-    const res = await fetch('/api/auth/me');
+    const res = await apiFetch('/api/auth/me');
     if (res.ok) {
       const data = await res.json();
       state.isAuthenticated = data.authenticated;
