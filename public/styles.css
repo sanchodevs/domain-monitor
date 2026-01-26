@@ -1136,6 +1136,18 @@ table button:hover { background: rgba(255,255,255,0.06); color: var(--text-prima
   border-radius: 50%;
 }
 
+/* Tag badges in table */
+.tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #fff;
+  margin: 1px 2px;
+  white-space: nowrap;
+}
+
 /* Health indicator in table */
 .health-indicator {
   display: flex;

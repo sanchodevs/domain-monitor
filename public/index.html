@@ -92,37 +92,31 @@
         <!-- Email Tab -->
         <div class="tab-content" id="tab-email">
           <h3>Email Alert Settings</h3>
+          <p class="info-text">SMTP settings must be configured via environment variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE). See <code>.env.example</code> for details.</p>
           <div class="form-group">
-            <label for="settingSmtpHost">SMTP Host</label>
-            <input type="text" id="settingSmtpHost" placeholder="smtp.example.com">
+            <label for="settingEmailEnabled">
+              <input type="checkbox" id="settingEmailEnabled"> Enable Email Alerts
+            </label>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="settingSmtpPort">SMTP Port</label>
-              <input type="number" id="settingSmtpPort" placeholder="587">
+          <div class="form-group">
+            <label for="settingEmailRecipients">Alert Recipients</label>
+            <input type="text" id="settingEmailRecipients" placeholder="admin@example.com, team@example.com">
+            <small>Comma-separated email addresses to receive expiration alerts</small>
+          </div>
+          <div class="form-group">
+            <label for="settingAlertDaysEmail">Alert Before Expiration (days)</label>
+            <input type="text" id="settingAlertDaysEmail" placeholder="7, 14, 30">
+            <small>Send alerts this many days before domains expire (comma-separated)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingTestEmail">Test Email Address</label>
+            <div class="input-group">
+              <input type="email" id="settingTestEmail" placeholder="your@email.com">
+              <button class="btn" onclick="testEmailSettings()">
+                <i class="fa-solid fa-paper-plane"></i> Send Test
+              </button>
             </div>
-            <div class="form-group">
-              <label for="settingSmtpSecure">
-                <input type="checkbox" id="settingSmtpSecure"> Use TLS/SSL
-              </label>
-            </div>
           </div>
-          <div class="form-group">
-            <label for="settingSmtpUser">SMTP Username</label>
-            <input type="text" id="settingSmtpUser" placeholder="user@example.com">
-          </div>
-          <div class="form-group">
-            <label for="settingSmtpPass">SMTP Password</label>
-            <input type="password" id="settingSmtpPass" placeholder="********">
-          </div>
-          <div class="form-group">
-            <label for="settingEmailTo">Alert Recipients</label>
-            <input type="text" id="settingEmailTo" placeholder="admin@example.com">
-            <small>Comma-separated email addresses</small>
-          </div>
-          <button class="btn" onclick="testEmailSettings()">
-            <i class="fa-solid fa-paper-plane"></i> Send Test Email
-          </button>
         </div>
 
         <!-- API Keys Tab -->
@@ -514,6 +508,7 @@
             <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
             <th class="sortable-header" data-sort="domain">Domain</th>
             <th>Group</th>
+            <th>Tags</th>
             <th class="sortable-header" data-sort="registrar">Registrar</th>
             <th class="sortable-header" data-sort="expiry">Expires</th>
             <th>Days Left</th>

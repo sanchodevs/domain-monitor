@@ -624,6 +624,14 @@ function renderHealthIndicator(health) {
 }
 
 /* ======================================================
+   Tags Renderer
+====================================================== */
+function renderTags(tags) {
+  if (!tags || tags.length === 0) return '-';
+  return tags.map(tag => `<span class="tag-badge" style="background: ${tag.color}">${escapeHTML(tag.name)}</span>`).join(' ');
+}
+
+/* ======================================================
    Load table & dashboard with filters
 ====================================================== */
 async function load() {
@@ -632,7 +640,7 @@ async function load() {
 
     // Load domains, groups, and tags in parallel
     const [domainsRes, groupsRes, tagsRes] = await Promise.all([
-      fetch("/api/domains"),
+      fetch("/api/domains?include=tags"),
       fetch("/api/groups"),
       fetch("/api/tags")
     ]);
@@ -702,6 +710,7 @@ async function load() {
             </div>
           </td>
           <td>${group ? `<span class="group-badge"><span class="group-badge-dot" style="background: ${group.color}"></span>${escapeHTML(group.name)}</span>` : '-'}</td>
+          <td>${renderTags(d.tags)}</td>
           <td>${escapeHTML(d.registrar) || "-"}</td>
           <td>${formatDate(d.expiry_date)}</td>
           <td class="${statusClass}">${days ?? "-"}${days !== null ? " days" : ""}</td>
@@ -1162,7 +1171,7 @@ async function checkDomainHealth(domain) {
 
   try {
     showLoading(true);
-    const res = await fetch(`/api/domains/${domainObj.id}/health`, { method: "POST" });
+    const res = await fetch(`/api/health/domain/${domainObj.id}`, { method: "POST" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1277,13 +1286,11 @@ async function loadSettings() {
     const settings = await res.json();
 
     // Populate form fields
-    document.getElementById('settingAlertDays').value = settings.alertDays || 30;
-    document.getElementById('settingCron').value = settings.refreshCron || '0 0 * * *';
-    document.getElementById('settingSmtpHost').value = settings.smtpHost || '';
-    document.getElementById('settingSmtpPort').value = settings.smtpPort || 587;
-    document.getElementById('settingSmtpSecure').checked = settings.smtpSecure === 'true';
-    document.getElementById('settingSmtpUser').value = settings.smtpUser || '';
-    document.getElementById('settingEmailTo').value = settings.emailTo || '';
+    document.getElementById('settingAlertDays').value = settings.alert_days?.[0] || 30;
+    document.getElementById('settingCron').value = settings.refresh_schedule || '0 0 * * *';
+    document.getElementById('settingEmailEnabled').checked = settings.email_enabled || false;
+    document.getElementById('settingEmailRecipients').value = (settings.email_recipients || []).join(', ');
+    document.getElementById('settingAlertDaysEmail').value = (settings.alert_days || [7, 14, 30]).join(', ');
 
     // Load API keys
     loadApiKeys();
@@ -1295,21 +1302,20 @@ async function loadSettings() {
 
 async function saveSettings() {
   try {
-    const settings = {
-      alertDays: document.getElementById('settingAlertDays').value,
-      refreshCron: document.getElementById('settingCron').value,
-      smtpHost: document.getElementById('settingSmtpHost').value,
-      smtpPort: document.getElementById('settingSmtpPort').value,
-      smtpSecure: document.getElementById('settingSmtpSecure').checked.toString(),
-      smtpUser: document.getElementById('settingSmtpUser').value,
-      emailTo: document.getElementById('settingEmailTo').value
-    };
+    // Parse alert days from comma-separated string
+    const alertDaysStr = document.getElementById('settingAlertDaysEmail').value;
+    const alertDays = alertDaysStr.split(',').map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d));
 
-    // Only include password if changed
-    const smtpPass = document.getElementById('settingSmtpPass').value;
-    if (smtpPass) {
-      settings.smtpPass = smtpPass;
-    }
+    // Parse email recipients from comma-separated string
+    const recipientsStr = document.getElementById('settingEmailRecipients').value;
+    const emailRecipients = recipientsStr.split(',').map(e => e.trim()).filter(Boolean);
+
+    const settings = {
+      refresh_schedule: document.getElementById('settingCron').value,
+      email_enabled: document.getElementById('settingEmailEnabled').checked,
+      email_recipients: emailRecipients,
+      alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30]
+    };
 
     const res = await fetch('/api/settings', {
       method: 'PUT',
@@ -1337,8 +1343,18 @@ function setCronPreset(cron) {
 
 async function testEmailSettings() {
   try {
+    const email = document.getElementById('settingTestEmail').value;
+    if (!email) {
+      showNotification('Please enter a test email address', 'error');
+      return;
+    }
+
     showLoading(true);
-    const res = await fetch('/api/settings/email/test');
+    const res = await fetch('/api/settings/email/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
 
     const data = await res.json().catch(() => ({}));
 
@@ -1346,7 +1362,7 @@ async function testEmailSettings() {
       throw new Error(data.message || 'Failed to send test email');
     }
 
-    showNotification('Test email sent successfully', 'success');
+    showNotification(data.message || 'Test email sent successfully', 'success');
 
   } catch (err) {
     showNotification(err.message, 'error');
@@ -1662,10 +1678,10 @@ async function openDomainDetails(domainId) {
 
   // Populate tags checkboxes
   const tagsContainer = document.getElementById('domainTagsSelect');
-  const domainTags = domain.tags || [];
+  const domainTagIds = (domain.tags || []).map(t => t.id);
   tagsContainer.innerHTML = state.tags.map(tag => `
-    <label class="tag-checkbox ${domainTags.includes(tag.id) ? 'selected' : ''}">
-      <input type="checkbox" value="${tag.id}" ${domainTags.includes(tag.id) ? 'checked' : ''}>
+    <label class="tag-checkbox ${domainTagIds.includes(tag.id) ? 'selected' : ''}">
+      <input type="checkbox" value="${tag.id}" ${domainTagIds.includes(tag.id) ? 'checked' : ''}>
       <span style="background: ${tag.color}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
       ${escapeHTML(tag.name)}
     </label>
@@ -1673,7 +1689,7 @@ async function openDomainDetails(domainId) {
 
   // Load health history
   try {
-    const res = await fetch(`/api/domains/${domainId}/health`);
+    const res = await fetch(`/api/health/domain/${domainId}`);
     if (res.ok) {
       const history = await res.json();
       document.getElementById('domainHealthHistory').innerHTML = history.length ? history.slice(0, 10).map(h => `
@@ -1706,22 +1722,22 @@ async function saveDomainDetails() {
     });
 
     // Save tags
-    const selectedTags = Array.from(document.querySelectorAll('#domainTagsSelect input:checked')).map(cb => parseInt(cb.value));
+    const selectedTagIds = Array.from(document.querySelectorAll('#domainTagsSelect input:checked')).map(cb => parseInt(cb.value));
 
-    // Get current tags for domain
+    // Get current tag IDs for domain
     const domain = state.allDomains.find(d => d.id === state.currentDomainId);
-    const currentTags = domain?.tags || [];
+    const currentTagIds = (domain?.tags || []).map(t => t.id);
 
     // Add new tags
-    for (const tagId of selectedTags) {
-      if (!currentTags.includes(tagId)) {
+    for (const tagId of selectedTagIds) {
+      if (!currentTagIds.includes(tagId)) {
         await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'POST' });
       }
     }
 
     // Remove unselected tags
-    for (const tagId of currentTags) {
-      if (!selectedTags.includes(tagId)) {
+    for (const tagId of currentTagIds) {
+      if (!selectedTagIds.includes(tagId)) {
         await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'DELETE' });
       }
     }
