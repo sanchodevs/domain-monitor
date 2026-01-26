@@ -25,6 +25,9 @@ export function initializeEmail(): boolean {
         user: config.smtp.user,
         pass: config.smtp.pass,
       },
+      connectionTimeout: 5000, // 5 seconds to establish connection
+      greetingTimeout: 5000, // 5 seconds for SMTP greeting
+      socketTimeout: 10000, // 10 seconds for socket inactivity
     });
 
     logger.info('Email service initialized');
