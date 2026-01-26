@@ -4,7 +4,7 @@ import { settingsSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler.js';
-import { sendTestEmail, verifyEmailConnection } from '../services/email.js';
+import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError } from '../services/email.js';
 import { logAudit } from '../database/audit.js';
 import { isValidCronExpression } from '../utils/helpers.js';
 
@@ -58,6 +58,15 @@ router.put(
   })
 );
 
+// Get email service status
+router.get(
+  '/email/status',
+  asyncHandler(async (_req, res) => {
+    const status = getEmailStatus();
+    res.json(status);
+  })
+);
+
 // Test email configuration
 router.post(
   '/email/test',
@@ -68,10 +77,23 @@ router.post(
       return res.status(400).json({ success: false, message: 'Email address required' });
     }
 
-    // Verify connection first
+    // Check email status first
+    const status = getEmailStatus();
+    if (!status.initialized) {
+      return res.status(500).json({
+        success: false,
+        message: `Email service not initialized: ${status.reason || 'SMTP settings missing'}`
+      });
+    }
+
+    // Verify connection
     const connected = await verifyEmailConnection();
     if (!connected) {
-      return res.status(500).json({ success: false, message: 'Email service not configured or connection failed' });
+      const verifyError = getLastVerifyError();
+      return res.status(500).json({
+        success: false,
+        message: `SMTP connection failed: ${verifyError || 'Unknown error'}`
+      });
     }
 
     const sent = await sendTestEmail(email);

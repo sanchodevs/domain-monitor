@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import dns from 'dns';
+import { promisify } from 'util';
 import { config } from '../config/index.js';
 import { createLogger } from '../utils/logger.js';
 import { getSettingsData } from '../database/settings.js';
@@ -7,30 +9,50 @@ import { getAllDomains } from '../database/domains.js';
 import { getExpiryDays } from '../utils/helpers.js';
 
 const logger = createLogger('email');
+const dnsLookup = promisify(dns.lookup);
 
 let transporter: Transporter | null = null;
 
-export function initializeEmail(): boolean {
+// Resolve hostname to IP using OS resolver (dns.lookup) to avoid Node.js DNS resolver issues
+async function resolveHostToIP(hostname: string): Promise<string> {
+  try {
+    const result = await dnsLookup(hostname);
+    logger.debug('Resolved SMTP host', { hostname, ip: result.address });
+    return result.address;
+  } catch {
+    logger.warn('Could not resolve SMTP host, using original', { hostname });
+    return hostname;
+  }
+}
+
+export async function initializeEmail(): Promise<boolean> {
   if (!config.smtp.host || !config.smtp.user) {
     logger.warn('Email service not configured - missing SMTP settings');
     return false;
   }
 
   try {
+    // Resolve hostname to IP to avoid Node.js DNS resolver issues
+    const smtpHost = await resolveHostToIP(config.smtp.host);
+
     transporter = nodemailer.createTransport({
-      host: config.smtp.host,
+      host: smtpHost,
       port: config.smtp.port,
       secure: config.smtp.secure,
       auth: {
         user: config.smtp.user,
         pass: config.smtp.pass,
       },
-      connectionTimeout: 5000, // 5 seconds to establish connection
-      greetingTimeout: 5000, // 5 seconds for SMTP greeting
-      socketTimeout: 10000, // 10 seconds for socket inactivity
+      connectionTimeout: 10000, // 10 seconds to establish connection
+      greetingTimeout: 10000, // 10 seconds for SMTP greeting
+      socketTimeout: 15000, // 15 seconds for socket inactivity
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+        servername: config.smtp.host, // Use original hostname for TLS
+      },
     });
 
-    logger.info('Email service initialized');
+    logger.info('Email service initialized', { host: smtpHost, port: config.smtp.port });
     return true;
   } catch (err) {
     logger.error('Failed to initialize email service', { error: err });
@@ -38,21 +60,68 @@ export function initializeEmail(): boolean {
   }
 }
 
-export async function verifyEmailConnection(): Promise<boolean> {
-  if (!transporter) return false;
+export interface EmailStatus {
+  initialized: boolean;
+  configured: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  reason?: string;
+}
 
-  const timeout = 10000; // 10 second timeout
+export function getEmailStatus(): EmailStatus {
+  const configured = !!(config.smtp.host && config.smtp.user);
+
+  let reason: string | undefined;
+  if (!config.smtp.host) {
+    reason = 'SMTP_HOST not set';
+  } else if (!config.smtp.user) {
+    reason = 'SMTP_USER not set';
+  } else if (!config.smtp.pass) {
+    reason = 'SMTP_PASS not set';
+  } else if (!transporter) {
+    reason = 'Transporter not created';
+  }
+
+  return {
+    initialized: !!transporter,
+    configured,
+    host: config.smtp.host || '(not set)',
+    port: config.smtp.port,
+    secure: config.smtp.secure,
+    user: config.smtp.user || '(not set)',
+    reason,
+  };
+}
+
+let lastVerifyError: string | null = null;
+
+export function getLastVerifyError(): string | null {
+  return lastVerifyError;
+}
+
+export async function verifyEmailConnection(): Promise<boolean> {
+  if (!transporter) {
+    lastVerifyError = 'Transporter not initialized';
+    return false;
+  }
+
+  const timeout = 15000; // 15 second timeout
 
   try {
     await Promise.race([
       transporter.verify(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Email connection timeout')), timeout)
+        setTimeout(() => reject(new Error('Connection timeout after 15 seconds')), timeout)
       ),
     ]);
+    lastVerifyError = null;
     return true;
   } catch (err) {
-    logger.error('Email verification failed', { error: err });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    lastVerifyError = errorMessage;
+    logger.error('Email verification failed', { error: errorMessage });
     return false;
   }
 }

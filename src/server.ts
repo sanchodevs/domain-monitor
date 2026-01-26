@@ -98,7 +98,7 @@ async function initialize(): Promise<void> {
   await initializeAuth();
 
   // Initialize email service
-  initializeEmail();
+  await initializeEmail();
 
   // Initialize scheduler
   initializeScheduler();
