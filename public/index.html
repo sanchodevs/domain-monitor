@@ -346,48 +346,89 @@
       </div>
     </header>
 
-    <!-- Dashboard Cards -->
-    <section class="dashboard-cards">
-      <div class="card"><h3>Total Domains</h3><p id="totalDomains">0</p></div>
-      <div class="card card-expired"><h3>Expired</h3><p id="expired">0</p></div>
-      <div class="card card-15"><h3>Expiring in 15 days</h3><p id="exp15">0</p></div>
-      <div class="card card-30"><h3>Expiring in 30 days</h3><p id="exp30">0</p></div>
-      <div class="card card-90"><h3>Expiring in 3 months</h3><p id="exp90">0</p></div>
-      <div class="card card-180"><h3>Expiring in 6 months</h3><p id="exp180">0</p></div>
-      <div class="card card-unchecked"><h3>Unchecked</h3><p id="unchecked">0</p></div>
+    <!-- Dashboard Overview -->
+    <section class="dashboard-overview">
+      <!-- Stats Sidebar -->
+      <div class="stats-sidebar">
+        <div class="stat-card stat-total">
+          <div class="stat-icon"><i class="fa-solid fa-globe"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="totalDomains">0</span>
+            <span class="stat-label">Total Domains</span>
+          </div>
+        </div>
+        <div class="stat-card stat-critical" id="expiredCard">
+          <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="expired">0</span>
+            <span class="stat-label">Expired</span>
+          </div>
+        </div>
+        <div class="stat-card stat-urgent">
+          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="exp15">0</span>
+            <span class="stat-label">Within 15 days</span>
+          </div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="exp30">0</span>
+            <span class="stat-label">Within 30 days</span>
+          </div>
+        </div>
+        <div class="stat-card stat-notice">
+          <div class="stat-icon"><i class="fa-solid fa-calendar"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="exp90">0</span>
+            <span class="stat-label">Within 90 days</span>
+          </div>
+        </div>
+        <div class="stat-card stat-safe">
+          <div class="stat-icon"><i class="fa-solid fa-shield-check"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="exp180">0</span>
+            <span class="stat-label">Within 6 months</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Area -->
+      <div class="charts-area">
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-pie"></i> Distribution</h3>
+          <canvas id="expirationChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-bar"></i> Timeline</h3>
+          <canvas id="timelineChart"></canvas>
+        </div>
+      </div>
     </section>
 
-    <!-- Charts Section -->
-    <section class="charts-section">
-      <div class="chart-card">
-        <h3><i class="fa-solid fa-chart-pie"></i> Expiration Distribution</h3>
-        <canvas id="expirationChart"></canvas>
-      </div>
-      <div class="chart-card">
-        <h3><i class="fa-solid fa-chart-bar"></i> Expiration Timeline</h3>
-        <canvas id="timelineChart"></canvas>
-      </div>
-    </section>
-
-    <!-- Domain Actions -->
-    <section class="domain-actions">
-      <div class="single-domain">
-        <input id="domainInput" placeholder="example.com" autocomplete="off">
+    <!-- Quick Actions Bar -->
+    <section class="quick-actions">
+      <div class="add-domain-inline">
+        <input id="domainInput" placeholder="Enter domain name (e.g., example.com)" autocomplete="off">
         <button class="btn btn-add" onclick="addDomain()">
-          <i class="fa-solid fa-plus"></i> Add Domain
+          <i class="fa-solid fa-plus"></i> Add
+        </button>
+        <button class="btn btn-toggle" onclick="toggleBulkUpload()" title="Add multiple domains">
+          <i class="fa-solid fa-layer-group"></i>
         </button>
       </div>
-      <button class="btn btn-toggle" onclick="toggleBulkUpload()">
-        <i class="fas fa-plus-circle"></i> Add Domains in Bulk
-      </button>
     </section>
 
-    <!-- Bulk Upload -->
+    <!-- Bulk Upload (hidden by default) -->
     <section id="bulkContainer" class="bulk-container" style="display: none;">
       <textarea id="bulkInput" placeholder="Enter domains separated by commas or new lines:&#10;example.com&#10;anotherdomain.net&#10;mysite.org"></textarea>
-      <button class="btn btn-add" onclick="addBulkDomains()">
-        <i class="fa-solid fa-plus"></i> Add Domains
-      </button>
+      <div class="bulk-actions">
+        <button class="btn btn-add" onclick="addBulkDomains()">
+          <i class="fa-solid fa-plus"></i> Add Domains
+        </button>
+        <button class="btn" onclick="toggleBulkUpload()">Cancel</button>
+      </div>
     </section>
 
 

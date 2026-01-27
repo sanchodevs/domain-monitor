@@ -763,7 +763,16 @@ async function load() {
     document.getElementById("exp30").innerText = stats.exp30;
     document.getElementById("exp90").innerText = stats.exp90;
     document.getElementById("exp180").innerText = stats.exp180;
-    document.getElementById("unchecked").innerText = stats.unchecked;
+
+    // Highlight critical stat card if there are expired domains
+    const expiredCard = document.getElementById("expiredCard");
+    if (expiredCard) {
+      if (stats.expired > 0) {
+        expiredCard.classList.add("has-items");
+      } else {
+        expiredCard.classList.remove("has-items");
+      }
+    }
 
     // Update sort header indicators
     updateSortHeaders();
