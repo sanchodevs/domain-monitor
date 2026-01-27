@@ -152,7 +152,9 @@ let state = {
   authRequired: false,
   charts: {
     expiration: null,
-    timeline: null
+    timeline: null,
+    health: null,
+    tags: null
   },
   importFile: null
 };
@@ -276,6 +278,19 @@ function updateHealthIndicator(domainId, health) {
 function initCharts() {
   const expirationCtx = document.getElementById('expirationChart')?.getContext('2d');
   const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
+  const healthCtx = document.getElementById('healthChart')?.getContext('2d');
+  const tagsCtx = document.getElementById('tagsChart')?.getContext('2d');
+
+  // Common chart options for compact display
+  const compactLegendOptions = {
+    position: 'right',
+    labels: {
+      color: '#b5b5b5',
+      font: { size: 10 },
+      boxWidth: 12,
+      padding: 6
+    }
+  };
 
   if (expirationCtx) {
     state.charts.expiration = new Chart(expirationCtx, {
@@ -284,28 +299,14 @@ function initCharts() {
         labels: ['Expired', '< 30 days', '< 90 days', '< 180 days', '> 180 days'],
         datasets: [{
           data: [0, 0, 0, 0, 0],
-          backgroundColor: [
-            '#851130',
-            '#a84803',
-            '#a8a503',
-            '#00905b',
-            '#384b86'
-          ],
+          backgroundColor: ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86'],
           borderWidth: 0
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: {
-              color: '#b5b5b5',
-              font: { size: 11 }
-            }
-          }
-        }
+        plugins: { legend: compactLegendOptions }
       }
     });
   }
@@ -319,7 +320,7 @@ function initCharts() {
           label: 'Domains Expiring',
           data: [],
           backgroundColor: '#6366f1',
-          borderRadius: 4
+          borderRadius: 3
         }]
       },
       options: {
@@ -328,23 +329,66 @@ function initCharts() {
         scales: {
           x: {
             grid: { color: 'rgba(255,255,255,0.05)' },
-            ticks: { color: '#8a8a8a' }
+            ticks: { color: '#8a8a8a', font: { size: 9 } }
           },
           y: {
             grid: { color: 'rgba(255,255,255,0.05)' },
-            ticks: { color: '#8a8a8a', stepSize: 1 }
+            ticks: { color: '#8a8a8a', stepSize: 1, font: { size: 9 } }
           }
         },
-        plugins: {
-          legend: { display: false }
-        }
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // Health Status Chart
+  if (healthCtx) {
+    state.charts.health = new Chart(healthCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['DNS OK', 'DNS Fail', 'HTTP OK', 'HTTP Fail', 'SSL Valid', 'SSL Invalid'],
+        datasets: [{
+          data: [0, 0, 0, 0, 0, 0],
+          backgroundColor: ['#00905b', '#851130', '#00b4d8', '#a84803', '#8b5cf6', '#4a4a4a'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: compactLegendOptions }
+      }
+    });
+  }
+
+  // Tags Distribution Chart
+  if (tagsCtx) {
+    state.charts.tags = new Chart(tagsCtx, {
+      type: 'doughnut',
+      data: {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: [],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: compactLegendOptions }
       }
     });
   }
 }
 
 function updateCharts(domains) {
-  if (!domains || !domains.length) return;
+  // Update activity log regardless of domains
+  loadActivityLog();
+
+  if (!domains || !domains.length) {
+    return;
+  }
 
   // Expiration distribution chart
   const stats = { expired: 0, exp30: 0, exp90: 0, exp180: 0, safe: 0 };
@@ -365,19 +409,19 @@ function updateCharts(domains) {
     state.charts.expiration.update();
   }
 
-  // Timeline chart - group by month
+  // Timeline chart - group by month (next 6 months for better fit)
   const monthCounts = {};
   const now = new Date();
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 6; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const key = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const key = date.toLocaleDateString('en-US', { month: 'short' });
     monthCounts[key] = 0;
   }
 
   domains.forEach(d => {
     if (!d.expiry_date) return;
     const expiry = new Date(d.expiry_date);
-    const key = expiry.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const key = expiry.toLocaleDateString('en-US', { month: 'short' });
     if (monthCounts.hasOwnProperty(key)) {
       monthCounts[key]++;
     }
@@ -388,6 +432,251 @@ function updateCharts(domains) {
     state.charts.timeline.data.datasets[0].data = Object.values(monthCounts);
     state.charts.timeline.update();
   }
+
+  // Health Status Chart
+  const healthStats = { dnsOk: 0, dnsFail: 0, httpOk: 0, httpFail: 0, sslValid: 0, sslInvalid: 0 };
+  domains.forEach(d => {
+    if (d.health) {
+      if (d.health.dns_resolved === true) healthStats.dnsOk++;
+      else if (d.health.dns_resolved === false) healthStats.dnsFail++;
+
+      if (d.health.http_status && d.health.http_status < 400) healthStats.httpOk++;
+      else if (d.health.http_status && d.health.http_status >= 400) healthStats.httpFail++;
+
+      if (d.health.ssl_valid === true) healthStats.sslValid++;
+      else if (d.health.ssl_valid === false) healthStats.sslInvalid++;
+    }
+  });
+
+  if (state.charts.health) {
+    state.charts.health.data.datasets[0].data = [
+      healthStats.dnsOk, healthStats.dnsFail,
+      healthStats.httpOk, healthStats.httpFail,
+      healthStats.sslValid, healthStats.sslInvalid
+    ];
+    state.charts.health.update();
+  }
+
+  // Tags Distribution Chart
+  if (state.charts.tags && state.tags.length > 0) {
+    const tagCounts = {};
+    const tagColors = {};
+
+    // Initialize all tags with 0
+    state.tags.forEach(tag => {
+      tagCounts[tag.name] = 0;
+      tagColors[tag.name] = tag.color;
+    });
+
+    // Count domains per tag
+    domains.forEach(d => {
+      if (d.tags && d.tags.length > 0) {
+        d.tags.forEach(tag => {
+          if (tagCounts.hasOwnProperty(tag.name)) {
+            tagCounts[tag.name]++;
+          }
+        });
+      }
+    });
+
+    // Filter out tags with 0 domains and sort by count
+    const sortedTags = Object.entries(tagCounts)
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+
+    if (sortedTags.length > 0) {
+      state.charts.tags.data.labels = sortedTags.map(t => t[0]);
+      state.charts.tags.data.datasets[0].data = sortedTags.map(t => t[1]);
+      state.charts.tags.data.datasets[0].backgroundColor = sortedTags.map(t => tagColors[t[0]]);
+    } else {
+      state.charts.tags.data.labels = ['No tags'];
+      state.charts.tags.data.datasets[0].data = [1];
+      state.charts.tags.data.datasets[0].backgroundColor = ['#4a4a4a'];
+    }
+    state.charts.tags.update();
+  }
+}
+
+// Load activity log from audit API
+async function loadActivityLog() {
+  const logEl = document.getElementById('activityLog');
+  if (!logEl) return;
+
+  try {
+    const res = await fetch('/api/audit?limit=15');
+    if (!res.ok) {
+      logEl.innerHTML = '<div class="no-activity">Could not load activity</div>';
+      return;
+    }
+
+    const data = await res.json();
+    // API returns { entries: [...], total, page, ... }
+    const logs = data.entries || [];
+
+    if (logs.length === 0) {
+      logEl.innerHTML = '<div class="no-activity">No activity yet</div>';
+      return;
+    }
+
+    logEl.innerHTML = logs.map(log => {
+      const { icon, className, message, details } = formatAuditLog(log);
+      const timeAgo = getTimeAgo(log.created_at);
+
+      return `<div class="log-item ${className}">
+        <div class="log-icon"><i class="fa-solid ${icon}"></i></div>
+        <div class="log-content">
+          <div class="log-message">${message}</div>
+          ${details ? `<div class="log-details">${escapeHTML(details)}</div>` : ''}
+        </div>
+        <span class="log-time">${timeAgo}</span>
+      </div>`;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error loading activity log:', err);
+    logEl.innerHTML = '<div class="no-activity">Error loading activity</div>';
+  }
+}
+
+// Format audit log entry for display
+function formatAuditLog(log) {
+  let icon = 'fa-circle-info';
+  let className = 'log-system';
+  let message = '';
+  let details = '';
+
+  const entity = log.entity_type;
+  const action = log.action;
+  const entityId = log.entity_id;
+
+  switch (action) {
+    case 'create':
+      icon = 'fa-plus';
+      className = 'log-create';
+      if (entity === 'domain') {
+        message = `Added domain <strong>${escapeHTML(entityId)}</strong>`;
+      } else if (entity === 'group') {
+        message = `Created group <strong>${escapeHTML(entityId)}</strong>`;
+      } else if (entity === 'tag') {
+        message = `Created tag <strong>${escapeHTML(entityId)}</strong>`;
+      } else {
+        message = `Created ${entity}: ${escapeHTML(entityId)}`;
+      }
+      break;
+
+    case 'update':
+      icon = 'fa-pen';
+      className = 'log-update';
+      if (entity === 'domain') {
+        // Check if it's a WHOIS refresh or tag/group update
+        if (log.new_value && log.new_value.includes('expiry_date')) {
+          icon = 'fa-arrows-rotate';
+          className = 'log-refresh';
+          message = `Refreshed WHOIS for <strong>${escapeHTML(entityId)}</strong>`;
+        } else if (log.new_value && log.new_value.includes('tag')) {
+          message = `Updated tags on <strong>${escapeHTML(entityId)}</strong>`;
+        } else if (log.new_value && log.new_value.includes('group')) {
+          message = `Changed group for <strong>${escapeHTML(entityId)}</strong>`;
+        } else {
+          message = `Updated domain <strong>${escapeHTML(entityId)}</strong>`;
+        }
+      } else if (entity === 'settings') {
+        message = `Updated settings`;
+        details = entityId;
+      } else if (entity === 'health') {
+        icon = 'fa-heart-pulse';
+        className = 'log-health';
+        message = `Health check on <strong>${escapeHTML(entityId)}</strong>`;
+      } else {
+        message = `Updated ${entity}: ${escapeHTML(entityId)}`;
+      }
+      break;
+
+    case 'delete':
+      icon = 'fa-trash';
+      className = 'log-delete';
+      if (entity === 'domain') {
+        message = `Deleted domain <strong>${escapeHTML(entityId)}</strong>`;
+      } else if (entity === 'group') {
+        message = `Deleted group <strong>${escapeHTML(entityId)}</strong>`;
+      } else if (entity === 'tag') {
+        message = `Deleted tag <strong>${escapeHTML(entityId)}</strong>`;
+      } else {
+        message = `Deleted ${entity}: ${escapeHTML(entityId)}`;
+      }
+      break;
+
+    case 'refresh':
+      icon = 'fa-arrows-rotate';
+      className = 'log-refresh';
+      if (entity === 'bulk') {
+        message = `Bulk refresh completed`;
+        details = entityId;
+      } else {
+        message = `Refreshed <strong>${escapeHTML(entityId)}</strong>`;
+      }
+      break;
+
+    case 'health_check':
+      icon = 'fa-heart-pulse';
+      className = 'log-health';
+      if (entity === 'bulk') {
+        message = `Bulk health check completed`;
+        details = entityId;
+      } else {
+        message = `Health check on <strong>${escapeHTML(entityId)}</strong>`;
+      }
+      break;
+
+    case 'bulk_refresh':
+      icon = 'fa-arrows-rotate';
+      className = 'log-refresh';
+      message = `Bulk WHOIS refresh completed`;
+      details = entityId;
+      break;
+
+    case 'bulk_health':
+      icon = 'fa-heart-pulse';
+      className = 'log-health';
+      message = `Bulk health check completed`;
+      details = entityId;
+      break;
+
+    case 'import':
+      icon = 'fa-file-import';
+      className = 'log-create';
+      message = `Imported domains`;
+      details = entityId;
+      break;
+
+    case 'scheduled':
+      icon = 'fa-clock';
+      className = 'log-system';
+      message = `Scheduled task: ${escapeHTML(entityId)}`;
+      break;
+
+    default:
+      message = `${action} ${entity}: ${escapeHTML(entityId)}`;
+  }
+
+  return { icon, className, message, details };
+}
+
+// Helper function for relative time
+function getTimeAgo(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 /* ======================================================

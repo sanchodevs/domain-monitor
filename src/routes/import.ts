@@ -5,7 +5,7 @@ import { domainSchema } from '../config/schema.js';
 import { addDomain, domainExists } from '../database/domains.js';
 import { getGroupByName, createGroup } from '../database/groups.js';
 import { getOrCreateTag, addTagToDomain } from '../database/tags.js';
-import { logAudit } from '../database/audit.js';
+import { logAudit, auditImport } from '../database/audit.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { createLogger } from '../utils/logger.js';
 import type { CSVImportResult } from '../types/api.js';
@@ -142,6 +142,12 @@ router.post(
     }
 
     logger.info('CSV import completed', { imported: result.imported, skipped: result.skipped, errors: result.errors.length });
+
+    // Log bulk import to audit
+    if (result.imported > 0) {
+      auditImport(result.imported, result.skipped, req.ip, req.get('User-Agent'));
+    }
+
     res.json({ success: true, ...result });
   })
 );

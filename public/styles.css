@@ -1065,36 +1065,137 @@ select {
 }
 .stat-safe .stat-value { color: var(--safe); }
 
-/* Charts Area */
+/* Charts Area - Optimized Grid Layout */
 .charts-area {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 0.75rem;
 }
 
 .chart-card {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  padding: 1.25rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
 }
 
 .chart-card h3 {
-  margin: 0 0 0.75rem 0;
-  font-size: 0.8rem;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.7rem;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .chart-card h3 i {
   color: var(--primary);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .chart-card canvas {
-  max-height: 180px;
+  flex: 1;
+  max-height: 110px;
+  min-height: 80px;
+}
+
+/* Timeline spans 2 columns */
+.chart-timeline {
+  grid-column: span 2;
+}
+
+/* Activity Card */
+.chart-card-activity {
+  overflow: hidden;
+}
+
+/* Activity Log Styles */
+.activity-log-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 130px;
+}
+
+.no-activity {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+  padding: 0.75rem;
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.log-item.log-create { border-left-color: var(--success); }
+.log-item.log-update { border-left-color: var(--primary); }
+.log-item.log-delete { border-left-color: var(--danger); }
+.log-item.log-refresh { border-left-color: var(--mild-warning); }
+.log-item.log-health { border-left-color: #00b4d8; }
+.log-item.log-system { border-left-color: var(--text-muted); }
+
+.log-item .log-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+
+.log-item.log-create .log-icon { background: rgba(0, 144, 91, 0.2); color: var(--success); }
+.log-item.log-update .log-icon { background: rgba(99, 102, 241, 0.2); color: var(--primary); }
+.log-item.log-delete .log-icon { background: rgba(133, 17, 48, 0.2); color: var(--danger); }
+.log-item.log-refresh .log-icon { background: rgba(168, 165, 3, 0.2); color: var(--mild-warning); }
+.log-item.log-health .log-icon { background: rgba(0, 180, 216, 0.2); color: #00b4d8; }
+.log-item.log-system .log-icon { background: rgba(138, 138, 138, 0.2); color: var(--text-muted); }
+
+.log-item .log-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-item .log-message {
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.log-item .log-message strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.log-item .log-details {
+  display: none;
+}
+
+.log-item .log-time {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Quick Actions Bar */
@@ -1587,6 +1688,17 @@ mark {
 /* ==========================
    RESPONSIVE
 ========================== */
+@media (max-width: 1200px) {
+  /* Medium screens: 2 columns for charts */
+  .charts-area {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chart-timeline {
+    grid-column: span 1;
+  }
+}
+
 @media (max-width: 1024px) {
   /* Tablet: stack stats on top of charts */
   .dashboard-overview {
@@ -1606,6 +1718,14 @@ mark {
 
   .charts-area {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chart-timeline {
+    grid-column: span 2;
+  }
+
+  .chart-card-activity {
+    grid-column: span 2;
   }
 }
 
@@ -1651,11 +1771,22 @@ mark {
     grid-template-columns: 1fr;
   }
 
+  .chart-timeline,
+  .chart-card-activity {
+    grid-column: span 1;
+  }
+
   .chart-card {
-    padding: 1rem;
+    padding: 0.75rem;
+    min-height: auto;
   }
 
   .chart-card canvas {
+    max-height: 130px;
+    min-height: 100px;
+  }
+
+  .activity-log-list {
     max-height: 150px;
   }
 

@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { getDomainById } from '../database/domains.js';
+import { getDomainById, getAllDomains } from '../database/domains.js';
 import { getHealthHistory, getHealthSummary, cleanupOldHealthRecords } from '../database/health.js';
 import { checkDomainHealth, checkAllDomainsHealth, getLatestHealthForDomain } from '../services/healthcheck.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { wsService } from '../services/websocket.js';
 import { createLogger } from '../utils/logger.js';
+import { auditHealthCheck, auditBulkHealthCheck } from '../database/audit.js';
 
 const router = Router();
 const logger = createLogger('health-routes');
@@ -75,6 +76,7 @@ router.post(
     }
 
     const health = await checkDomainHealth(domainId);
+    auditHealthCheck(domain.domain, health);
     res.json({ success: true, health });
   })
 );
@@ -83,10 +85,15 @@ router.post(
 router.post(
   '/check-all',
   asyncHandler(async (_req, res) => {
+    // Get domain names for audit
+    const allDomains = getAllDomains();
+    const domainNames = allDomains.map(d => d.domain);
+
     // Run in background
     checkAllDomainsHealth()
       .then((results) => {
         logger.info('All domain health checks completed', { count: results.size });
+        auditBulkHealthCheck(results.size, domainNames);
       })
       .catch((err) => {
         logger.error('Health check failed', { error: err.message });

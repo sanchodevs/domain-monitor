@@ -193,3 +193,94 @@ export function auditDomainRefresh(domain: string, oldData: unknown, newData: un
     new_value: newData,
   });
 }
+
+export function auditHealthCheck(domain: string, healthData: unknown): void {
+  logAudit({
+    entity_type: 'health',
+    entity_id: domain,
+    action: 'health_check',
+    new_value: healthData,
+  });
+}
+
+export function auditBulkRefresh(count: number, domains: string[]): void {
+  logAudit({
+    entity_type: 'bulk',
+    entity_id: `Refreshed ${count} domains`,
+    action: 'bulk_refresh',
+    new_value: { count, domains: domains.slice(0, 10) },
+  });
+}
+
+export function auditBulkHealthCheck(count: number, domains: string[]): void {
+  logAudit({
+    entity_type: 'bulk',
+    entity_id: `Health checked ${count} domains`,
+    action: 'bulk_health',
+    new_value: { count, domains: domains.slice(0, 10) },
+  });
+}
+
+export function auditGroupCreate(name: string, data: unknown, ip?: string, userAgent?: string): void {
+  logAudit({
+    entity_type: 'group',
+    entity_id: name,
+    action: 'create',
+    new_value: data,
+    ip_address: ip,
+    user_agent: userAgent,
+  });
+}
+
+export function auditGroupDelete(name: string, oldData: unknown, ip?: string, userAgent?: string): void {
+  logAudit({
+    entity_type: 'group',
+    entity_id: name,
+    action: 'delete',
+    old_value: oldData,
+    ip_address: ip,
+    user_agent: userAgent,
+  });
+}
+
+export function auditTagCreate(name: string, data: unknown, ip?: string, userAgent?: string): void {
+  logAudit({
+    entity_type: 'tag',
+    entity_id: name,
+    action: 'create',
+    new_value: data,
+    ip_address: ip,
+    user_agent: userAgent,
+  });
+}
+
+export function auditTagDelete(name: string, oldData: unknown, ip?: string, userAgent?: string): void {
+  logAudit({
+    entity_type: 'tag',
+    entity_id: name,
+    action: 'delete',
+    old_value: oldData,
+    ip_address: ip,
+    user_agent: userAgent,
+  });
+}
+
+export function auditImport(count: number, skipped: number, ip?: string, userAgent?: string): void {
+  logAudit({
+    entity_type: 'bulk',
+    entity_id: `Imported ${count} domains (${skipped} skipped)`,
+    action: 'import',
+    new_value: { added: count, skipped },
+    ip_address: ip,
+    user_agent: userAgent,
+  });
+}
+
+export function auditScheduledTask(taskName: string, result: unknown): void {
+  logAudit({
+    entity_type: 'system',
+    entity_id: taskName,
+    action: 'scheduled',
+    new_value: result,
+  });
+}

@@ -53,7 +53,7 @@ router.post(
 
     logAudit({
       entity_type: 'tag',
-      entity_id: String(id),
+      entity_id: name,
       action: 'create',
       new_value: { name, color },
       ip_address: req.ip,
@@ -109,7 +109,7 @@ router.delete(
 
     logAudit({
       entity_type: 'tag',
-      entity_id: String(id),
+      entity_id: existing.name,
       action: 'delete',
       old_value: existing,
       ip_address: req.ip,

@@ -16,7 +16,7 @@ export const config = {
   whoisDelayMs: 2000,
   maxRetries: 3,
   retryDelayMs: 5000,
-  requestTimeoutMs: 15000,
+  requestTimeoutMs: 30000, // Increased timeout for slow TLDs like .info
 
   // Authentication
   authEnabled: process.env.AUTH_ENABLED === 'true',
