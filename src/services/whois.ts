@@ -12,7 +12,12 @@ import { auditDomainRefresh } from '../database/audit.js';
 const logger = createLogger('whois');
 
 // TLDs that have issues with APILayer and need direct WHOIS fallback
-const PROBLEMATIC_TLDS = ['biz', 'info'];
+const PROBLEMATIC_TLDS = ['biz'];
+
+// TLDs that need RDAP lookup (registry blocks traditional WHOIS)
+const RDAP_TLDS: Record<string, string> = {
+  'info': 'https://rdap.donuts.co/rdap/domain/',
+};
 
 // Refresh status tracking
 export const refreshStatus: RefreshStatus = {
@@ -215,8 +220,99 @@ async function fetchWhoisDirect(domain: string): Promise<WHOISResult> {
   }
 }
 
+// RDAP lookup for TLDs that block traditional WHOIS (like .info)
+async function fetchWhoisRDAP(domain: string): Promise<WHOISResult> {
+  const startTime = Date.now();
+  const tld = domain.split('.').pop()?.toLowerCase();
+  const rdapUrl = RDAP_TLDS[tld || ''];
+
+  if (!rdapUrl) {
+    throw new Error(`No RDAP endpoint configured for TLD: ${tld}`);
+  }
+
+  try {
+    logger.info(`Fetching RDAP for ${domain} (TLD: ${tld})...`);
+
+    const res = await axios.get(`${rdapUrl}${domain}`, {
+      timeout: config.requestTimeoutMs,
+      headers: {
+        'Accept': 'application/rdap+json',
+      },
+    });
+
+    const elapsed = Date.now() - startTime;
+    const data = res.data;
+
+    logger.info(`RDAP response for ${domain} in ${elapsed}ms`);
+
+    // Parse RDAP response format
+    const result: WHOISResult = {
+      registrar: '',
+      creation_date: '',
+      expiration_date: '',
+      name_servers: [],
+    };
+
+    // Extract events (registration, expiration dates)
+    if (Array.isArray(data.events)) {
+      for (const event of data.events) {
+        if (event.eventAction === 'expiration' && event.eventDate) {
+          result.expiration_date = event.eventDate;
+        }
+        if (event.eventAction === 'registration' && event.eventDate) {
+          result.creation_date = event.eventDate;
+        }
+      }
+    }
+
+    // Extract nameservers
+    if (Array.isArray(data.nameservers)) {
+      result.name_servers = data.nameservers
+        .map((ns: { ldhName?: string }) => ns.ldhName)
+        .filter(Boolean);
+    }
+
+    // Extract registrar from entities
+    if (Array.isArray(data.entities)) {
+      for (const entity of data.entities) {
+        if (Array.isArray(entity.roles) && entity.roles.includes('registrar')) {
+          // Try to get registrar name from vcard
+          if (Array.isArray(entity.vcardArray) && entity.vcardArray[1]) {
+            for (const field of entity.vcardArray[1]) {
+              if (Array.isArray(field) && field[0] === 'fn' && field[3]) {
+                result.registrar = field[3];
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    logger.info(`RDAP parsed result for ${domain}:`, { result });
+
+    return result;
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+    logger.error(`RDAP fetch failed for ${domain} after ${elapsed}ms`, {
+      error: errorMessage,
+      tld,
+    });
+
+    throw err;
+  }
+}
+
 async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> {
   const tld = domain.split('.').pop()?.toLowerCase();
+
+  // Use RDAP for TLDs that block traditional WHOIS
+  if (tld && RDAP_TLDS[tld]) {
+    logger.info(`Using RDAP for ${domain} (TLD: ${tld})`);
+    return fetchWhoisRDAP(domain);
+  }
 
   // Use direct WHOIS for problematic TLDs that APILayer doesn't handle well
   if (PROBLEMATIC_TLDS.includes(tld || '')) {
