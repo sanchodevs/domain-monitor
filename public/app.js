@@ -4,6 +4,84 @@
 ====================================================== */
 
 /* ======================================================
+   Theme Management
+====================================================== */
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+}
+
+function getThemeColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    textPrimary: isDark ? '#f9f9f9' : '#1a1d21',
+    textSecondary: isDark ? '#b5b5b5' : '#4a5568',
+    textMuted: isDark ? '#8a8a8a' : '#718096',
+    gridColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    success: isDark ? '#00905b' : '#059669',
+    warning: isDark ? '#a84803' : '#d97706',
+    mildWarning: isDark ? '#a8a503' : '#ca8a04',
+    danger: isDark ? '#851130' : '#dc2626',
+    safe: isDark ? '#384b86' : '#3b82f6',
+    primary: isDark ? '#6366f1' : '#4f46e5',
+    // Chart specific colors
+    chartColors: isDark
+      ? ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86']
+      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#3b82f6'],
+    healthColors: isDark
+      ? ['#00905b', '#851130', '#00b4d8', '#a84803', '#8b5cf6', '#4a4a4a']
+      : ['#059669', '#dc2626', '#0ea5e9', '#d97706', '#8b5cf6', '#94a3b8']
+  };
+}
+
+function updateChartColors() {
+  const colors = getThemeColors();
+
+  // Update expiration chart
+  if (state.charts.expiration) {
+    state.charts.expiration.data.datasets[0].backgroundColor = colors.chartColors;
+    state.charts.expiration.options.plugins.legend.labels.color = colors.textSecondary;
+    state.charts.expiration.update('none');
+  }
+
+  // Update timeline chart
+  if (state.charts.timeline) {
+    state.charts.timeline.data.datasets[0].backgroundColor = colors.primary;
+    state.charts.timeline.options.scales.x.grid.color = colors.gridColor;
+    state.charts.timeline.options.scales.y.grid.color = colors.gridColor;
+    state.charts.timeline.options.scales.x.ticks.color = colors.textMuted;
+    state.charts.timeline.options.scales.y.ticks.color = colors.textMuted;
+    state.charts.timeline.update('none');
+  }
+
+  // Update health chart
+  if (state.charts.health) {
+    state.charts.health.data.datasets[0].backgroundColor = colors.healthColors;
+    state.charts.health.options.plugins.legend.labels.color = colors.textSecondary;
+    state.charts.health.update('none');
+  }
+
+  // Update tags chart
+  if (state.charts.tags) {
+    state.charts.tags.options.plugins.legend.labels.color = colors.textSecondary;
+    state.charts.tags.update('none');
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+
+  // Update charts colors
+  updateChartColors();
+}
+
+// Initialize theme on load (before DOM ready to prevent flash)
+initTheme();
+
+/* ======================================================
    Error Boundary
 ====================================================== */
 window.onerror = function(message, source, lineno, colno, error) {
@@ -281,11 +359,13 @@ function initCharts() {
   const healthCtx = document.getElementById('healthChart')?.getContext('2d');
   const tagsCtx = document.getElementById('tagsChart')?.getContext('2d');
 
+  const colors = getThemeColors();
+
   // Common chart options for compact display
   const compactLegendOptions = {
     position: 'right',
     labels: {
-      color: '#b5b5b5',
+      color: colors.textSecondary,
       font: { size: 10 },
       boxWidth: 12,
       padding: 6
@@ -299,7 +379,7 @@ function initCharts() {
         labels: ['Expired', '< 30 days', '< 90 days', '< 180 days', '> 180 days'],
         datasets: [{
           data: [0, 0, 0, 0, 0],
-          backgroundColor: ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86'],
+          backgroundColor: colors.chartColors,
           borderWidth: 0
         }]
       },
@@ -319,7 +399,7 @@ function initCharts() {
         datasets: [{
           label: 'Domains Expiring',
           data: [],
-          backgroundColor: '#6366f1',
+          backgroundColor: colors.primary,
           borderRadius: 3
         }]
       },
@@ -328,12 +408,12 @@ function initCharts() {
         maintainAspectRatio: false,
         scales: {
           x: {
-            grid: { color: 'rgba(255,255,255,0.05)' },
-            ticks: { color: '#8a8a8a', font: { size: 9 } }
+            grid: { color: colors.gridColor },
+            ticks: { color: colors.textMuted, font: { size: 9 } }
           },
           y: {
-            grid: { color: 'rgba(255,255,255,0.05)' },
-            ticks: { color: '#8a8a8a', stepSize: 1, font: { size: 9 } }
+            grid: { color: colors.gridColor },
+            ticks: { color: colors.textMuted, stepSize: 1, font: { size: 9 } }
           }
         },
         plugins: { legend: { display: false } }
@@ -349,7 +429,7 @@ function initCharts() {
         labels: ['DNS OK', 'DNS Fail', 'HTTP OK', 'HTTP Fail', 'SSL Valid', 'SSL Invalid'],
         datasets: [{
           data: [0, 0, 0, 0, 0, 0],
-          backgroundColor: ['#00905b', '#851130', '#00b4d8', '#a84803', '#8b5cf6', '#4a4a4a'],
+          backgroundColor: colors.healthColors,
           borderWidth: 0
         }]
       },
