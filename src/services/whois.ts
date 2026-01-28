@@ -1,4 +1,5 @@
 import axios from 'axios';
+import whoisJson from 'whois-json';
 import { config } from '../config/index.js';
 import { apiKeyManager } from '../database/apikeys.js';
 import { createLogger } from '../utils/logger.js';
@@ -9,6 +10,9 @@ import { updateDomain, getAllDomains } from '../database/domains.js';
 import { auditDomainRefresh } from '../database/audit.js';
 
 const logger = createLogger('whois');
+
+// TLDs that have issues with APILayer and need direct WHOIS fallback
+const PROBLEMATIC_TLDS = ['biz', 'info'];
 
 // Refresh status tracking
 export const refreshStatus: RefreshStatus = {
@@ -94,6 +98,10 @@ function normalizeWhoisResult(data: Record<string, unknown>, domain?: string): W
     'expires_on',
     'valid_until',
     'valid_till',
+    // whois-json library field names (camelCase)
+    'expirationDate',
+    'registryExpiryDate',
+    'registrarRegistrationExpirationDate',
   ];
 
   // Different field names for creation date
@@ -113,6 +121,9 @@ function normalizeWhoisResult(data: Record<string, unknown>, domain?: string): W
     'registered_on',
     'registration',
     'record_created_on',
+    // whois-json library field names (camelCase)
+    'creationDate',
+    'createdDate',
   ];
 
   // Different field names for registrar
@@ -128,6 +139,8 @@ function normalizeWhoisResult(data: Record<string, unknown>, domain?: string): W
     'registrant',
     'reseller',
     'Registrar Name',
+    // whois-json library field names (camelCase)
+    'registrarName',
   ];
 
   // Different field names for nameservers
@@ -144,6 +157,8 @@ function normalizeWhoisResult(data: Record<string, unknown>, domain?: string): W
     'nameserver',
     'DNS',
     'NS',
+    // whois-json library field names (camelCase)
+    'nameServer',
   ];
 
   const normalized = {
@@ -167,14 +182,54 @@ function normalizeWhoisResult(data: Record<string, unknown>, domain?: string): W
   return normalized;
 }
 
+// Direct WHOIS lookup using whois-json library (fallback for problematic TLDs)
+async function fetchWhoisDirect(domain: string): Promise<WHOISResult> {
+  const startTime = Date.now();
+  const tld = domain.split('.').pop()?.toLowerCase();
+
+  try {
+    logger.info(`Fetching WHOIS directly for ${domain} (TLD: ${tld})...`);
+
+    const result = await whoisJson(domain);
+    const elapsed = Date.now() - startTime;
+
+    logger.info(`Direct WHOIS response for ${domain} in ${elapsed}ms`, {
+      tld,
+      keys: Object.keys(result || {}),
+    });
+
+    // Log full data for debugging
+    logger.info(`Full direct WHOIS data for ${domain}:`, { result });
+
+    return normalizeWhoisResult(result as Record<string, unknown>, domain);
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+    logger.error(`Direct WHOIS fetch failed for ${domain} after ${elapsed}ms`, {
+      error: errorMessage,
+      tld,
+    });
+
+    throw err;
+  }
+}
+
 async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> {
+  const tld = domain.split('.').pop()?.toLowerCase();
+
+  // Use direct WHOIS for problematic TLDs that APILayer doesn't handle well
+  if (PROBLEMATIC_TLDS.includes(tld || '')) {
+    logger.info(`Using direct WHOIS for ${domain} (problematic TLD: ${tld})`);
+    return fetchWhoisDirect(domain);
+  }
+
   const apiKey = apiKeyManager.getNextKey();
   if (!apiKey) {
     throw new Error('No API key available');
   }
 
   const startTime = Date.now();
-  const tld = domain.split('.').pop()?.toLowerCase();
 
   try {
     logger.info(`Fetching WHOIS for ${domain}...`);
@@ -192,11 +247,27 @@ async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> 
     logger.info(`WHOIS response for ${domain} in ${elapsed}ms`, { tld, keys: resultKeys });
 
     // For problematic TLDs, log the full raw response to help diagnose field mapping issues
-    if (['biz', 'info', 'co', 'io', 'me', 'club', 'mobi'].includes(tld || '')) {
+    if (['co', 'io', 'me', 'club', 'mobi'].includes(tld || '')) {
       logger.info(`Full WHOIS data for ${domain}:`, { result: res.data?.result || res.data });
     }
 
-    return normalizeWhoisResult(res.data, domain);
+    const normalized = normalizeWhoisResult(res.data, domain);
+
+    // If APILayer returns null expiration, try direct WHOIS as fallback
+    if (!normalized.expiration_date) {
+      logger.info(`APILayer returned no expiration for ${domain}, trying direct WHOIS fallback...`);
+      try {
+        return await fetchWhoisDirect(domain);
+      } catch (fallbackErr) {
+        logger.warn(`Direct WHOIS fallback also failed for ${domain}`, {
+          error: fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error',
+        });
+        // Return the APILayer result even without expiration
+        return normalized;
+      }
+    }
+
+    return normalized;
   } catch (err) {
     const elapsed = Date.now() - startTime;
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
