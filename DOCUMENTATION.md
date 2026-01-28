@@ -27,6 +27,8 @@ Domain Monitor is a self-hosted web application for tracking domain registration
 - **Receive email alerts** - Get notified before domains expire
 - **Organize domains** - Use groups and tags to categorize
 - **Bulk operations** - Import/export CSV, refresh multiple domains
+- **Dark/Light Theme** - Toggle between themes with persistent preference
+- **Activity Dashboard** - Real-time activity log with audit trail visualization
 
 ### Technology Stack
 
@@ -160,6 +162,7 @@ domain-monitor/
 - `express` - Web framework
 - `better-sqlite3` - SQLite database driver (synchronous, fast)
 - `axios` - HTTP client for WHOIS API calls
+- `whois-json` - Direct WHOIS lookups for fallback (used for .biz and other problematic TLDs)
 - `nodemailer` - SMTP email sending
 - `ws` - WebSocket server
 - `node-cron` - Task scheduling
@@ -1245,7 +1248,112 @@ router.post('/csv', upload.single('file'), asyncHandler(async (req, res) => {
 
 #### `src/services/whois.ts`
 
-**Purpose**: Fetches WHOIS data from APILayer and updates domains.
+**Purpose**: Fetches WHOIS data from multiple sources (APILayer, direct WHOIS, RDAP) and updates domains.
+
+**Multi-Source Lookup Strategy**:
+
+The WHOIS service uses a tiered approach to handle different TLDs:
+
+1. **APILayer** (default) - Primary WHOIS API for most TLDs
+2. **Direct WHOIS** - Fallback using `whois-json` library for problematic TLDs
+3. **RDAP** (Registration Data Access Protocol) - For TLDs that block traditional WHOIS
+
+```typescript
+// TLDs with special handling
+const PROBLEMATIC_TLDS = ['biz'];  // Use direct WHOIS
+const RDAP_TLDS: Record<string, string> = {
+  'info': 'https://rdap.donuts.co/rdap/domain/',  // Use RDAP protocol
+};
+
+// Main lookup function with smart routing
+async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> {
+  const tld = domain.split('.').pop()?.toLowerCase();
+
+  // Route to RDAP for TLDs that block traditional WHOIS (e.g., .info)
+  if (tld && RDAP_TLDS[tld]) {
+    logger.info(`Using RDAP for ${domain} (TLD: ${tld})`);
+    return fetchWhoisRDAP(domain);
+  }
+
+  // Route to direct WHOIS for problematic TLDs (e.g., .biz)
+  if (PROBLEMATIC_TLDS.includes(tld || '')) {
+    logger.info(`Using direct WHOIS for ${domain} (problematic TLD: ${tld})`);
+    return fetchWhoisDirect(domain);
+  }
+
+  // Default: Use APILayer with fallback to direct WHOIS
+  const apiKey = apiKeyManager.getNextKey();
+  // ... APILayer call with retry logic
+
+  // If APILayer returns no expiration date, try direct WHOIS fallback
+  if (!normalized.expiration_date) {
+    return await fetchWhoisDirect(domain);
+  }
+}
+```
+
+**RDAP Lookup** (for .info and similar TLDs):
+
+```typescript
+async function fetchWhoisRDAP(domain: string): Promise<WHOISResult> {
+  const rdapUrl = RDAP_TLDS[tld];
+  const res = await axios.get(`${rdapUrl}${domain}`, {
+    headers: { 'Accept': 'application/rdap+json' },
+  });
+
+  // Parse RDAP JSON response
+  const result: WHOISResult = { registrar: '', creation_date: '', expiration_date: '', name_servers: [] };
+
+  // Extract dates from events array
+  if (Array.isArray(data.events)) {
+    for (const event of data.events) {
+      if (event.eventAction === 'expiration') result.expiration_date = event.eventDate;
+      if (event.eventAction === 'registration') result.creation_date = event.eventDate;
+    }
+  }
+
+  // Extract nameservers
+  if (Array.isArray(data.nameservers)) {
+    result.name_servers = data.nameservers.map(ns => ns.ldhName).filter(Boolean);
+  }
+
+  // Extract registrar from entities with 'registrar' role
+  // Uses vCard format to find 'fn' (formatted name) field
+
+  return result;
+}
+```
+
+**Direct WHOIS Lookup** (for .biz and fallback):
+
+```typescript
+async function fetchWhoisDirect(domain: string): Promise<WHOISResult> {
+  const result = await whoisJson(domain);  // Uses whois-json library
+  return normalizeWhoisResult(result, domain);
+}
+```
+
+**Field Normalization**:
+
+Different registries return different field names. The service normalizes them:
+
+```typescript
+const expirationFields = [
+  'expiration_date', 'expiry_date', 'registry_expiry_date',
+  'expirationDate', 'registryExpiryDate',  // whois-json camelCase
+  'registrarRegistrationExpirationDate',    // .biz specific
+  // ... 20+ field name variations
+];
+
+const normalized = {
+  registrar: findField(registrarFields),
+  creation_date: findField(creationFields),
+  expiration_date: findField(expirationFields),
+  name_servers: findArrayField(nameserverFields),
+};
+```
+
+**Standard Fetch with Retry Logic**:
 
 ```typescript
 // Fetch WHOIS data with retry logic
@@ -1845,6 +1953,11 @@ export function createLogger(module: string) {
       <span class="status-dot"></span> Connected
     </div>
     <nav>
+      <!-- Theme Toggle Button -->
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+        <i class="fa-solid fa-sun"></i>
+        <i class="fa-solid fa-moon"></i>
+      </button>
       <button id="refreshAllBtn">Refresh All</button>
       <button id="importBtn">Import</button>
       <button id="exportBtn">Export</button>
@@ -1852,17 +1965,78 @@ export function createLogger(module: string) {
     </nav>
   </header>
 
-  <!-- Dashboard Cards -->
-  <section class="dashboard">
-    <div class="card">Total Domains: <span id="totalCount">0</span></div>
-    <div class="card">Expiring (30d): <span id="expiringCount">0</span></div>
-    <div class="card">Expired: <span id="expiredCount">0</span></div>
-  </section>
+  <!-- Dashboard Section (Enhanced Grid Layout) -->
+  <section class="dashboard-section">
+    <!-- Left Column: Stat Cards -->
+    <div class="dashboard-left">
+      <!-- Stat Cards Row -->
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="fa-solid fa-globe"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="totalCount">0</span>
+            <span class="stat-label">Total Domains</span>
+          </div>
+        </div>
+        <div class="stat-card danger">
+          <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="expiredCount">0</span>
+            <span class="stat-label">Expired</span>
+          </div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="criticalCount">0</span>
+            <span class="stat-label">Within 30 Days</span>
+          </div>
+        </div>
+        <div class="stat-card mild-warning">
+          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="warningCount">0</span>
+            <span class="stat-label">Within 90 Days</span>
+          </div>
+        </div>
+        <div class="stat-card safe">
+          <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="safeCount">0</span>
+            <span class="stat-label">Within 6 Months</span>
+          </div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-icon"><i class="fa-solid fa-check-circle"></i></div>
+          <div class="stat-content">
+            <span class="stat-value" id="healthyCount">0</span>
+            <span class="stat-label">6+ Months</span>
+          </div>
+        </div>
+      </div>
 
-  <!-- Charts -->
-  <section class="charts">
-    <canvas id="expiryPieChart"></canvas>
-    <canvas id="expiryBarChart"></canvas>
+      <!-- Charts Row -->
+      <div class="chart-row">
+        <div class="chart-card">
+          <h3>Expiration Distribution</h3>
+          <canvas id="expiryPieChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Tags Distribution</h3>
+          <canvas id="tagsChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Activity Log -->
+    <div class="dashboard-right">
+      <div class="activity-log">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h3>
+        <div class="log-entries" id="activityLog">
+          <!-- Dynamic activity log entries -->
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- Add Domain Form -->
@@ -2179,6 +2353,62 @@ function closeModal(id) {
 }
 
 // ======================
+// THEME MANAGEMENT
+// ======================
+
+// Initialize theme from localStorage (called before DOM ready)
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+}
+
+// Get theme-appropriate colors for charts
+function getThemeColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    textPrimary: isDark ? '#f9f9f9' : '#1a1d21',
+    textSecondary: isDark ? '#b5b5b5' : '#4a5568',
+    chartColors: isDark
+      ? ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86']
+      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#3b82f6'],
+    gridColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+  };
+}
+
+// Toggle between dark and light theme
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+
+  // Update chart colors to match new theme
+  updateChartColors();
+}
+
+// Update all charts with theme-appropriate colors
+function updateChartColors() {
+  const colors = getThemeColors();
+
+  if (state.charts.expiration) {
+    state.charts.expiration.data.datasets[0].backgroundColor = colors.chartColors;
+    state.charts.expiration.options.plugins.legend.labels.color = colors.textSecondary;
+    state.charts.expiration.update('none');
+  }
+
+  if (state.charts.timeline) {
+    state.charts.timeline.data.datasets[0].backgroundColor = colors.chartColors;
+    state.charts.timeline.options.scales.x.ticks.color = colors.textSecondary;
+    state.charts.timeline.options.scales.y.ticks.color = colors.textSecondary;
+    state.charts.timeline.update('none');
+  }
+}
+
+// Initialize theme immediately (before DOM ready)
+initTheme();
+
+// ======================
 // INITIALIZATION
 // ======================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -2206,19 +2436,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ### 5.3 `public/styles.css`
 
-**Purpose**: Complete styling for the application.
+**Purpose**: Complete styling for the application with dark/light theme support.
 
-**Key sections**:
+**Theme System**:
+
+The application uses CSS custom properties with `data-theme` attribute for theming:
 
 ```css
 /* ======================
-   CSS VARIABLES
+   THEME SYSTEM
    ====================== */
 :root {
-  /* Colors */
+  --font-primary: 'Urbanist', sans-serif;
+
+  /* Shared values */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --transition-fast: 0.15s ease;
+  --transition: 0.25s ease;
+}
+
+/* ======================
+   DARK THEME (Default)
+   ====================== */
+[data-theme="dark"] {
+  /* Backgrounds */
   --bg: #0a0a0b;
+  --bg-header: #0d0d0f;
   --bg-card: #111113;
   --bg-surface: #141416;
+  --bg-input: #121214;
+
+  /* Borders */
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-soft: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.12);
+
+  /* Text */
   --text-primary: #f9f9f9;
   --text-secondary: #b5b5b5;
   --text-muted: #8a8a8a;
@@ -2226,17 +2481,86 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* Status colors */
   --success: #00905b;
   --warning: #a84803;
+  --mild-warning: #a8a503;
   --danger: #851130;
+  --safe: #384b86;
   --primary: #6366f1;
 
-  /* Sizing */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-
-  /* Transitions */
-  --transition: 0.25s ease;
+  /* Shadows */
+  --shadow-sm: 0 4px 14px rgba(0,0,0,0.55);
+  --shadow-md: 0 12px 40px rgba(0,0,0,0.75);
 }
+
+/* ======================
+   LIGHT THEME
+   ====================== */
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg: #f5f7fa;
+  --bg-header: #ffffff;
+  --bg-card: #ffffff;
+  --bg-surface: #f0f2f5;
+  --bg-input: #f8f9fb;
+
+  /* Borders */
+  --border-subtle: rgba(0,0,0,0.06);
+  --border-soft: rgba(0,0,0,0.10);
+  --border-strong: rgba(0,0,0,0.15);
+
+  /* Text */
+  --text-primary: #1a1d21;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+
+  /* Status colors - Adjusted for light mode visibility */
+  --success: #059669;
+  --warning: #d97706;
+  --mild-warning: #ca8a04;
+  --danger: #dc2626;
+  --safe: #3b82f6;
+  --primary: #4f46e5;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.12);
+}
+```
+
+**Theme Toggle Button**:
+
+```css
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: var(--btn-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+/* Show sun icon in dark mode, moon icon in light mode */
+[data-theme="dark"] .theme-toggle .fa-sun { display: none; }
+[data-theme="dark"] .theme-toggle .fa-moon { display: block; }
+[data-theme="light"] .theme-toggle .fa-sun { display: block; }
+[data-theme="light"] .theme-toggle .fa-moon { display: none; }
+```
+
+**Theme Transitions**:
+
+All interactive elements have smooth color transitions:
+
+```css
+header, .modal-content, .card, .btn, input, select {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+```
+
+**Key sections**:
 
 /* ======================
    LAYOUT
@@ -2838,12 +3162,36 @@ Query audit log.
 ### WHOIS Refresh Process
 
 1. **Initiation**: Manual button click or scheduled cron job
-2. **Rate Limiting**: 2-second delay between API calls
-3. **API Key Rotation**: Round-robin selection from multiple keys
-4. **Retry Logic**: Up to 3 attempts with exponential backoff
-5. **Progress Tracking**: WebSocket broadcasts progress to all clients
-6. **Change Detection**: Compares nameservers, stores previous values
-7. **Audit Logging**: Records each refresh with old/new values
+2. **TLD-Based Routing**:
+   - `.info` domains → RDAP protocol (registry blocks traditional WHOIS)
+   - `.biz` domains → Direct WHOIS (APILayer returns incomplete data)
+   - Other TLDs → APILayer API (with direct WHOIS fallback if expiration missing)
+3. **Rate Limiting**: 2-second delay between API calls
+4. **API Key Rotation**: Round-robin selection from multiple keys
+5. **Retry Logic**: Up to 3 attempts with exponential backoff
+6. **Progress Tracking**: WebSocket broadcasts progress to all clients
+7. **Change Detection**: Compares nameservers, stores previous values
+8. **Audit Logging**: Records each refresh with old/new values
+
+### TLD-Specific Handling
+
+| TLD | Method | Reason |
+|-----|--------|--------|
+| `.info` | RDAP | Registry (Identity Digital) blocks traditional WHOIS |
+| `.biz` | Direct WHOIS | APILayer returns null expiration dates |
+| Others | APILayer | Primary API with direct WHOIS fallback |
+
+**RDAP Endpoint Configuration**:
+```typescript
+const RDAP_TLDS: Record<string, string> = {
+  'info': 'https://rdap.donuts.co/rdap/domain/',
+};
+```
+
+**Problematic TLDs (Direct WHOIS)**:
+```typescript
+const PROBLEMATIC_TLDS = ['biz'];
+```
 
 ### Health Check Process
 
@@ -2988,11 +3336,76 @@ services:
 
 ---
 
+## 11. UI Features
+
+### Theme System
+
+The application supports both dark and light themes:
+
+- **Default**: Dark theme for reduced eye strain
+- **Toggle**: Click the sun/moon icon in the header
+- **Persistence**: Theme preference saved in localStorage
+- **Transitions**: Smooth 300ms transitions between themes
+- **Chart Colors**: Automatically updates chart colors for visibility
+
+### Dashboard Layout
+
+The dashboard uses a responsive grid layout with:
+
+**Left Column (75%)**:
+- **Stat Cards**: 6 cards showing domain counts by expiration status
+  - Total Domains
+  - Expired (red)
+  - Within 30 Days (orange/danger)
+  - Within 90 Days (yellow/warning)
+  - Within 6 Months (blue/safe)
+  - 6+ Months (green/healthy)
+- **Charts Row**:
+  - Expiration Distribution (doughnut chart)
+  - Tags Distribution (doughnut chart)
+
+**Right Column (25%)**:
+- **Activity Log**: Real-time feed of recent actions
+  - Domain additions/deletions
+  - WHOIS refreshes
+  - Health check results
+  - Settings changes
+  - Color-coded by action type
+
+### Activity Log Styling
+
+```css
+.log-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.log-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Color coding by action type */
+.log-item.log-create .log-icon { background: rgba(0, 144, 91, 0.2); color: var(--success); }
+.log-item.log-update .log-icon { background: rgba(99, 102, 241, 0.2); color: var(--primary); }
+.log-item.log-delete .log-icon { background: rgba(133, 17, 48, 0.2); color: var(--danger); }
+.log-item.log-refresh .log-icon { background: rgba(168, 165, 3, 0.2); color: var(--mild-warning); }
+.log-item.log-health .log-icon { background: rgba(0, 180, 216, 0.2); color: #00b4d8; }
+```
+
+---
+
 ## Conclusion
 
 Domain Monitor is a comprehensive solution for domain portfolio management. Key features include:
 
-- **WHOIS tracking** with automatic refresh
+- **WHOIS tracking** with automatic refresh and multi-source lookup (APILayer, direct WHOIS, RDAP)
 - **Health monitoring** (DNS, HTTP, SSL)
 - **Email alerts** for expiring domains
 - **Organization** via groups and tags
@@ -3000,6 +3413,8 @@ Domain Monitor is a comprehensive solution for domain portfolio management. Key 
 - **Real-time updates** via WebSocket
 - **Security** with authentication and encryption
 - **Audit trail** for compliance
+- **Dark/Light themes** with persistent preference
+- **Activity dashboard** with real-time activity log
 
 The codebase follows clean architecture principles with clear separation between configuration, database, middleware, routes, and services. TypeScript provides type safety, while Zod ensures runtime validation.
 
