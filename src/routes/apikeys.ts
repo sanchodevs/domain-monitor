@@ -51,6 +51,10 @@ router.put(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid API key ID' });
+    }
+
     const { name, priority, enabled } = req.body;
 
     const updated = updateAPIKey(id, { name, priority, enabled });
@@ -79,6 +83,10 @@ router.put(
   '/:id/toggle',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid API key ID' });
+    }
+
     const toggled = toggleAPIKey(id);
 
     if (!toggled) {
@@ -96,6 +104,10 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid API key ID' });
+    }
+
     const deleted = deleteAPIKey(id);
 
     if (!deleted) {

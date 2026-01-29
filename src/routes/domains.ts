@@ -108,8 +108,11 @@ router.delete(
   '/id/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const existing = getDomainById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
 
+    const existing = getDomainById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Domain not found' });
     }
@@ -127,6 +130,10 @@ router.post(
   validateBody(assignGroupSchema),
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
     const { group_id } = req.body;
 
     const domain = getDomainById(id);
@@ -144,8 +151,11 @@ router.get(
   '/:id/tags',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const domain = getDomainById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
 
+    const domain = getDomainById(id);
     if (!domain) {
       return res.status(404).json({ success: false, message: 'Domain not found' });
     }
@@ -161,6 +171,10 @@ router.put(
   validateBody(assignTagsSchema),
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
     const { tag_ids } = req.body;
 
     const domain = getDomainById(id);
@@ -180,6 +194,10 @@ router.post(
     const domainId = parseInt(String(req.params.id), 10);
     const tagId = parseInt(String(req.params.tagId), 10);
 
+    if (isNaN(domainId) || domainId <= 0 || isNaN(tagId) || tagId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain or tag ID' });
+    }
+
     const domain = getDomainById(domainId);
     if (!domain) {
       return res.status(404).json({ success: false, message: 'Domain not found' });
@@ -196,6 +214,10 @@ router.delete(
   asyncHandler(async (req, res) => {
     const domainId = parseInt(String(req.params.id), 10);
     const tagId = parseInt(String(req.params.tagId), 10);
+
+    if (isNaN(domainId) || domainId <= 0 || isNaN(tagId) || tagId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain or tag ID' });
+    }
 
     removeTagFromDomain(domainId, tagId);
     res.json({ success: true });

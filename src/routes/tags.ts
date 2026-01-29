@@ -28,8 +28,11 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const tag = getTagById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid tag ID' });
+    }
 
+    const tag = getTagById(id);
     if (!tag) {
       return res.status(404).json({ success: false, message: 'Tag not found' });
     }
@@ -70,8 +73,11 @@ router.put(
   validateBody(tagSchema.partial()),
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const existing = getTagById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid tag ID' });
+    }
 
+    const existing = getTagById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Tag not found' });
     }
@@ -99,8 +105,11 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const existing = getTagById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid tag ID' });
+    }
 
+    const existing = getTagById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Tag not found' });
     }

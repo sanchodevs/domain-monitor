@@ -36,7 +36,11 @@ router.get(
   '/domain/:id',
   asyncHandler(async (req, res) => {
     const domainId = parseInt(String(req.params.id), 10);
-    const limit = parseInt(req.query.limit as string, 10) || 100;
+    if (isNaN(domainId) || domainId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 100, 1), 1000);
 
     const domain = getDomainById(domainId);
     if (!domain) {
@@ -53,6 +57,9 @@ router.get(
   '/domain/:id/latest',
   asyncHandler(async (req, res) => {
     const domainId = parseInt(String(req.params.id), 10);
+    if (isNaN(domainId) || domainId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
 
     const domain = getDomainById(domainId);
     if (!domain) {
@@ -69,6 +76,9 @@ router.post(
   '/domain/:id',
   asyncHandler(async (req, res) => {
     const domainId = parseInt(String(req.params.id), 10);
+    if (isNaN(domainId) || domainId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
 
     const domain = getDomainById(domainId);
     if (!domain) {
@@ -107,7 +117,7 @@ router.post(
 router.delete(
   '/cleanup',
   asyncHandler(async (req, res) => {
-    const daysToKeep = parseInt(req.query.days as string, 10) || 30;
+    const daysToKeep = Math.min(Math.max(parseInt(req.query.days as string, 10) || 30, 1), 365);
     const deleted = cleanupOldHealthRecords(daysToKeep);
     res.json({ success: true, deleted });
   })
