@@ -29,8 +29,11 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const group = getGroupById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid group ID' });
+    }
 
+    const group = getGroupById(id);
     if (!group) {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
@@ -44,8 +47,11 @@ router.get(
   '/:id/domains',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const group = getGroupById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid group ID' });
+    }
 
+    const group = getGroupById(id);
     if (!group) {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
@@ -87,8 +93,11 @@ router.put(
   validateBody(updateGroupSchema),
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const existing = getGroupById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid group ID' });
+    }
 
+    const existing = getGroupById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
@@ -116,8 +125,11 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const id = parseInt(String(req.params.id), 10);
-    const existing = getGroupById(id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid group ID' });
+    }
 
+    const existing = getGroupById(id);
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }

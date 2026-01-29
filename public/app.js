@@ -290,10 +290,13 @@ function initWebSocket() {
 }
 
 function handleWebSocketMessage(message) {
+  // Server sends data in 'payload' field
+  const payload = message.payload || {};
+
   switch (message.type) {
     case 'refresh_progress':
-      showRefreshProgress(true, message.data.completed, message.data.total);
-      if (message.data.completed === message.data.total) {
+      showRefreshProgress(true, payload.completed, payload.total);
+      if (payload.completed === payload.total) {
         showRefreshProgress(false);
         state.isRefreshing = false;
         showNotification('Refresh complete!', 'success');
@@ -301,21 +304,29 @@ function handleWebSocketMessage(message) {
       }
       break;
 
-    case 'domain_update':
+    case 'refresh_complete':
+      showRefreshProgress(false);
+      state.isRefreshing = false;
+      showNotification(`Refresh complete! ${payload.total} domains processed.`, 'success');
+      load();
+      break;
+
+    case 'domain_updated':
       // Update single domain in table without full reload
-      updateDomainInTable(message.data);
+      updateDomainInTable(payload);
       break;
 
     case 'health_update':
       // Update health indicator for domain
-      updateHealthIndicator(message.data.domainId, message.data.health);
+      updateHealthIndicator(payload.domainId, payload.health);
       break;
 
-    case 'auth_required':
-      state.authRequired = true;
-      if (!state.isAuthenticated) {
-        openModal('loginModal');
-      }
+    case 'error':
+      showNotification(payload.message || 'An error occurred', 'error');
+      break;
+
+    case 'connected':
+      // Connection confirmed
       break;
 
     default:
