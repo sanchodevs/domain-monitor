@@ -2,7 +2,7 @@
    THEME SYSTEM
 ========================== */
 :root {
-  --font-primary: 'Urbanist', sans-serif;
+  --font-primary: 'Inter', sans-serif;
 
   /* Radius */
   --radius-sm: 8px;
