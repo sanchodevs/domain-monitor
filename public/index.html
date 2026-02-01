@@ -587,6 +587,39 @@
       </table>
     </section>
 
+    <!-- Pagination Controls -->
+    <section class="pagination-controls" id="paginationControls" style="display: none;">
+      <div class="pagination-info">
+        <span id="paginationInfo">Showing 0 of 0 domains</span>
+      </div>
+      <div class="pagination-nav">
+        <button class="btn btn-pagination" id="paginationFirst" onclick="goToPage(1)" title="First page">
+          <i class="fa-solid fa-angles-left"></i>
+        </button>
+        <button class="btn btn-pagination" id="paginationPrev" onclick="goToPage(state.pagination.page - 1)" title="Previous page">
+          <i class="fa-solid fa-angle-left"></i>
+        </button>
+        <div class="pagination-pages" id="paginationPages">
+          <!-- Page numbers generated dynamically -->
+        </div>
+        <button class="btn btn-pagination" id="paginationNext" onclick="goToPage(state.pagination.page + 1)" title="Next page">
+          <i class="fa-solid fa-angle-right"></i>
+        </button>
+        <button class="btn btn-pagination" id="paginationLast" onclick="goToPage(state.pagination.totalPages)" title="Last page">
+          <i class="fa-solid fa-angles-right"></i>
+        </button>
+      </div>
+      <div class="pagination-size">
+        <label for="pageSize">Per page:</label>
+        <select id="pageSize" onchange="changePageSize(this.value)">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </div>
+    </section>
+
   </div>
 
  <!-- Footer -->

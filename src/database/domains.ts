@@ -2,6 +2,15 @@ import { db } from './db.js';
 import type { Domain, DomainRow } from '../types/domain.js';
 import type { Statement } from 'better-sqlite3';
 
+// Pagination result type
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 // Lazy prepared statements
 let _statements: {
   getAll: Statement;
@@ -101,6 +110,110 @@ function domainToParams(domain: Domain): Record<string, unknown> {
 export function getAllDomains(): Domain[] {
   const rows = getStatements().getAll.all() as DomainRow[];
   return rows.map(row => rowToDomain(row)!);
+}
+
+export function getDomainsPaginated(
+  page: number = 1,
+  limit: number = 50,
+  sortBy: string = 'domain',
+  sortOrder: 'asc' | 'desc' = 'asc',
+  search?: string,
+  status?: string,
+  groupId?: number | 'none',
+  registrar?: string
+): PaginatedResult<Domain> {
+  // Validate and sanitize sort column to prevent SQL injection
+  const allowedSortColumns: Record<string, string> = {
+    domain: 'domain',
+    registrar: 'registrar',
+    expiry: 'expiry_date',
+    age: 'created_date',
+    lastChecked: 'last_checked',
+  };
+  const sortColumn = allowedSortColumns[sortBy] || 'domain';
+  const order = sortOrder === 'desc' ? 'DESC' : 'ASC';
+
+  // Build WHERE clauses
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  // Search filter
+  if (search && search.trim()) {
+    conditions.push('(LOWER(domain) LIKE ? OR LOWER(registrar) LIKE ? OR LOWER(name_servers) LIKE ?)');
+    const searchPattern = `%${search.toLowerCase().trim()}%`;
+    params.push(searchPattern, searchPattern, searchPattern);
+  }
+
+  // Group filter
+  if (groupId === 'none') {
+    conditions.push('group_id IS NULL');
+  } else if (typeof groupId === 'number') {
+    conditions.push('group_id = ?');
+    params.push(groupId);
+  }
+
+  // Registrar filter
+  if (registrar && registrar !== 'all') {
+    conditions.push('registrar = ?');
+    params.push(registrar);
+  }
+
+  // Status filter
+  if (status && status !== 'all') {
+    const now = new Date().toISOString().split('T')[0];
+    switch (status) {
+      case 'expired':
+        conditions.push("expiry_date != '' AND date(expiry_date) < date(?)");
+        params.push(now);
+        break;
+      case 'expiring30':
+        conditions.push("expiry_date != '' AND date(expiry_date) >= date(?) AND date(expiry_date) <= date(?, '+30 days')");
+        params.push(now, now);
+        break;
+      case 'expiring90':
+        conditions.push("expiry_date != '' AND date(expiry_date) >= date(?) AND date(expiry_date) <= date(?, '+90 days')");
+        params.push(now, now);
+        break;
+      case 'expiring180':
+        conditions.push("expiry_date != '' AND date(expiry_date) >= date(?) AND date(expiry_date) <= date(?, '+180 days')");
+        params.push(now, now);
+        break;
+      case 'safe':
+        conditions.push("expiry_date != '' AND date(expiry_date) > date(?, '+180 days')");
+        params.push(now);
+        break;
+      case 'error':
+        conditions.push("error IS NOT NULL AND error != ''");
+        break;
+      case 'unchecked':
+        conditions.push('last_checked IS NULL');
+        break;
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Get total count
+  const countSql = `SELECT COUNT(*) as count FROM domains ${whereClause}`;
+  const countResult = db.prepare(countSql).get(...params) as { count: number };
+  const total = countResult.count;
+
+  // Calculate pagination
+  const totalPages = Math.ceil(total / limit);
+  const validPage = Math.max(1, Math.min(page, totalPages || 1));
+  const offset = (validPage - 1) * limit;
+
+  // Get paginated data
+  const dataSql = `SELECT * FROM domains ${whereClause} ORDER BY ${sortColumn} ${order} LIMIT ? OFFSET ?`;
+  const rows = db.prepare(dataSql).all(...params, limit, offset) as DomainRow[];
+
+  return {
+    data: rows.map(row => rowToDomain(row)!),
+    total,
+    page: validPage,
+    limit,
+    totalPages,
+  };
 }
 
 export function getDomainById(id: number): Domain | null {
