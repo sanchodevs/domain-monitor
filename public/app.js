@@ -234,7 +234,14 @@ let state = {
     health: null,
     tags: null
   },
-  importFile: null
+  importFile: null,
+  pagination: {
+    enabled: true,
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0
+  }
 };
 
 const FILTERS = {
@@ -1043,9 +1050,33 @@ async function load() {
   try {
     showLoading(true);
 
+    // Build API URL with pagination and filters
+    const params = new URLSearchParams();
+    params.set('include', 'all');
+
+    if (state.pagination.enabled) {
+      params.set('page', String(state.pagination.page));
+      params.set('limit', String(state.pagination.limit));
+      params.set('sortBy', FILTERS.sortBy);
+      params.set('sortOrder', FILTERS.sortOrder);
+
+      if (FILTERS.search) {
+        params.set('search', FILTERS.search);
+      }
+      if (FILTERS.status && FILTERS.status !== 'all') {
+        params.set('status', FILTERS.status);
+      }
+      if (FILTERS.group && FILTERS.group !== 'all') {
+        params.set('group', FILTERS.group);
+      }
+      if (FILTERS.registrar && FILTERS.registrar !== 'all') {
+        params.set('registrar', FILTERS.registrar);
+      }
+    }
+
     // Load domains, groups, and tags in parallel
     const [domainsRes, groupsRes, tagsRes] = await Promise.all([
-      fetch("/api/domains?include=all"),
+      fetch(`/api/domains?${params.toString()}`),
       fetch("/api/groups"),
       fetch("/api/tags")
     ]);
@@ -1055,8 +1086,26 @@ async function load() {
       throw new Error(error.message);
     }
 
-    const allDomains = await domainsRes.json();
-    state.allDomains = allDomains;
+    const domainsData = await domainsRes.json();
+
+    // Handle paginated vs non-paginated response
+    let displayDomains;
+    let totalDomains;
+
+    if (state.pagination.enabled && domainsData.data) {
+      // Paginated response
+      displayDomains = domainsData.data;
+      state.allDomains = displayDomains;
+      state.pagination.total = domainsData.total;
+      state.pagination.totalPages = domainsData.totalPages;
+      state.pagination.page = domainsData.page;
+      totalDomains = domainsData.total;
+    } else {
+      // Non-paginated response (backward compatibility)
+      displayDomains = domainsData;
+      state.allDomains = domainsData;
+      totalDomains = domainsData.length;
+    }
 
     if (groupsRes.ok) {
       state.groups = await groupsRes.json();
@@ -1069,15 +1118,19 @@ async function load() {
     // Update group filter dropdown
     updateGroupFilter();
 
-    // Apply filters
-    let filteredDomains = allDomains.filter(d => matchesFilters(d, FILTERS));
+    // For paginated mode, server already filtered/sorted
+    // For non-paginated mode, apply client-side filters
+    let filteredDomains = displayDomains;
+    if (!state.pagination.enabled) {
+      filteredDomains = displayDomains.filter(d => matchesFilters(d, FILTERS));
+      filteredDomains = sortDomains(filteredDomains, FILTERS.sortBy, FILTERS.sortOrder);
+    }
 
-    // Apply sorting
-    filteredDomains = sortDomains(filteredDomains, FILTERS.sortBy, FILTERS.sortOrder);
-
-    // Calculate stats from ALL domains
+    // Calculate stats - for paginated mode, we need to fetch stats separately or use total
+    // For now, calculate from what we have (in paginated mode, this will be per-page stats)
+    const statsSource = state.pagination.enabled ? filteredDomains : displayDomains;
     const stats = { expired: 0, exp15: 0, exp30: 0, exp90: 0, exp180: 0, unchecked: 0 };
-    allDomains.forEach(d => {
+    statsSource.forEach(d => {
       if (!d.last_checked) {
         stats.unchecked++;
       }
@@ -1133,11 +1186,16 @@ async function load() {
     // Update selection UI after render
     updateSelectionUI();
 
-    // Update result count
-    updateResultCount(filteredDomains.length, allDomains.length);
+    // Update result count and pagination
+    if (state.pagination.enabled) {
+      updateResultCount(filteredDomains.length, totalDomains);
+      updatePaginationControls();
+    } else {
+      updateResultCount(filteredDomains.length, totalDomains);
+    }
 
     // Update dashboard
-    document.getElementById("totalDomains").innerText = allDomains.length;
+    document.getElementById("totalDomains").innerText = totalDomains;
     document.getElementById("expired").innerText = stats.expired;
     document.getElementById("exp15").innerText = stats.exp15;
     document.getElementById("exp30").innerText = stats.exp30;
@@ -1157,11 +1215,11 @@ async function load() {
     // Update sort header indicators
     updateSortHeaders();
 
-    // Update registrar dropdown
-    updateRegistrarFilter(allDomains);
+    // Update registrar dropdown - for paginated mode, this only shows current page registrars
+    updateRegistrarFilter(filteredDomains);
 
     // Update charts
-    updateCharts(allDomains);
+    updateCharts(filteredDomains);
 
     showLoading(false);
 
@@ -1183,6 +1241,9 @@ function applyFilters() {
   FILTERS.sortBy = document.getElementById('sortBy')?.value || 'expiry';
   FILTERS.sortOrder = document.getElementById('sortOrder')?.value || 'asc';
 
+  // Reset to first page when filters change
+  state.pagination.page = 1;
+
   load();
 }
 
@@ -1200,6 +1261,9 @@ function clearFilters() {
   document.getElementById('filterGroup').value = 'all';
   document.getElementById('sortBy').value = 'expiry';
   document.getElementById('sortOrder').value = 'asc';
+
+  // Reset to first page
+  state.pagination.page = 1;
 
   load();
 }
@@ -1225,6 +1289,113 @@ function handleHeaderSort(sortKey) {
   document.getElementById('sortBy').value = FILTERS.sortBy;
   document.getElementById('sortOrder').value = FILTERS.sortOrder;
 
+  // Reset to first page when sorting changes
+  state.pagination.page = 1;
+
+  load();
+}
+
+/* ======================================================
+   Pagination Controls
+====================================================== */
+function updatePaginationControls() {
+  const controls = document.getElementById('paginationControls');
+  if (!controls) return;
+
+  const { page, limit, total, totalPages } = state.pagination;
+
+  // Show/hide pagination controls based on total items
+  if (total <= limit && page === 1) {
+    controls.style.display = 'none';
+    return;
+  }
+  controls.style.display = 'flex';
+
+  // Update info text
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+  const infoEl = document.getElementById('paginationInfo');
+  if (infoEl) {
+    infoEl.textContent = `Showing ${start}-${end} of ${total} domains`;
+  }
+
+  // Update page size selector
+  const pageSizeEl = document.getElementById('pageSize');
+  if (pageSizeEl) {
+    pageSizeEl.value = String(limit);
+  }
+
+  // Enable/disable navigation buttons
+  document.getElementById('paginationFirst').disabled = page <= 1;
+  document.getElementById('paginationPrev').disabled = page <= 1;
+  document.getElementById('paginationNext').disabled = page >= totalPages;
+  document.getElementById('paginationLast').disabled = page >= totalPages;
+
+  // Generate page numbers
+  const pagesContainer = document.getElementById('paginationPages');
+  if (pagesContainer) {
+    pagesContainer.innerHTML = generatePageNumbers(page, totalPages);
+  }
+}
+
+function generatePageNumbers(currentPage, totalPages) {
+  if (totalPages <= 1) return '';
+
+  const pages = [];
+  const maxVisible = 5;
+
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+  // Adjust if we're near the end
+  if (endPage - startPage < maxVisible - 1) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+
+  // First page
+  if (startPage > 1) {
+    pages.push(`<button class="btn btn-page" onclick="goToPage(1)">1</button>`);
+    if (startPage > 2) {
+      pages.push('<span class="pagination-ellipsis">...</span>');
+    }
+  }
+
+  // Page numbers
+  for (let i = startPage; i <= endPage; i++) {
+    if (i === currentPage) {
+      pages.push(`<button class="btn btn-page active">${i}</button>`);
+    } else {
+      pages.push(`<button class="btn btn-page" onclick="goToPage(${i})">${i}</button>`);
+    }
+  }
+
+  // Last page
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      pages.push('<span class="pagination-ellipsis">...</span>');
+    }
+    pages.push(`<button class="btn btn-page" onclick="goToPage(${totalPages})">${totalPages}</button>`);
+  }
+
+  return pages.join('');
+}
+
+function goToPage(page) {
+  const { totalPages } = state.pagination;
+
+  if (page < 1 || page > totalPages) return;
+  if (page === state.pagination.page) return;
+
+  state.pagination.page = page;
+  load();
+}
+
+function changePageSize(size) {
+  const newLimit = parseInt(size, 10);
+  if (isNaN(newLimit) || newLimit < 1) return;
+
+  state.pagination.limit = newLimit;
+  state.pagination.page = 1; // Reset to first page
   load();
 }
 

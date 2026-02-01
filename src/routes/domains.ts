@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAllDomains,
+  getDomainsPaginated,
   getDomain,
   getDomainById,
   addDomain,
@@ -20,16 +21,62 @@ import type { DomainWithRelations } from '../types/domain.js';
 
 const router = Router();
 
-// Get all domains
+// Get all domains (with optional pagination)
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const domains = getAllDomains();
-
     // Optionally include tags and health
     const include = req.query.include as string || '';
     const withTags = include === 'tags' || include === 'all';
     const withHealth = include === 'health' || include === 'all';
+
+    // Check if pagination is requested
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
+
+    // If pagination params provided, use paginated query
+    if (pageParam !== undefined || limitParam !== undefined) {
+      const page = Math.max(1, parseInt(String(pageParam || '1'), 10) || 1);
+      const limit = Math.min(Math.max(1, parseInt(String(limitParam || '50'), 10) || 50), 200);
+      const sortBy = String(req.query.sortBy || 'domain');
+      const sortOrder = req.query.sortOrder === 'desc' ? 'desc' : 'asc';
+      const search = req.query.search ? String(req.query.search) : undefined;
+      const status = req.query.status ? String(req.query.status) : undefined;
+
+      // Parse group filter
+      let groupId: number | 'none' | undefined;
+      if (req.query.group === 'none') {
+        groupId = 'none';
+      } else if (req.query.group && req.query.group !== 'all') {
+        const parsed = parseInt(String(req.query.group), 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          groupId = parsed;
+        }
+      }
+
+      // Parse registrar filter
+      const registrar = req.query.registrar ? String(req.query.registrar) : undefined;
+
+      const paginatedResult = getDomainsPaginated(page, limit, sortBy, sortOrder, search, status, groupId, registrar);
+
+      // Enrich with tags and health
+      const enrichedData: DomainWithRelations[] = paginatedResult.data.map((domain) => ({
+        ...domain,
+        tags: withTags && domain.id ? getTagsForDomain(domain.id) : undefined,
+        health: withHealth && domain.id ? getLatestHealth(domain.id) : undefined,
+      }));
+
+      return res.json({
+        data: enrichedData,
+        total: paginatedResult.total,
+        page: paginatedResult.page,
+        limit: paginatedResult.limit,
+        totalPages: paginatedResult.totalPages,
+      });
+    }
+
+    // Non-paginated response (backward compatible)
+    const domains = getAllDomains();
 
     const result: DomainWithRelations[] = domains.map((domain) => ({
       ...domain,
