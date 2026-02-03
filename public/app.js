@@ -24,13 +24,15 @@ function getThemeColors() {
     danger: isDark ? '#ef4444' : '#dc2626',
     safe: isDark ? '#3b82f6' : '#2563eb',
     primary: isDark ? '#6366f1' : '#4f46e5',
-    // Chart specific colors - refined for better visual harmony
+    // Chart colors - Professional muted palette with good visual separation
+    // Expiration chart: Expired, <30d, <90d, <180d, >180d
     chartColors: isDark
-      ? ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#3b82f6']
-      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#2563eb'],
+      ? ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#60a5fa']  // Softer, more refined
+      : ['#ef4444', '#f97316', '#eab308', '#10b981', '#3b82f6'],
+    // Health chart: DNS OK, DNS Fail, HTTP OK, HTTP Fail, SSL Valid, SSL Invalid
     healthColors: isDark
-      ? ['#10b981', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6', '#52525b']
-      : ['#059669', '#dc2626', '#0891b2', '#d97706', '#7c3aed', '#94a3b8']
+      ? ['#4ade80', '#f87171', '#22d3ee', '#fbbf24', '#a78bfa', '#6b7280']  // Balanced saturation
+      : ['#22c55e', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6', '#9ca3af']
   };
 }
 
