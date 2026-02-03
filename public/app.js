@@ -18,21 +18,21 @@ function getThemeColors() {
     textSecondary: isDark ? '#a1a1aa' : '#475569',
     textMuted: isDark ? '#71717a' : '#64748b',
     gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)',
-    success: isDark ? '#10b981' : '#059669',
-    warning: isDark ? '#f59e0b' : '#d97706',
-    mildWarning: isDark ? '#eab308' : '#ca8a04',
-    danger: isDark ? '#ef4444' : '#dc2626',
-    safe: isDark ? '#3b82f6' : '#2563eb',
-    primary: isDark ? '#6366f1' : '#4f46e5',
-    // Chart colors - Professional muted palette with good visual separation
+    success: isDark ? '#30D158' : '#107C10',    // Apple/Microsoft green
+    warning: isDark ? '#FF9F0A' : '#FFB900',    // Apple/Microsoft amber
+    mildWarning: isDark ? '#FFD60A' : '#FFC107', // Apple yellow / Material amber
+    danger: isDark ? '#FF453A' : '#D65532',      // Apple red / Fluent error
+    safe: isDark ? '#0A84FF' : '#0078D4',        // Apple/Microsoft blue
+    primary: isDark ? '#5E5CE6' : '#5856D6',     // Apple indigo
+    // Chart colors - Enterprise palette inspired by Microsoft Fluent, Google Material, Apple HIG
     // Expiration chart: Expired, <30d, <90d, <180d, >180d
     chartColors: isDark
-      ? ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#60a5fa']  // Softer, more refined
-      : ['#ef4444', '#f97316', '#eab308', '#10b981', '#3b82f6'],
+      ? ['#FF453A', '#FF9F0A', '#FFD60A', '#30D158', '#0A84FF']  // Apple dark mode
+      : ['#D65532', '#FF9800', '#FFC107', '#107C10', '#0078D4'], // Fluent/Material light
     // Health chart: DNS OK, DNS Fail, HTTP OK, HTTP Fail, SSL Valid, SSL Invalid
     healthColors: isDark
-      ? ['#4ade80', '#f87171', '#22d3ee', '#fbbf24', '#a78bfa', '#6b7280']  // Balanced saturation
-      : ['#22c55e', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6', '#9ca3af']
+      ? ['#30D158', '#FF453A', '#64D2FF', '#FF9F0A', '#BF5AF2', '#8E8E93']  // Apple dark
+      : ['#107C10', '#D65532', '#0078D4', '#FF9800', '#9C27B0', '#607D8B']  // Fluent/Material
   };
 }
 
