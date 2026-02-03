@@ -14,23 +14,23 @@ function initTheme() {
 function getThemeColors() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
-    textPrimary: isDark ? '#f9f9f9' : '#1a1d21',
-    textSecondary: isDark ? '#b5b5b5' : '#4a5568',
-    textMuted: isDark ? '#8a8a8a' : '#718096',
-    gridColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-    success: isDark ? '#00905b' : '#059669',
-    warning: isDark ? '#a84803' : '#d97706',
-    mildWarning: isDark ? '#a8a503' : '#ca8a04',
-    danger: isDark ? '#851130' : '#dc2626',
-    safe: isDark ? '#384b86' : '#3b82f6',
+    textPrimary: isDark ? '#fafafa' : '#0f172a',
+    textSecondary: isDark ? '#a1a1aa' : '#475569',
+    textMuted: isDark ? '#71717a' : '#64748b',
+    gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)',
+    success: isDark ? '#10b981' : '#059669',
+    warning: isDark ? '#f59e0b' : '#d97706',
+    mildWarning: isDark ? '#eab308' : '#ca8a04',
+    danger: isDark ? '#ef4444' : '#dc2626',
+    safe: isDark ? '#3b82f6' : '#2563eb',
     primary: isDark ? '#6366f1' : '#4f46e5',
-    // Chart specific colors
+    // Chart specific colors - refined for better visual harmony
     chartColors: isDark
-      ? ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86']
-      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#3b82f6'],
+      ? ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#3b82f6']
+      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#2563eb'],
     healthColors: isDark
-      ? ['#00905b', '#851130', '#00b4d8', '#a84803', '#8b5cf6', '#4a4a4a']
-      : ['#059669', '#dc2626', '#0ea5e9', '#d97706', '#8b5cf6', '#94a3b8']
+      ? ['#10b981', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6', '#52525b']
+      : ['#059669', '#dc2626', '#0891b2', '#d97706', '#7c3aed', '#94a3b8']
   };
 }
 
