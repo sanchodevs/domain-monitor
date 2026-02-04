@@ -42,14 +42,14 @@
   --bg-input: #0e0e10;
   --bg-table-row: #131315;
   --bg-elevated: #1a1a1d;
-  --bg-gradient: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.08), transparent),
+  --bg-gradient: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(94, 92, 230, 0.08), transparent),
                  linear-gradient(180deg, #0c0c0e 0%, #09090b 100%);
 
   /* Borders - Refined opacity */
   --border-subtle: rgba(255,255,255,0.03);
   --border-soft: rgba(255,255,255,0.06);
   --border-strong: rgba(255,255,255,0.10);
-  --border-focus: rgba(99, 102, 241, 0.5);
+  --border-focus: rgba(94, 92, 230, 0.5);
 
   /* Text - Better contrast hierarchy */
   --text-primary: #fafafa;
@@ -57,27 +57,27 @@
   --text-muted: #71717a;
   --text-disabled: #52525b;
 
-  /* Status Colors - More vibrant, accessible */
-  --success: #10b981;
-  --success-muted: rgba(16, 185, 129, 0.15);
-  --warning: #f59e0b;
-  --warning-muted: rgba(245, 158, 11, 0.15);
-  --mild-warning: #eab308;
-  --mild-warning-muted: rgba(234, 179, 8, 0.15);
-  --danger: #ef4444;
-  --danger-muted: rgba(239, 68, 68, 0.12);
-  --safe: #3b82f6;
-  --safe-muted: rgba(59, 130, 246, 0.15);
-  --primary: #6366f1;
-  --primary-hover: #818cf8;
-  --primary-muted: rgba(99, 102, 241, 0.15);
+  /* Status Colors - Enterprise palette (Apple iOS dark mode) */
+  --success: #30D158;
+  --success-muted: rgba(48, 209, 88, 0.15);
+  --warning: #FF9F0A;
+  --warning-muted: rgba(255, 159, 10, 0.15);
+  --mild-warning: #FFD60A;
+  --mild-warning-muted: rgba(255, 214, 10, 0.15);
+  --danger: #FF453A;
+  --danger-muted: rgba(255, 69, 58, 0.12);
+  --safe: #0A84FF;
+  --safe-muted: rgba(10, 132, 255, 0.15);
+  --primary: #5E5CE6;
+  --primary-hover: #7D7AFF;
+  --primary-muted: rgba(94, 92, 230, 0.15);
 
   /* Shadows - Refined depth */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
   --shadow-lg: 0 16px 48px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.4);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-glow: 0 0 20px rgba(94, 92, 230, 0.15);
 
   /* Theme-specific */
   --header-gradient: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
@@ -118,7 +118,7 @@
   --border-subtle: rgba(0,0,0,0.04);
   --border-soft: rgba(0,0,0,0.08);
   --border-strong: rgba(0,0,0,0.12);
-  --border-focus: rgba(79, 70, 229, 0.5);
+  --border-focus: rgba(88, 86, 214, 0.5);
 
   /* Text - Strong contrast */
   --text-primary: #0f172a;
@@ -126,27 +126,27 @@
   --text-muted: #64748b;
   --text-disabled: #94a3b8;
 
-  /* Status Colors - Vibrant, accessible */
-  --success: #059669;
-  --success-muted: rgba(5, 150, 105, 0.12);
-  --warning: #d97706;
-  --warning-muted: rgba(217, 119, 6, 0.12);
-  --mild-warning: #ca8a04;
-  --mild-warning-muted: rgba(202, 138, 4, 0.12);
-  --danger: #dc2626;
-  --danger-muted: rgba(220, 38, 38, 0.1);
-  --safe: #2563eb;
-  --safe-muted: rgba(37, 99, 235, 0.12);
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-muted: rgba(79, 70, 229, 0.12);
+  /* Status Colors - Enterprise palette (Microsoft Fluent / Google Material) */
+  --success: #107C10;
+  --success-muted: rgba(16, 124, 16, 0.12);
+  --warning: #FFB900;
+  --warning-muted: rgba(255, 185, 0, 0.12);
+  --mild-warning: #FFC107;
+  --mild-warning-muted: rgba(255, 193, 7, 0.12);
+  --danger: #D65532;
+  --danger-muted: rgba(214, 85, 50, 0.1);
+  --safe: #0078D4;
+  --safe-muted: rgba(0, 120, 212, 0.12);
+  --primary: #5856D6;
+  --primary-hover: #4338CA;
+  --primary-muted: rgba(88, 86, 214, 0.12);
 
   /* Shadows - Soft depth */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.06);
-  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.1);
+  --shadow-glow: 0 0 20px rgba(88, 86, 214, 0.1);
 
   /* Theme-specific */
   --header-gradient: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,0.9));
@@ -611,17 +611,17 @@ header h1:hover img {
   background: var(--primary);
   border-color: var(--primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 2px 8px rgba(94, 92, 230, 0.25);
 }
 
 .btn-primary:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 12px rgba(94, 92, 230, 0.35);
 }
 
 .btn-primary:active {
-  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 1px 4px rgba(94, 92, 230, 0.2);
 }
 
 .btn-icon {
@@ -1124,7 +1124,7 @@ select:focus {
 .import-dropzone:hover,
 .import-dropzone.dragover {
   border-color: var(--primary);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(94, 92, 230, 0.05);
 }
 
 .import-dropzone i {
@@ -1562,7 +1562,7 @@ select:focus {
 }
 
 .log-item.log-create .log-icon { background: rgba(0, 144, 91, 0.2); color: var(--success); }
-.log-item.log-update .log-icon { background: rgba(99, 102, 241, 0.2); color: var(--primary); }
+.log-item.log-update .log-icon { background: rgba(94, 92, 230, 0.2); color: var(--primary); }
 .log-item.log-delete .log-icon { background: rgba(133, 17, 48, 0.2); color: var(--danger); }
 .log-item.log-refresh .log-icon { background: rgba(168, 165, 3, 0.2); color: var(--mild-warning); }
 .log-item.log-health .log-icon { background: rgba(0, 180, 216, 0.2); color: #00b4d8; }
@@ -2747,8 +2747,8 @@ select,
 }
 
 [data-theme="light"] .tag-checkbox.selected {
-  background: rgba(79, 70, 229, 0.15);
-  border-color: rgba(79, 70, 229, 0.4);
+  background: rgba(88, 86, 214, 0.15);
+  border-color: rgba(88, 86, 214, 0.4);
 }
 
 [data-theme="light"] .preset-btn.active {
@@ -2896,7 +2896,7 @@ select,
   border-color: var(--primary);
   color: white;
   cursor: default;
-  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 6px rgba(94, 92, 230, 0.3);
 }
 
 .pagination-ellipsis {
