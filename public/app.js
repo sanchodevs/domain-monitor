@@ -171,6 +171,37 @@ const escapeHTML = (str) => {
   return div.innerHTML;
 };
 
+// CSS Color Sanitization - prevents CSS injection via color values
+const sanitizeColor = (color) => {
+  if (!color) return '#6b7280'; // Default gray
+  // Only allow valid hex colors, rgb(), rgba(), hsl(), hsla(), or named colors
+  const hexPattern = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
+  const rgbPattern = /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/;
+  const hslPattern = /^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*(0|1|0?\.\d+))?\s*\)$/;
+  const namedColors = /^(transparent|currentcolor|inherit|initial|unset|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)$/i;
+
+  const trimmed = color.trim();
+  if (hexPattern.test(trimmed) || rgbPattern.test(trimmed) || hslPattern.test(trimmed) || namedColors.test(trimmed)) {
+    return trimmed;
+  }
+  return '#6b7280'; // Default gray for invalid colors
+};
+
+// URL Sanitization for safe navigation
+const sanitizeUrl = (url) => {
+  if (!url) return '#';
+  try {
+    const parsed = new URL(url, window.location.origin);
+    // Only allow http, https protocols
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return '#';
+    }
+    return parsed.href;
+  } catch {
+    return '#';
+  }
+};
+
 /* ======================================================
    UI Notifications
 ====================================================== */
@@ -189,7 +220,7 @@ function showNotification(message, type = 'info') {
   setTimeout(() => {
     notification.classList.add('fade-out');
     setTimeout(() => notification.remove(), 300);
-  }, 5000);
+  }, CONFIG.NOTIFICATION_DURATION_MS);
 }
 
 function createNotificationContainer() {
@@ -217,6 +248,18 @@ function showLoading(show = true) {
 /* ======================================================
    State & Filters
 ====================================================== */
+// Immutable configuration constants
+const CONFIG = Object.freeze({
+  WS_MAX_RECONNECT_DELAY: 30000,
+  WS_BASE_DELAY: 1000,
+  SEARCH_DEBOUNCE_MS: 300,
+  NOTIFICATION_DURATION_MS: 5000,
+  DEFAULT_PAGE_SIZE: 50,
+  MAX_ACTIVITY_LOG_ITEMS: 15,
+  MAX_HEALTH_HISTORY_ITEMS: 10
+});
+
+// Mutable application state
 let state = {
   isRefreshing: false,
   refreshTotal: 0,
@@ -240,7 +283,7 @@ let state = {
   pagination: {
     enabled: true,
     page: 1,
-    limit: 50,
+    limit: CONFIG.DEFAULT_PAGE_SIZE,
     total: 0,
     totalPages: 0
   }
@@ -274,8 +317,11 @@ function initWebSocket() {
     state.ws.onclose = () => {
       console.log('WebSocket disconnected');
       updateConnectionStatus(false);
-      // Reconnect with exponential backoff
-      const delay = Math.min(1000 * Math.pow(2, state.wsReconnectAttempts), 30000);
+      // Reconnect with exponential backoff (capped at max delay)
+      const delay = Math.min(
+        CONFIG.WS_BASE_DELAY * Math.pow(2, state.wsReconnectAttempts),
+        CONFIG.WS_MAX_RECONNECT_DELAY
+      );
       state.wsReconnectAttempts++;
       setTimeout(initWebSocket, delay);
     };
@@ -374,12 +420,13 @@ function updateHealthIndicator(domainId, health) {
    Charts
 ====================================================== */
 function initCharts() {
-  const expirationCtx = document.getElementById('expirationChart')?.getContext('2d');
-  const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
-  const healthCtx = document.getElementById('healthChart')?.getContext('2d');
-  const tagsCtx = document.getElementById('tagsChart')?.getContext('2d');
+  try {
+    const expirationCtx = document.getElementById('expirationChart')?.getContext('2d');
+    const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
+    const healthCtx = document.getElementById('healthChart')?.getContext('2d');
+    const tagsCtx = document.getElementById('tagsChart')?.getContext('2d');
 
-  const colors = getThemeColors();
+    const colors = getThemeColors();
 
   // Common chart options for compact display
   const compactLegendOptions = {
@@ -479,6 +526,10 @@ function initCharts() {
         plugins: { legend: compactLegendOptions }
       }
     });
+  }
+  } catch (err) {
+    console.error('Error initializing charts:', err);
+    // Charts will gracefully degrade - app continues to function
   }
 }
 
@@ -604,7 +655,7 @@ async function loadActivityLog() {
   if (!logEl) return;
 
   try {
-    const res = await fetch('/api/audit?limit=15');
+    const res = await apiFetch(`/api/audit?limit=${CONFIG.MAX_ACTIVITY_LOG_ITEMS}`);
     if (!res.ok) {
       logEl.innerHTML = '<div class="no-activity">Could not load activity</div>';
       return;
@@ -1042,7 +1093,7 @@ function renderHealthIndicator(health) {
 ====================================================== */
 function renderTags(tags) {
   if (!tags || tags.length === 0) return '-';
-  return tags.map(tag => `<span class="tag-badge" style="background: ${tag.color}">${escapeHTML(tag.name)}</span>`).join(' ');
+  return tags.map(tag => `<span class="tag-badge" style="background: ${sanitizeColor(tag.color)}">${escapeHTML(tag.name)}</span>`).join(' ');
 }
 
 /* ======================================================
@@ -1169,7 +1220,7 @@ async function load() {
               ${d.error ? '<i class="fa-solid fa-triangle-exclamation error-icon" title="' + escapeHTML(d.error) + '"></i>' : ''}
             </div>
           </td>
-          <td>${group ? `<span class="group-badge"><span class="group-badge-dot" style="background: ${group.color}"></span>${escapeHTML(group.name)}</span>` : '-'}</td>
+          <td>${group ? `<span class="group-badge"><span class="group-badge-dot" style="background: ${sanitizeColor(group.color)}"></span>${escapeHTML(group.name)}</span>` : '-'}</td>
           <td>${renderTags(d.tags)}</td>
           <td>${escapeHTML(d.registrar) || "-"}</td>
           <td>${formatDate(d.expiry_date)}</td>
@@ -1442,7 +1493,7 @@ async function deleteDomain(domain) {
 
   try {
     showLoading(true);
-    const res = await fetch(`/api/domains/${encodeURIComponent(domain)}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/domains/${encodeURIComponent(domain)}`, { method: "DELETE" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1480,7 +1531,7 @@ async function deleteSelected() {
 
   for (const domain of domains) {
     try {
-      const res = await fetch(`/api/domains/${encodeURIComponent(domain)}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/domains/${encodeURIComponent(domain)}`, { method: "DELETE" });
       if (res.ok) {
         deleted++;
         state.selectedDomains.delete(domain);
@@ -1515,7 +1566,7 @@ async function refreshSelected() {
   for (let i = 0; i < domains.length; i++) {
     const domain = domains[i];
     try {
-      const res = await fetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
+      const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
       if (res.ok) {
         refreshed++;
       } else {
@@ -1568,7 +1619,7 @@ async function assignGroupToSelected() {
     if (!domain) continue;
 
     try {
-      const res = await fetch(`/api/domains/${domain.id}/group`, {
+      const res = await apiFetch(`/api/domains/${domain.id}/group`, {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ group_id: parsedGroupId })
@@ -1736,7 +1787,7 @@ async function refreshAll() {
 async function refreshOne(domain) {
   try {
     showLoading(true);
-    const res = await fetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
+    const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1758,7 +1809,7 @@ async function checkDomainHealth(domain) {
 
   try {
     showLoading(true);
-    const res = await fetch(`/api/health/domain/${domainObj.id}`, { method: "POST" });
+    const res = await apiFetch(`/api/health/domain/${domainObj.id}`, { method: "POST" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2034,7 +2085,7 @@ async function addApiKey() {
 
 async function toggleApiKey(id) {
   try {
-    const res = await fetch(`/api/apikeys/${id}/toggle`, { method: 'PUT' });
+    const res = await apiFetch(`/api/apikeys/${id}/toggle`, { method: 'PUT' });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2052,7 +2103,7 @@ async function deleteApiKey(id) {
   if (!confirm('Delete this API key?')) return;
 
   try {
-    const res = await fetch(`/api/apikeys/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/apikeys/${id}`, { method: 'DELETE' });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2087,7 +2138,7 @@ async function loadGroups() {
     container.innerHTML = groups.map(group => `
       <div class="group-item">
         <div class="group-info">
-          <span class="group-color" style="background: ${group.color}"></span>
+          <span class="group-color" style="background: ${sanitizeColor(group.color)}"></span>
           <span class="group-name">${escapeHTML(group.name)}</span>
           <span class="group-count">${group.domain_count || 0} domains</span>
         </div>
@@ -2138,7 +2189,7 @@ async function deleteGroup(id) {
   if (!confirm('Delete this group? Domains in this group will be unassigned.')) return;
 
   try {
-    const res = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/groups/${id}`, { method: 'DELETE' });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2174,7 +2225,7 @@ async function loadTags() {
     container.innerHTML = tags.map(tag => `
       <div class="tag-item">
         <div class="tag-info">
-          <span class="tag-color" style="background: ${tag.color}"></span>
+          <span class="tag-color" style="background: ${sanitizeColor(tag.color)}"></span>
           <span class="tag-name">${escapeHTML(tag.name)}</span>
         </div>
         <div class="tag-actions">
@@ -2223,7 +2274,7 @@ async function deleteTag(id) {
   if (!confirm('Delete this tag?')) return;
 
   try {
-    const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/tags/${id}`, { method: 'DELETE' });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2277,14 +2328,14 @@ async function openDomainDetails(domainId) {
   tagsContainer.innerHTML = state.tags.map(tag => `
     <label class="tag-checkbox ${domainTagIds.includes(tag.id) ? 'selected' : ''}">
       <input type="checkbox" value="${tag.id}" ${domainTagIds.includes(tag.id) ? 'checked' : ''}>
-      <span style="background: ${tag.color}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+      <span style="background: ${sanitizeColor(tag.color)}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
       ${escapeHTML(tag.name)}
     </label>
   `).join('') || '<p class="info-text">No tags available.</p>';
 
   // Load health history
   try {
-    const res = await fetch(`/api/health/domain/${domainId}`);
+    const res = await apiFetch(`/api/health/domain/${domainId}`);
     if (res.ok) {
       const history = await res.json();
       document.getElementById('domainHealthHistory').innerHTML = history.length ? history.slice(0, 10).map(h => `
@@ -2633,7 +2684,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (searchInput) {
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(applyFilters, 300);
+      searchTimeout = setTimeout(applyFilters, CONFIG.SEARCH_DEBOUNCE_MS);
     });
   }
 
