@@ -13,6 +13,8 @@ import routes from './routes/index.js';
 import { wsService } from './services/websocket.js';
 import { initializeScheduler } from './services/scheduler.js';
 import { initializeEmail } from './services/email.js';
+import { startUptimeMonitoring, stopUptimeMonitoring } from './services/uptime.js';
+import { startAutoCleanup, stopAutoCleanup } from './services/cleanup.js';
 import { initializeAuth, authMiddleware, optionalAuthMiddleware } from './middleware/auth.js';
 import { requestLogger } from './middleware/logging.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -64,7 +66,9 @@ app.use(express.static('public'));
 // API routes
 // Auth routes don't need auth middleware - mount them separately
 import authRouter from './routes/auth.js';
+import uptimeRouter from './routes/uptime.js';
 app.use('/api/auth', authRouter);
+app.use('/api/uptime', uptimeRouter);
 
 // All other API routes with auth check for modifications
 app.use('/api', optionalAuthMiddleware, (req, res, next) => {
@@ -105,6 +109,12 @@ async function initialize(): Promise<void> {
 
   // Start session cleanup
   startSessionCleanup();
+
+  // Start uptime monitoring
+  startUptimeMonitoring();
+
+  // Start auto cleanup service
+  startAutoCleanup();
 
   logger.info('All services initialized');
 }
@@ -173,6 +183,8 @@ initialize().then(() => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down...');
+  stopUptimeMonitoring();
+  stopAutoCleanup();
   server.close(() => {
     wsService.close();
     closeDatabase();
@@ -182,6 +194,8 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down...');
+  stopUptimeMonitoring();
+  stopAutoCleanup();
   server.close(() => {
     wsService.close();
     closeDatabase();

@@ -2961,3 +2961,366 @@ select,
     display: none;
   }
 }
+
+/* ======================================================
+   Bulk Operations Modal
+====================================================== */
+.bulk-ops-info {
+  text-align: center;
+  padding: var(--space-4);
+  background: var(--primary-muted);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.bulk-ops-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.bulk-ops-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.bulk-tab-btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: var(--btn-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.bulk-tab-btn:hover {
+  background: var(--btn-hover-bg);
+  color: var(--text-primary);
+}
+
+.bulk-tab-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.bulk-tab-content {
+  display: none;
+}
+
+.bulk-tab-content.active {
+  display: block;
+}
+
+.bulk-tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.bulk-tag-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.bulk-tag-checkbox:hover {
+  border-color: var(--border-strong);
+}
+
+.bulk-tag-checkbox.selected {
+  background: var(--primary-muted);
+  border-color: var(--primary);
+}
+
+.bulk-tag-checkbox input {
+  display: none;
+}
+
+.bulk-tag-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bulk-tag-name {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bulk-tags-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.bulk-tags-actions .btn {
+  flex: 1;
+}
+
+.bulk-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bulk-actions-list hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: var(--space-2) 0;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ======================================================
+   Uptime Monitoring Styles
+====================================================== */
+.uptime-actions,
+.retention-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+}
+
+.retention-stats {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.retention-stats h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stat-item .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-item .stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Uptime Stats Widget */
+.chart-card-uptime {
+  grid-column: span 1;
+}
+
+.uptime-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.uptime-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+}
+
+.uptime-item-domain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.uptime-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.uptime-status-dot.up {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.uptime-status-dot.down {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+
+.uptime-status-dot.unknown {
+  background: var(--text-muted);
+}
+
+.uptime-item-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+}
+
+.uptime-percentage {
+  font-weight: 600;
+}
+
+.uptime-percentage.good {
+  color: var(--success);
+}
+
+.uptime-percentage.warning {
+  color: var(--warning);
+}
+
+.uptime-percentage.bad {
+  color: var(--danger);
+}
+
+.uptime-response-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Empty state for uptime */
+.uptime-empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--text-muted);
+}
+
+.uptime-empty i {
+  font-size: 2rem;
+  margin-bottom: var(--space-3);
+  opacity: 0.5;
+}
+
+/* ======================================================
+   Widget Customizer
+====================================================== */
+.widget-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.widget-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.widget-item:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+}
+
+.widget-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  flex: 1;
+}
+
+.widget-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.widget-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.widget-drag-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  padding: var(--space-2);
+  opacity: 0.5;
+  transition: opacity var(--transition);
+}
+
+.widget-drag-handle:hover {
+  opacity: 1;
+}
+
+.widget-item.dragging {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+/* Modal small size */
+.modal-sm {
+  max-width: 400px;
+}
+
+/* Danger button variant */
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c62828;
+  border-color: #c62828;
+}
+
+[data-theme="light"] .btn-danger:hover {
+  background: #b71c1c;
+  border-color: #b71c1c;
+}

@@ -61,7 +61,9 @@
         <div class="settings-tabs">
           <button class="tab-btn active" data-tab="general">General</button>
           <button class="tab-btn" data-tab="schedule">Schedule</button>
-          <button class="tab-btn" data-tab="email">Email Alerts</button>
+          <button class="tab-btn" data-tab="uptime">Uptime</button>
+          <button class="tab-btn" data-tab="retention">Retention</button>
+          <button class="tab-btn" data-tab="email">Email</button>
           <button class="tab-btn" data-tab="apikeys">API Keys</button>
         </div>
 
@@ -88,6 +90,77 @@
             <button class="preset-btn" onclick="setCronPreset('0 0 * * 0')">Weekly</button>
             <button class="preset-btn" onclick="setCronPreset('0 */6 * * *')">Every 6 hours</button>
             <button class="preset-btn" onclick="setCronPreset('0 */12 * * *')">Every 12 hours</button>
+          </div>
+        </div>
+
+        <!-- Uptime Monitoring Tab -->
+        <div class="tab-content" id="tab-uptime">
+          <h3>Uptime Monitoring</h3>
+          <p class="info-text">Monitor domain availability with periodic HTTP checks and track response times.</p>
+          <div class="form-group">
+            <label for="settingUptimeEnabled">
+              <input type="checkbox" id="settingUptimeEnabled"> Enable Uptime Monitoring
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingUptimeInterval">Check Interval (minutes)</label>
+            <input type="number" id="settingUptimeInterval" min="1" max="60" value="5">
+            <small>How often to check domain availability (1-60 minutes)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingUptimeThreshold">Alert Threshold</label>
+            <input type="number" id="settingUptimeThreshold" min="1" max="10" value="3">
+            <small>Number of consecutive failures before alerting</small>
+          </div>
+          <div class="uptime-actions">
+            <button class="btn" onclick="runUptimeCheckAll()">
+              <i class="fa-solid fa-play"></i> Run Check Now
+            </button>
+            <button class="btn" onclick="restartUptimeService()">
+              <i class="fa-solid fa-rotate"></i> Restart Service
+            </button>
+          </div>
+        </div>
+
+        <!-- Retention Settings Tab -->
+        <div class="tab-content" id="tab-retention">
+          <h3>Data Retention</h3>
+          <p class="info-text">Configure automatic cleanup of old log entries to manage database size.</p>
+          <div class="form-group">
+            <label for="settingAutoCleanup">
+              <input type="checkbox" id="settingAutoCleanup" checked> Enable Auto Cleanup
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingAuditRetention">Audit Log Retention (days)</label>
+            <input type="number" id="settingAuditRetention" min="7" max="365" value="90">
+            <small>Delete audit log entries older than this many days</small>
+          </div>
+          <div class="form-group">
+            <label for="settingHealthRetention">Health Log Retention (days)</label>
+            <input type="number" id="settingHealthRetention" min="1" max="90" value="30">
+            <small>Delete health check records older than this many days</small>
+          </div>
+          <div class="retention-stats" id="retentionStats">
+            <h4>Current Usage</h4>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">Audit Log Entries</span>
+                <span class="stat-value" id="auditLogCount">-</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Health Log Entries</span>
+                <span class="stat-value" id="healthLogCount">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="retention-actions">
+            <button class="btn" onclick="loadRetentionStats()">
+              <i class="fa-solid fa-sync"></i> Refresh Stats
+            </button>
+            <button class="btn btn-danger" onclick="runManualCleanup()">
+              <i class="fa-solid fa-trash"></i> Run Cleanup Now
+            </button>
           </div>
         </div>
 
@@ -240,6 +313,84 @@
     </div>
   </div>
 
+  <!-- Bulk Operations Modal -->
+  <div id="bulkOpsModal" class="modal" style="display: none;">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-layer-group"></i> Bulk Operations</h2>
+        <button class="modal-close" onclick="closeModal('bulkOpsModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="bulk-ops-info">
+          <span class="bulk-ops-count" id="bulkOpsCount">0</span> domains selected
+        </div>
+
+        <div class="bulk-ops-tabs">
+          <button class="bulk-tab-btn active" data-bulk-tab="assign-group">
+            <i class="fa-solid fa-folder"></i> Assign Group
+          </button>
+          <button class="bulk-tab-btn" data-bulk-tab="assign-tags">
+            <i class="fa-solid fa-tags"></i> Assign Tags
+          </button>
+          <button class="bulk-tab-btn" data-bulk-tab="actions">
+            <i class="fa-solid fa-bolt"></i> Actions
+          </button>
+        </div>
+
+        <!-- Assign Group Tab -->
+        <div class="bulk-tab-content active" id="bulk-tab-assign-group">
+          <div class="form-group">
+            <label>Select Group</label>
+            <select id="bulkGroupSelect">
+              <option value="">No Group (Remove from group)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="bulkAssignGroup()">
+            <i class="fa-solid fa-folder-plus"></i> Assign Group to Selected
+          </button>
+        </div>
+
+        <!-- Assign Tags Tab -->
+        <div class="bulk-tab-content" id="bulk-tab-assign-tags">
+          <div class="form-group">
+            <label>Select Tags to Add</label>
+            <div id="bulkTagsSelect" class="bulk-tags-grid"></div>
+          </div>
+          <div class="bulk-tags-actions">
+            <button class="btn btn-primary" onclick="bulkAddTags()">
+              <i class="fa-solid fa-plus"></i> Add Tags to Selected
+            </button>
+            <button class="btn btn-danger" onclick="bulkRemoveTags()">
+              <i class="fa-solid fa-minus"></i> Remove Tags from Selected
+            </button>
+          </div>
+        </div>
+
+        <!-- Actions Tab -->
+        <div class="bulk-tab-content" id="bulk-tab-actions">
+          <div class="bulk-actions-list">
+            <button class="btn btn-block" onclick="bulkRefreshWhois()">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh WHOIS Data
+            </button>
+            <button class="btn btn-block" onclick="bulkCheckHealth()">
+              <i class="fa-solid fa-heart-pulse"></i> Run Health Checks
+            </button>
+            <button class="btn btn-block" onclick="bulkCheckUptime()">
+              <i class="fa-solid fa-signal"></i> Run Uptime Checks
+            </button>
+            <hr>
+            <button class="btn btn-danger btn-block" onclick="bulkDeleteDomains()">
+              <i class="fa-solid fa-trash"></i> Delete Selected Domains
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('bulkOpsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CSV Import Modal -->
   <div id="importModal" class="modal" style="display: none;">
     <div class="modal-content modal-md">
@@ -338,6 +489,9 @@
             <a href="#" onclick="openModal('auditModal'); loadAuditLog(); closeDropdown();">
               <i class="fa-solid fa-clipboard-list"></i> Audit Log
             </a>
+            <a href="#" onclick="openWidgetCustomizer(); closeDropdown();">
+              <i class="fa-solid fa-grip"></i> Customize Dashboard
+            </a>
             <hr>
             <a href="#" onclick="openModal('settingsModal'); loadSettings(); closeDropdown();">
               <i class="fa-solid fa-cog"></i> Settings
@@ -421,6 +575,11 @@
         <div class="chart-card chart-card-activity">
           <h3><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h3>
           <div id="activityLog" class="activity-log-list"></div>
+        </div>
+        <!-- Uptime Status Widget -->
+        <div class="chart-card chart-card-uptime" id="uptimeWidget" style="display: none;">
+          <h3><i class="fa-solid fa-signal"></i> Uptime Status</h3>
+          <div id="uptimeStats" class="uptime-stats-list"></div>
         </div>
       </div>
     </section>
@@ -546,17 +705,17 @@
         <span id="selectedCount">0 selected</span>
       </div>
       <div class="bulk-actions-right">
-        <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
-          <i class="fa-solid fa-arrows-rotate"></i> Refresh Selected
+        <button class="btn btn-primary" onclick="openBulkOpsModal()">
+          <i class="fa-solid fa-layer-group"></i> Bulk Operations
         </button>
-        <button class="btn" onclick="assignGroupToSelected()">
-          <i class="fa-solid fa-folder"></i> Assign Group
+        <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
+          <i class="fa-solid fa-arrows-rotate"></i> Refresh
         </button>
         <button class="btn btn-bulk-delete" onclick="deleteSelected()">
-          <i class="fa-solid fa-trash"></i> Delete Selected
+          <i class="fa-solid fa-trash"></i> Delete
         </button>
         <button class="btn btn-clear-selection" onclick="clearSelection()">
-          <i class="fa-solid fa-xmark"></i> Clear Selection
+          <i class="fa-solid fa-xmark"></i> Clear
         </button>
       </div>
     </section>

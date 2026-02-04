@@ -52,6 +52,34 @@ export interface SettingsData {
   alert_days: number[];
   health_check_enabled: boolean;
   health_check_interval_hours: number;
+  // Uptime monitoring
+  uptime_monitoring_enabled: boolean;
+  uptime_check_interval_minutes: number;
+  uptime_alert_threshold: number; // consecutive failures before alert
+  // Audit log retention
+  audit_log_retention_days: number;
+  health_log_retention_days: number;
+  auto_cleanup_enabled: boolean;
+}
+
+export interface UptimeStats {
+  domain_id: number;
+  domain: string;
+  uptime_percentage: number;
+  avg_response_time_ms: number;
+  total_checks: number;
+  successful_checks: number;
+  last_check: string | null;
+  current_status: 'up' | 'down' | 'unknown';
+}
+
+export interface DashboardWidget {
+  id: string;
+  type: 'stat' | 'chart' | 'activity' | 'uptime';
+  title: string;
+  position: number;
+  visible: boolean;
+  size: 'small' | 'medium' | 'large';
 }
 
 export interface APIKeyInfo {

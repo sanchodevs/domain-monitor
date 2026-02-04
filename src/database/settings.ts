@@ -60,6 +60,14 @@ export function getSettingsData(): SettingsData {
     alert_days: JSON.parse(getSetting('alert_days') || '[7, 14, 30]'),
     health_check_enabled: getSetting('health_check_enabled') !== 'false',
     health_check_interval_hours: parseInt(getSetting('health_check_interval_hours') || '24', 10),
+    // Uptime monitoring settings
+    uptime_monitoring_enabled: getSetting('uptime_monitoring_enabled') === 'true',
+    uptime_check_interval_minutes: parseInt(getSetting('uptime_check_interval_minutes') || '5', 10),
+    uptime_alert_threshold: parseInt(getSetting('uptime_alert_threshold') || '3', 10),
+    // Audit log retention settings
+    audit_log_retention_days: parseInt(getSetting('audit_log_retention_days') || '90', 10),
+    health_log_retention_days: parseInt(getSetting('health_log_retention_days') || '30', 10),
+    auto_cleanup_enabled: getSetting('auto_cleanup_enabled') !== 'false',
   };
 }
 
@@ -81,6 +89,26 @@ export function updateSettings(data: Partial<SettingsData>): void {
   }
   if (data.health_check_interval_hours !== undefined) {
     setSetting('health_check_interval_hours', String(data.health_check_interval_hours));
+  }
+  // Uptime monitoring settings
+  if (data.uptime_monitoring_enabled !== undefined) {
+    setSetting('uptime_monitoring_enabled', String(data.uptime_monitoring_enabled));
+  }
+  if (data.uptime_check_interval_minutes !== undefined) {
+    setSetting('uptime_check_interval_minutes', String(data.uptime_check_interval_minutes));
+  }
+  if (data.uptime_alert_threshold !== undefined) {
+    setSetting('uptime_alert_threshold', String(data.uptime_alert_threshold));
+  }
+  // Audit log retention settings
+  if (data.audit_log_retention_days !== undefined) {
+    setSetting('audit_log_retention_days', String(data.audit_log_retention_days));
+  }
+  if (data.health_log_retention_days !== undefined) {
+    setSetting('health_log_retention_days', String(data.health_log_retention_days));
+  }
+  if (data.auto_cleanup_enabled !== undefined) {
+    setSetting('auto_cleanup_enabled', String(data.auto_cleanup_enabled));
   }
 }
 

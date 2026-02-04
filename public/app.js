@@ -1923,15 +1923,30 @@ async function loadSettings() {
 
     const settings = await res.json();
 
-    // Populate form fields
+    // General settings
     document.getElementById('settingAlertDays').value = settings.alert_days?.[0] || 30;
     document.getElementById('settingCron').value = settings.refresh_schedule || '0 0 * * *';
+
+    // Email settings
     document.getElementById('settingEmailEnabled').checked = settings.email_enabled || false;
     document.getElementById('settingEmailRecipients').value = (settings.email_recipients || []).join(', ');
     document.getElementById('settingAlertDaysEmail').value = (settings.alert_days || [7, 14, 30]).join(', ');
 
+    // Uptime settings
+    document.getElementById('settingUptimeEnabled').checked = settings.uptime_monitoring_enabled || false;
+    document.getElementById('settingUptimeInterval').value = settings.uptime_check_interval_minutes || 5;
+    document.getElementById('settingUptimeThreshold').value = settings.uptime_alert_threshold || 3;
+
+    // Retention settings
+    document.getElementById('settingAutoCleanup').checked = settings.auto_cleanup_enabled !== false;
+    document.getElementById('settingAuditRetention').value = settings.audit_log_retention_days || 90;
+    document.getElementById('settingHealthRetention').value = settings.health_log_retention_days || 30;
+
     // Load API keys
     loadApiKeys();
+
+    // Load retention stats
+    loadRetentionStats();
 
   } catch (err) {
     console.error('Error loading settings:', err);
@@ -1949,10 +1964,20 @@ async function saveSettings() {
     const emailRecipients = recipientsStr.split(',').map(e => e.trim()).filter(Boolean);
 
     const settings = {
+      // Schedule
       refresh_schedule: document.getElementById('settingCron').value,
+      // Email
       email_enabled: document.getElementById('settingEmailEnabled').checked,
       email_recipients: emailRecipients,
-      alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30]
+      alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30],
+      // Uptime
+      uptime_monitoring_enabled: document.getElementById('settingUptimeEnabled').checked,
+      uptime_check_interval_minutes: parseInt(document.getElementById('settingUptimeInterval').value, 10) || 5,
+      uptime_alert_threshold: parseInt(document.getElementById('settingUptimeThreshold').value, 10) || 3,
+      // Retention
+      auto_cleanup_enabled: document.getElementById('settingAutoCleanup').checked,
+      audit_log_retention_days: parseInt(document.getElementById('settingAuditRetention').value, 10) || 90,
+      health_log_retention_days: parseInt(document.getElementById('settingHealthRetention').value, 10) || 30,
     };
 
     const res = await apiFetch('/api/settings', {
@@ -1968,6 +1993,11 @@ async function saveSettings() {
 
     showNotification('Settings saved successfully', 'success');
     closeModal('settingsModal');
+
+    // Restart uptime monitoring if settings changed
+    if (settings.uptime_monitoring_enabled) {
+      restartUptimeService();
+    }
 
   } catch (err) {
     console.error('Error saving settings:', err);
@@ -2713,6 +2743,465 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Bulk operations tabs
+  document.querySelectorAll('.bulk-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.bulkTab;
+      document.querySelectorAll('.bulk-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.bulk-tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`bulk-tab-${tabId}`)?.classList.add('active');
+    });
+  });
+
   // Initial load
   load();
+
+  // Load uptime stats if enabled
+  loadUptimeStats();
+});
+
+/* ======================================================
+   Bulk Operations Modal
+====================================================== */
+function openBulkOpsModal() {
+  if (state.selectedDomains.size === 0) {
+    showNotification('No domains selected', 'info');
+    return;
+  }
+
+  // Update count
+  document.getElementById('bulkOpsCount').textContent = state.selectedDomains.size;
+
+  // Populate groups dropdown
+  const groupSelect = document.getElementById('bulkGroupSelect');
+  groupSelect.innerHTML = '<option value="">No Group (Remove from group)</option>' +
+    state.groups.map(g => `<option value="${g.id}">${escapeHTML(g.name)}</option>`).join('');
+
+  // Populate tags grid
+  const tagsGrid = document.getElementById('bulkTagsSelect');
+  tagsGrid.innerHTML = state.tags.map(tag => `
+    <label class="bulk-tag-checkbox" data-tag-id="${tag.id}">
+      <input type="checkbox" value="${tag.id}">
+      <span class="bulk-tag-color" style="background: ${sanitizeColor(tag.color)}"></span>
+      <span class="bulk-tag-name">${escapeHTML(tag.name)}</span>
+    </label>
+  `).join('') || '<p class="info-text">No tags available</p>';
+
+  // Add click handlers for tag checkboxes
+  tagsGrid.querySelectorAll('.bulk-tag-checkbox').forEach(label => {
+    label.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'INPUT') {
+        const checkbox = label.querySelector('input');
+        checkbox.checked = !checkbox.checked;
+      }
+      label.classList.toggle('selected', label.querySelector('input').checked);
+    });
+  });
+
+  openModal('bulkOpsModal');
+}
+
+async function bulkAssignGroup() {
+  const groupId = document.getElementById('bulkGroupSelect').value;
+  const domains = Array.from(state.selectedDomains);
+
+  if (domains.length === 0) return;
+
+  showLoading(true);
+  let updated = 0, failed = 0;
+
+  for (const domainName of domains) {
+    const domain = state.allDomains.find(d => d.domain === domainName);
+    if (!domain) continue;
+
+    try {
+      const res = await apiFetch(`/api/domains/${domain.id}/group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId ? parseInt(groupId) : null })
+      });
+      if (res.ok) updated++;
+      else failed++;
+    } catch {
+      failed++;
+    }
+  }
+
+  showNotification(`Updated ${updated} domain(s)${failed ? `, ${failed} failed` : ''}`, updated > 0 ? 'success' : 'error');
+  closeModal('bulkOpsModal');
+  clearSelection();
+  await load();
+}
+
+async function bulkAddTags() {
+  const selectedTagIds = Array.from(document.querySelectorAll('#bulkTagsSelect input:checked')).map(cb => parseInt(cb.value));
+  const domains = Array.from(state.selectedDomains);
+
+  if (selectedTagIds.length === 0) {
+    showNotification('No tags selected', 'info');
+    return;
+  }
+
+  showLoading(true);
+  let updated = 0, failed = 0;
+
+  for (const domainName of domains) {
+    const domain = state.allDomains.find(d => d.domain === domainName);
+    if (!domain) continue;
+
+    for (const tagId of selectedTagIds) {
+      try {
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'POST' });
+        if (res.ok) updated++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+    }
+  }
+
+  showNotification(`Added tags to ${domains.length} domain(s)`, 'success');
+  closeModal('bulkOpsModal');
+  clearSelection();
+  await load();
+}
+
+async function bulkRemoveTags() {
+  const selectedTagIds = Array.from(document.querySelectorAll('#bulkTagsSelect input:checked')).map(cb => parseInt(cb.value));
+  const domains = Array.from(state.selectedDomains);
+
+  if (selectedTagIds.length === 0) {
+    showNotification('No tags selected', 'info');
+    return;
+  }
+
+  showLoading(true);
+  let removed = 0;
+
+  for (const domainName of domains) {
+    const domain = state.allDomains.find(d => d.domain === domainName);
+    if (!domain) continue;
+
+    for (const tagId of selectedTagIds) {
+      try {
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'DELETE' });
+        if (res.ok) removed++;
+      } catch {
+        // Ignore errors for removing non-existent tags
+      }
+    }
+  }
+
+  showNotification(`Removed tags from ${domains.length} domain(s)`, 'success');
+  closeModal('bulkOpsModal');
+  clearSelection();
+  await load();
+}
+
+async function bulkRefreshWhois() {
+  closeModal('bulkOpsModal');
+  await refreshSelected();
+}
+
+async function bulkCheckHealth() {
+  const domains = Array.from(state.selectedDomains);
+
+  if (domains.length === 0) return;
+
+  showLoading(true);
+  let checked = 0;
+
+  for (const domainName of domains) {
+    const domain = state.allDomains.find(d => d.domain === domainName);
+    if (!domain) continue;
+
+    try {
+      await apiFetch(`/api/health/domain/${domain.id}`, { method: 'POST' });
+      checked++;
+    } catch {
+      // Continue on error
+    }
+  }
+
+  showNotification(`Health check completed for ${checked} domain(s)`, 'success');
+  closeModal('bulkOpsModal');
+  clearSelection();
+  await load();
+}
+
+async function bulkCheckUptime() {
+  const domains = Array.from(state.selectedDomains);
+
+  if (domains.length === 0) return;
+
+  showLoading(true);
+  let checked = 0;
+
+  for (const domainName of domains) {
+    const domain = state.allDomains.find(d => d.domain === domainName);
+    if (!domain) continue;
+
+    try {
+      await fetch(`/api/uptime/domain/${domain.id}`, { method: 'POST' });
+      checked++;
+    } catch {
+      // Continue on error
+    }
+  }
+
+  showNotification(`Uptime check completed for ${checked} domain(s)`, 'success');
+  closeModal('bulkOpsModal');
+  clearSelection();
+  showLoading(false);
+  loadUptimeStats();
+}
+
+async function bulkDeleteDomains() {
+  closeModal('bulkOpsModal');
+  await deleteSelected();
+}
+
+/* ======================================================
+   Uptime Monitoring
+====================================================== */
+async function loadUptimeStats() {
+  try {
+    const res = await fetch('/api/uptime/stats');
+    if (!res.ok) return;
+
+    const stats = await res.json();
+
+    // Show uptime widget if there's data
+    const widget = document.getElementById('uptimeWidget');
+    const container = document.getElementById('uptimeStats');
+
+    if (!stats || stats.length === 0 || !stats.some(s => s.total_checks > 0)) {
+      widget.style.display = 'none';
+      return;
+    }
+
+    widget.style.display = 'block';
+
+    // Sort by status (down first) then by uptime percentage
+    const sorted = stats
+      .filter(s => s.total_checks > 0)
+      .sort((a, b) => {
+        if (a.current_status === 'down' && b.current_status !== 'down') return -1;
+        if (b.current_status === 'down' && a.current_status !== 'down') return 1;
+        return a.uptime_percentage - b.uptime_percentage;
+      })
+      .slice(0, 10);
+
+    container.innerHTML = sorted.map(stat => {
+      const uptimeClass = stat.uptime_percentage >= 99 ? 'good' : stat.uptime_percentage >= 95 ? 'warning' : 'bad';
+      return `
+        <div class="uptime-item">
+          <div class="uptime-item-domain">
+            <span class="uptime-status-dot ${stat.current_status}"></span>
+            <span>${escapeHTML(stat.domain)}</span>
+          </div>
+          <div class="uptime-item-stats">
+            <span class="uptime-percentage ${uptimeClass}">${stat.uptime_percentage.toFixed(1)}%</span>
+            ${stat.avg_response_time_ms ? `<span class="uptime-response-time">${stat.avg_response_time_ms}ms</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error loading uptime stats:', err);
+  }
+}
+
+async function runUptimeCheckAll() {
+  try {
+    showNotification('Starting uptime check for all domains...', 'info');
+    const res = await fetch('/api/uptime/check-all', { method: 'POST' });
+    if (res.ok) {
+      showNotification('Uptime check started', 'success');
+      setTimeout(loadUptimeStats, 5000);
+    }
+  } catch (err) {
+    showNotification('Failed to start uptime check', 'error');
+  }
+}
+
+async function restartUptimeService() {
+  try {
+    const res = await fetch('/api/uptime/restart', { method: 'POST' });
+    if (res.ok) {
+      showNotification('Uptime monitoring service restarted', 'success');
+    }
+  } catch (err) {
+    showNotification('Failed to restart uptime service', 'error');
+  }
+}
+
+/* ======================================================
+   Retention Settings
+====================================================== */
+async function loadRetentionStats() {
+  try {
+    const res = await fetch('/api/uptime/retention/stats');
+    if (!res.ok) return;
+
+    const stats = await res.json();
+
+    document.getElementById('auditLogCount').textContent = stats.auditLog?.totalEntries?.toLocaleString() || '0';
+    document.getElementById('healthLogCount').textContent = stats.healthLog?.totalEntries?.toLocaleString() || '0';
+
+  } catch (err) {
+    console.error('Error loading retention stats:', err);
+  }
+}
+
+async function runManualCleanup() {
+  if (!confirm('Run cleanup now? This will delete old log entries based on your retention settings.')) return;
+
+  try {
+    showLoading(true);
+    const res = await fetch('/api/uptime/retention/cleanup', { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok) {
+      showNotification(`Cleanup complete: ${data.auditLogDeleted} audit, ${data.healthLogDeleted} health, ${data.uptimeLogDeleted} uptime records deleted`, 'success');
+      loadRetentionStats();
+    } else {
+      showNotification(data.message || 'Cleanup failed', 'error');
+    }
+  } catch (err) {
+    showNotification('Cleanup failed', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+/* ======================================================
+   Dashboard Widgets Customization
+====================================================== */
+const DEFAULT_WIDGETS = [
+  { id: 'expiration', type: 'chart', title: 'Expiry Distribution', visible: true, position: 0 },
+  { id: 'health', type: 'chart', title: 'Health Status', visible: true, position: 1 },
+  { id: 'tags', type: 'chart', title: 'Tags', visible: true, position: 2 },
+  { id: 'timeline', type: 'chart', title: 'Expiry Timeline', visible: true, position: 3 },
+  { id: 'activity', type: 'activity', title: 'Activity Log', visible: true, position: 4 },
+  { id: 'uptime', type: 'uptime', title: 'Uptime Status', visible: true, position: 5 },
+];
+
+function getWidgetConfig() {
+  const saved = localStorage.getItem('dashboard_widgets');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return DEFAULT_WIDGETS;
+    }
+  }
+  return DEFAULT_WIDGETS;
+}
+
+function saveWidgetConfig(widgets) {
+  localStorage.setItem('dashboard_widgets', JSON.stringify(widgets));
+}
+
+function toggleWidgetVisibility(widgetId) {
+  const widgets = getWidgetConfig();
+  const widget = widgets.find(w => w.id === widgetId);
+  if (widget) {
+    widget.visible = !widget.visible;
+    saveWidgetConfig(widgets);
+    applyWidgetConfig();
+  }
+}
+
+function applyWidgetConfig() {
+  const widgets = getWidgetConfig();
+
+  // Map widget IDs to DOM elements
+  const widgetElements = {
+    'expiration': document.querySelector('.chart-card:has(#expirationChart)'),
+    'health': document.querySelector('.chart-card:has(#healthChart)'),
+    'tags': document.querySelector('.chart-card:has(#tagsChart)'),
+    'timeline': document.querySelector('.chart-card:has(#timelineChart)'),
+    'activity': document.querySelector('.chart-card-activity'),
+    'uptime': document.getElementById('uptimeWidget'),
+  };
+
+  widgets.forEach(widget => {
+    const element = widgetElements[widget.id];
+    if (element) {
+      element.style.display = widget.visible ? '' : 'none';
+      element.style.order = widget.position;
+    }
+  });
+}
+
+function openWidgetCustomizer() {
+  const widgets = getWidgetConfig();
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'widgetCustomizerModal';
+  modal.style.display = 'flex';
+
+  modal.innerHTML = `
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-grip"></i> Customize Dashboard</h2>
+        <button class="modal-close" onclick="closeWidgetCustomizer()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="info-text">Toggle widgets on/off to customize your dashboard view.</p>
+        <div class="widget-list" id="widgetList">
+          ${widgets.map(w => `
+            <div class="widget-item" data-widget-id="${w.id}">
+              <label class="widget-toggle">
+                <input type="checkbox" ${w.visible ? 'checked' : ''} onchange="toggleWidgetVisibility('${w.id}')">
+                <span class="widget-name">${escapeHTML(w.title)}</span>
+              </label>
+              <div class="widget-drag-handle">
+                <i class="fa-solid fa-grip-vertical"></i>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="resetWidgetConfig()">Reset to Default</button>
+        <button class="btn btn-primary" onclick="closeWidgetCustomizer()">Done</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Add click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeWidgetCustomizer();
+    }
+  });
+}
+
+function closeWidgetCustomizer() {
+  const modal = document.getElementById('widgetCustomizerModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function resetWidgetConfig() {
+  if (confirm('Reset dashboard to default layout?')) {
+    localStorage.removeItem('dashboard_widgets');
+    applyWidgetConfig();
+    closeWidgetCustomizer();
+    openWidgetCustomizer(); // Reopen to show updated state
+    showNotification('Dashboard reset to default', 'success');
+  }
+}
+
+// Apply widget config on load
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(applyWidgetConfig, 100);
 });
