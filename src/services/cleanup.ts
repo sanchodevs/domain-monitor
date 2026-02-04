@@ -1,7 +1,6 @@
 import { createLogger } from '../utils/logger.js';
 import { db } from '../database/db.js';
 import { getSettingsData } from '../database/settings.js';
-import { cleanupOldUptimeData } from './uptime.js';
 import type { Statement } from 'better-sqlite3';
 
 const logger = createLogger('cleanup');
@@ -9,6 +8,7 @@ const logger = createLogger('cleanup');
 let _statements: {
   cleanupAuditLog: Statement;
   cleanupHealthLog: Statement;
+  cleanupUptimeLog: Statement;
   getAuditLogStats: Statement;
   getHealthLogStats: Statement;
 } | null = null;
@@ -22,6 +22,10 @@ function getStatements() {
       `),
       cleanupHealthLog: db.prepare(`
         DELETE FROM domain_health
+        WHERE checked_at < datetime('now', '-' || ? || ' days')
+      `),
+      cleanupUptimeLog: db.prepare(`
+        DELETE FROM uptime_checks
         WHERE checked_at < datetime('now', '-' || ? || ' days')
       `),
       getAuditLogStats: db.prepare(`
@@ -82,6 +86,18 @@ export function cleanupHealthLog(days: number): number {
   return result.changes;
 }
 
+export function cleanupUptimeLog(days: number): number {
+  try {
+    const result = getStatements().cleanupUptimeLog.run(days);
+    logger.info('Cleaned up uptime log', { deletedRows: result.changes, olderThanDays: days });
+    return result.changes;
+  } catch (err) {
+    // Table might not exist yet
+    logger.debug('Uptime table not found, skipping cleanup');
+    return 0;
+  }
+}
+
 export function getLogRetentionStats(): LogRetentionStats {
   const auditStats = getStatements().getAuditLogStats.get() as {
     total_entries: number;
@@ -132,7 +148,7 @@ export function runAutoCleanup(): CleanupStats {
 
   const auditLogDeleted = cleanupAuditLog(settings.audit_log_retention_days);
   const healthLogDeleted = cleanupHealthLog(settings.health_log_retention_days);
-  const uptimeLogDeleted = cleanupOldUptimeData(settings.health_log_retention_days);
+  const uptimeLogDeleted = cleanupUptimeLog(settings.health_log_retention_days);
 
   const stats: CleanupStats = {
     auditLogDeleted,

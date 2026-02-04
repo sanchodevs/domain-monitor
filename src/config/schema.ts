@@ -43,6 +43,14 @@ export const settingsSchema = z.object({
   alert_days: z.array(z.number().int().positive()).optional(),
   health_check_enabled: z.boolean().optional(),
   health_check_interval_hours: z.number().int().min(1).max(168).optional(),
+  // Uptime monitoring settings
+  uptime_monitoring_enabled: z.boolean().optional(),
+  uptime_check_interval_minutes: z.number().int().min(1).max(60).optional(),
+  uptime_alert_threshold: z.number().int().min(1).max(10).optional(),
+  // Audit log retention settings
+  audit_log_retention_days: z.number().int().min(7).max(365).optional(),
+  health_log_retention_days: z.number().int().min(1).max(90).optional(),
+  auto_cleanup_enabled: z.boolean().optional(),
 });
 
 // Login validation

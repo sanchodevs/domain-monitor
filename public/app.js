@@ -3044,12 +3044,23 @@ async function restartUptimeService() {
 async function loadRetentionStats() {
   try {
     const res = await fetch('/api/uptime/retention/stats');
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error('Failed to fetch retention stats:', res.status);
+      return;
+    }
 
     const stats = await res.json();
+    console.log('Retention stats:', stats); // Debug
 
-    document.getElementById('auditLogCount').textContent = stats.auditLog?.totalEntries?.toLocaleString() || '0';
-    document.getElementById('healthLogCount').textContent = stats.healthLog?.totalEntries?.toLocaleString() || '0';
+    const auditEl = document.getElementById('auditLogCount');
+    const healthEl = document.getElementById('healthLogCount');
+
+    if (auditEl) {
+      auditEl.textContent = (stats.auditLog?.totalEntries ?? 0).toLocaleString();
+    }
+    if (healthEl) {
+      healthEl.textContent = (stats.healthLog?.totalEntries ?? 0).toLocaleString();
+    }
 
   } catch (err) {
     console.error('Error loading retention stats:', err);

@@ -11,6 +11,7 @@ import {
   runAutoCleanup,
   cleanupAuditLog,
   cleanupHealthLog,
+  cleanupUptimeLog,
 } from '../services/cleanup.js';
 import { getDomainById } from '../database/domains.js';
 import { logAudit } from '../database/audit.js';
