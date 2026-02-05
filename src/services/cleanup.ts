@@ -156,7 +156,7 @@ export function runAutoCleanup(): CleanupStats {
     uptimeLogDeleted,
   };
 
-  logger.info('Auto cleanup completed', stats);
+  logger.info('Auto cleanup completed', stats as unknown as Record<string, unknown>);
   return stats;
 }
 

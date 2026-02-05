@@ -7,7 +7,7 @@ import type { Domain, DomainHealth } from '../types/domain.js';
 const logger = createLogger('websocket');
 
 export interface WSMessage {
-  type: 'connected' | 'refresh_progress' | 'refresh_complete' | 'domain_updated' | 'health_update' | 'error';
+  type: 'connected' | 'refresh_progress' | 'refresh_complete' | 'domain_updated' | 'health_update' | 'uptime_update' | 'error';
   payload: unknown;
 }
 

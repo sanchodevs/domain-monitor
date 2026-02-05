@@ -1462,6 +1462,7 @@ select:focus {
 }
 
 .chart-card {
+  position: relative;
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -3241,6 +3242,302 @@ select,
 }
 
 /* ======================================================
+   Heartbeat Visualization (UptimeKuma style)
+====================================================== */
+.heartbeat-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+}
+
+.heartbeat-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s ease;
+}
+
+.heartbeat-item:hover {
+  border-color: var(--border-soft);
+  box-shadow: var(--shadow-xs);
+}
+
+.heartbeat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.heartbeat-domain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.heartbeat-domain span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heartbeat-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+.heartbeat-status.up {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.heartbeat-status.down {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+  animation: pulse-danger 1s infinite;
+}
+
+.heartbeat-status.unknown {
+  background: var(--text-muted);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+.heartbeat-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.heartbeat-uptime {
+  font-weight: 600;
+}
+
+.heartbeat-uptime.good { color: var(--success); }
+.heartbeat-uptime.warning { color: var(--warning); }
+.heartbeat-uptime.bad { color: var(--danger); }
+
+.heartbeat-response {
+  color: var(--text-muted);
+}
+
+/* Heartbeat bar - the actual visualization */
+.heartbeat-bar {
+  display: flex;
+  gap: 2px;
+  height: 26px;
+  align-items: stretch;
+  margin-top: var(--space-1);
+}
+
+.heartbeat-beat {
+  flex: 1;
+  min-width: 3px;
+  max-width: 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+  position: relative;
+}
+
+.heartbeat-beat:hover {
+  transform: scaleY(1.15);
+  z-index: 1;
+}
+
+.heartbeat-beat.up {
+  background: var(--success);
+}
+
+.heartbeat-beat.down {
+  background: var(--danger);
+}
+
+.heartbeat-beat.partial {
+  background: linear-gradient(to top, var(--danger) 0%, var(--warning) 50%, var(--success) 100%);
+}
+
+.heartbeat-beat.none {
+  background: var(--bg-input);
+  opacity: 0.5;
+}
+
+/* Tooltip for heartbeat */
+.heartbeat-beat::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.15s ease;
+  pointer-events: none;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  z-index: 100;
+}
+
+.heartbeat-beat:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Legend */
+.heartbeat-legend {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--space-2);
+}
+
+.heartbeat-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.heartbeat-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.heartbeat-legend-dot.up { background: var(--success); }
+.heartbeat-legend-dot.down { background: var(--danger); }
+.heartbeat-legend-dot.none { background: var(--bg-input); }
+
+/* Time range indicator */
+.heartbeat-timerange {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+  padding: 0 2px;
+}
+
+/* ======================================================
+   Draggable Dashboard Grid
+====================================================== */
+.charts-area.drag-active {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+
+.chart-card.dragging {
+  opacity: 0.8;
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+}
+
+.chart-card.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-alpha);
+}
+
+/* Drag handle */
+.widget-drag-handle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border-radius: var(--radius-sm);
+}
+
+.chart-card:hover .widget-drag-handle {
+  opacity: 1;
+}
+
+.widget-drag-handle:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Widget size classes */
+.chart-card.widget-sm {
+  grid-column: span 1;
+}
+
+.chart-card.widget-md {
+  grid-column: span 2;
+}
+
+.chart-card.widget-lg {
+  grid-column: span 3;
+}
+
+/* When only certain widgets visible, adjust layout */
+.charts-area[data-widget-count="1"] > .chart-card {
+  grid-column: span 3;
+}
+
+.charts-area[data-widget-count="2"] > .chart-card {
+  grid-column: span 1;
+}
+
+@media (min-width: 1200px) {
+  .charts-area[data-widget-count="2"] > .chart-card {
+    grid-column: span 1;
+  }
+
+  .charts-area[data-widget-count="2"] > .chart-card:first-child {
+    grid-column: span 2;
+  }
+}
+
+/* ======================================================
    Widget Customizer
 ====================================================== */
 .widget-list {
@@ -3301,6 +3598,28 @@ select,
 .widget-item.dragging {
   opacity: 0.5;
   border-style: dashed;
+}
+
+/* Widget size selector */
+.widget-size-select {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.widget-size-select:hover {
+  border-color: var(--border-strong);
+}
+
+.widget-size-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-alpha);
 }
 
 /* Modal small size */

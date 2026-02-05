@@ -5,6 +5,7 @@ import {
   performUptimeCheck,
   checkAllDomainsUptime,
   restartUptimeMonitoring,
+  getAllHeartbeatData,
 } from '../services/uptime.js';
 import {
   getLogRetentionStats,
@@ -30,10 +31,23 @@ router.get('/stats', (_req: Request, res: Response) => {
   }
 });
 
+// Get heartbeat data for all domains (for visualization)
+router.get('/heartbeat', (req: Request, res: Response) => {
+  try {
+    const buckets = parseInt(req.query.buckets as string, 10) || 45;
+    const data = getAllHeartbeatData(Math.min(buckets, 90));
+    res.json(data);
+  } catch (err) {
+    console.error('Error getting heartbeat data:', err);
+    res.status(500).json({ message: 'Failed to get heartbeat data' });
+  }
+});
+
 // Get uptime history for a specific domain
 router.get('/domain/:id', (req: Request, res: Response) => {
   try {
-    const domainId = parseInt(req.params.id, 10);
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const domainId = parseInt(idParam, 10);
     const limit = parseInt(req.query.limit as string, 10) || 100;
 
     if (isNaN(domainId)) {
@@ -51,7 +65,8 @@ router.get('/domain/:id', (req: Request, res: Response) => {
 // Trigger uptime check for a specific domain
 router.post('/domain/:id', async (req: Request, res: Response) => {
   try {
-    const domainId = parseInt(req.params.id, 10);
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const domainId = parseInt(idParam, 10);
 
     if (isNaN(domainId)) {
       return res.status(400).json({ message: 'Invalid domain ID' });
@@ -117,8 +132,8 @@ router.post('/retention/cleanup', (req: Request, res: Response) => {
       entity_id: 'cleanup',
       action: 'scheduled',
       new_value: JSON.stringify(stats),
-      ip_address: req.ip || null,
-      user_agent: req.get('User-Agent') || null,
+      ip_address: req.ip || undefined,
+      user_agent: req.get('User-Agent') || undefined,
     });
 
     res.json({
@@ -142,8 +157,8 @@ router.delete('/retention/audit', (req: Request, res: Response) => {
       entity_id: 'audit_cleanup',
       action: 'delete',
       new_value: JSON.stringify({ deleted, olderThanDays: days }),
-      ip_address: req.ip || null,
-      user_agent: req.get('User-Agent') || null,
+      ip_address: req.ip || undefined,
+      user_agent: req.get('User-Agent') || undefined,
     });
 
     res.json({ message: `Deleted ${deleted} audit log entries older than ${days} days` });
@@ -164,14 +179,36 @@ router.delete('/retention/health', (req: Request, res: Response) => {
       entity_id: 'health_cleanup',
       action: 'delete',
       new_value: JSON.stringify({ deleted, olderThanDays: days }),
-      ip_address: req.ip || null,
-      user_agent: req.get('User-Agent') || null,
+      ip_address: req.ip || undefined,
+      user_agent: req.get('User-Agent') || undefined,
     });
 
     res.json({ message: `Deleted ${deleted} health log entries older than ${days} days` });
   } catch (err) {
     console.error('Error cleaning health log:', err);
     res.status(500).json({ message: 'Failed to clean health log' });
+  }
+});
+
+// Clean uptime log with custom days
+router.delete('/retention/uptime', (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string, 10) || 30;
+    const deleted = cleanupUptimeLog(days);
+
+    logAudit({
+      entity_type: 'system',
+      entity_id: 'uptime_cleanup',
+      action: 'delete',
+      new_value: JSON.stringify({ deleted, olderThanDays: days }),
+      ip_address: req.ip || undefined,
+      user_agent: req.get('User-Agent') || undefined,
+    });
+
+    res.json({ message: `Deleted ${deleted} uptime log entries older than ${days} days` });
+  } catch (err) {
+    console.error('Error cleaning uptime log:', err);
+    res.status(500).json({ message: 'Failed to clean uptime log' });
   }
 });
 

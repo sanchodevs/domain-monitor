@@ -315,6 +315,134 @@ export function getUptimeHistory(domainId: number, limit = 100): UptimeCheck[] {
   return getStatements().getHistory.all(domainId, limit) as UptimeCheck[];
 }
 
+// Get heartbeat data for visualization - aggregates checks into time buckets
+export function getHeartbeatData(domainId: number, buckets = 90): Array<{
+  timestamp: string;
+  status: 'up' | 'down' | 'partial' | 'none';
+  upCount: number;
+  downCount: number;
+  avgResponseTime: number | null;
+}> {
+  // Get data for the last 24 hours, split into buckets
+  const hoursBack = 24;
+  const bucketMinutes = (hoursBack * 60) / buckets;
+
+  const query = db.prepare(`
+    WITH time_buckets AS (
+      SELECT
+        datetime('now', '-' || (? * ?) || ' minutes') as bucket_start,
+        datetime('now', '-' || ((? - 1) * ?) || ' minutes') as bucket_end,
+        ? as bucket_num
+    ),
+    all_buckets AS (
+      SELECT * FROM time_buckets
+      UNION ALL
+      SELECT
+        datetime('now', '-' || ((bucket_num + 1) * ?) || ' minutes'),
+        datetime('now', '-' || (bucket_num * ?) || ' minutes'),
+        bucket_num + 1
+      FROM all_buckets WHERE bucket_num < ?
+    )
+    SELECT
+      ab.bucket_start as timestamp,
+      COALESCE(SUM(CASE WHEN uc.status = 'up' THEN 1 ELSE 0 END), 0) as up_count,
+      COALESCE(SUM(CASE WHEN uc.status = 'down' THEN 1 ELSE 0 END), 0) as down_count,
+      ROUND(AVG(CASE WHEN uc.status = 'up' THEN uc.response_time_ms END), 0) as avg_response_time
+    FROM all_buckets ab
+    LEFT JOIN uptime_checks uc ON uc.domain_id = ?
+      AND uc.checked_at >= ab.bucket_start
+      AND uc.checked_at < ab.bucket_end
+    GROUP BY ab.bucket_start
+    ORDER BY ab.bucket_start ASC
+  `);
+
+  try {
+    const rows = query.all(
+      0, bucketMinutes,
+      0, bucketMinutes,
+      0,
+      bucketMinutes, bucketMinutes, buckets - 1,
+      domainId
+    ) as Array<{
+      timestamp: string;
+      up_count: number;
+      down_count: number;
+      avg_response_time: number | null;
+    }>;
+
+    return rows.map(row => ({
+      timestamp: row.timestamp,
+      status: row.up_count === 0 && row.down_count === 0
+        ? 'none'
+        : row.down_count === 0
+          ? 'up'
+          : row.up_count === 0
+            ? 'down'
+            : 'partial',
+      upCount: row.up_count,
+      downCount: row.down_count,
+      avgResponseTime: row.avg_response_time,
+    }));
+  } catch {
+    // Fallback to simpler query if CTE fails
+    return [];
+  }
+}
+
+// Get heartbeat data for all domains with uptime checks
+export function getAllHeartbeatData(buckets = 45): Array<{
+  domain_id: number;
+  domain: string;
+  current_status: 'up' | 'down' | 'unknown';
+  uptime_percentage: number;
+  avg_response_time: number;
+  heartbeats: Array<{ status: 'up' | 'down' | 'none'; timestamp: string }>;
+}> {
+  const domains = getUptimeStats().filter(s => s.total_checks > 0);
+
+  // Get last N checks per domain for heartbeat visualization
+  const heartbeatQuery = db.prepare(`
+    SELECT status, checked_at as timestamp
+    FROM uptime_checks
+    WHERE domain_id = ?
+    ORDER BY checked_at DESC
+    LIMIT ?
+  `);
+
+  return domains.map(d => {
+    const checks = heartbeatQuery.all(d.domain_id, buckets) as Array<{
+      status: 'up' | 'down';
+      timestamp: string;
+    }>;
+
+    // Reverse to show oldest first
+    const reversedChecks = checks.reverse();
+
+    // Map to heartbeat format and pad with 'none' if not enough checks
+    const heartbeats: Array<{ status: 'up' | 'down' | 'none'; timestamp: string }> = [];
+
+    // Pad with empty beats at the start
+    const padding = buckets - reversedChecks.length;
+    for (let i = 0; i < padding; i++) {
+      heartbeats.push({ status: 'none', timestamp: '' });
+    }
+
+    // Add actual checks
+    reversedChecks.forEach(h => {
+      heartbeats.push({ status: h.status, timestamp: h.timestamp });
+    });
+
+    return {
+      domain_id: d.domain_id,
+      domain: d.domain,
+      current_status: d.current_status,
+      uptime_percentage: d.uptime_percentage,
+      avg_response_time: d.avg_response_time_ms,
+      heartbeats,
+    };
+  });
+}
+
 export function getConsecutiveFailures(domainId: number): number {
   const result = getStatements().getConsecutiveFailures.get(domainId) as { failures: number } | undefined;
   return result?.failures || 0;

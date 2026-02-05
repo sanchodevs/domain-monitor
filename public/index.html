@@ -552,34 +552,45 @@
         </div>
       </div>
 
-      <!-- Charts Area - Optimized Grid -->
-      <div class="charts-area">
+      <!-- Charts Area - Draggable Grid -->
+      <div class="charts-area" id="chartsArea">
         <!-- Row 1: 3 doughnut charts -->
-        <div class="chart-card">
+        <div class="chart-card" data-widget-id="expiration" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-chart-pie"></i> Expiry Distribution</h3>
           <canvas id="expirationChart"></canvas>
         </div>
-        <div class="chart-card">
+        <div class="chart-card" data-widget-id="health" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-heart-pulse"></i> Health Status</h3>
           <canvas id="healthChart"></canvas>
         </div>
-        <div class="chart-card">
+        <div class="chart-card" data-widget-id="tags" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-tags"></i> Tags</h3>
           <canvas id="tagsChart"></canvas>
         </div>
         <!-- Row 2: Timeline + Activity Log -->
-        <div class="chart-card chart-timeline">
+        <div class="chart-card chart-timeline" data-widget-id="timeline" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-chart-bar"></i> Expiry Timeline</h3>
           <canvas id="timelineChart"></canvas>
         </div>
-        <div class="chart-card chart-card-activity">
+        <div class="chart-card chart-card-activity" data-widget-id="activity" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h3>
           <div id="activityLog" class="activity-log-list"></div>
         </div>
-        <!-- Uptime Status Widget -->
-        <div class="chart-card chart-card-uptime" id="uptimeWidget" style="display: none;">
-          <h3><i class="fa-solid fa-signal"></i> Uptime Status</h3>
-          <div id="uptimeStats" class="uptime-stats-list"></div>
+        <!-- Uptime Heartbeat Widget -->
+        <div class="chart-card chart-card-uptime" data-widget-id="uptime" id="uptimeWidget" style="display: none;" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+          <h3>
+            <i class="fa-solid fa-heartbeat"></i> Uptime Monitor
+            <button class="btn btn-sm" onclick="runUptimeCheckAll()" title="Run check now" style="margin-left: auto; padding: 2px 8px; font-size: 0.65rem;">
+              <i class="fa-solid fa-play"></i>
+            </button>
+          </h3>
+          <div id="uptimeHeartbeat" class="heartbeat-container"></div>
         </div>
       </div>
     </section>

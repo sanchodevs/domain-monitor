@@ -1992,7 +1992,9 @@ async function saveSettings() {
     }
 
     showNotification('Settings saved successfully', 'success');
-    closeModal('settingsModal');
+
+    // Reload settings to reflect saved values (don't close modal)
+    await loadSettings();
 
     // Restart uptime monitoring if settings changed
     if (settings.uptime_monitoring_enabled) {
@@ -2963,20 +2965,19 @@ async function bulkDeleteDomains() {
 }
 
 /* ======================================================
-   Uptime Monitoring
+   Uptime Monitoring - Heartbeat Visualization
 ====================================================== */
 async function loadUptimeStats() {
   try {
-    const res = await fetch('/api/uptime/stats');
+    const res = await fetch('/api/uptime/heartbeat?buckets=45');
     if (!res.ok) return;
 
-    const stats = await res.json();
+    const data = await res.json();
 
-    // Show uptime widget if there's data
     const widget = document.getElementById('uptimeWidget');
-    const container = document.getElementById('uptimeStats');
+    const container = document.getElementById('uptimeHeartbeat');
 
-    if (!stats || stats.length === 0 || !stats.some(s => s.total_checks > 0)) {
+    if (!data || data.length === 0) {
       widget.style.display = 'none';
       return;
     }
@@ -2984,34 +2985,57 @@ async function loadUptimeStats() {
     widget.style.display = 'block';
 
     // Sort by status (down first) then by uptime percentage
-    const sorted = stats
-      .filter(s => s.total_checks > 0)
-      .sort((a, b) => {
-        if (a.current_status === 'down' && b.current_status !== 'down') return -1;
-        if (b.current_status === 'down' && a.current_status !== 'down') return 1;
-        return a.uptime_percentage - b.uptime_percentage;
-      })
-      .slice(0, 10);
+    const sorted = data.sort((a, b) => {
+      if (a.current_status === 'down' && b.current_status !== 'down') return -1;
+      if (b.current_status === 'down' && a.current_status !== 'down') return 1;
+      return a.uptime_percentage - b.uptime_percentage;
+    });
 
-    container.innerHTML = sorted.map(stat => {
-      const uptimeClass = stat.uptime_percentage >= 99 ? 'good' : stat.uptime_percentage >= 95 ? 'warning' : 'bad';
+    container.innerHTML = sorted.map(item => {
+      const uptimeClass = item.uptime_percentage >= 99 ? 'good' : item.uptime_percentage >= 95 ? 'warning' : 'bad';
+
+      // Generate heartbeat bars
+      const heartbeatBars = item.heartbeats.map((beat, idx) => {
+        const tooltip = beat.timestamp
+          ? `${beat.status.toUpperCase()} - ${formatDateTime(beat.timestamp)}`
+          : 'No data';
+        return `<div class="heartbeat-beat ${beat.status}" data-tooltip="${tooltip}"></div>`;
+      }).join('');
+
       return `
-        <div class="uptime-item">
-          <div class="uptime-item-domain">
-            <span class="uptime-status-dot ${stat.current_status}"></span>
-            <span>${escapeHTML(stat.domain)}</span>
+        <div class="heartbeat-item">
+          <div class="heartbeat-header">
+            <div class="heartbeat-domain">
+              <span class="heartbeat-status ${item.current_status}"></span>
+              <span>${escapeHTML(item.domain)}</span>
+            </div>
+            <div class="heartbeat-meta">
+              <span class="heartbeat-uptime ${uptimeClass}">${item.uptime_percentage.toFixed(1)}%</span>
+              ${item.avg_response_time ? `<span class="heartbeat-response">${item.avg_response_time}ms</span>` : ''}
+            </div>
           </div>
-          <div class="uptime-item-stats">
-            <span class="uptime-percentage ${uptimeClass}">${stat.uptime_percentage.toFixed(1)}%</span>
-            ${stat.avg_response_time_ms ? `<span class="uptime-response-time">${stat.avg_response_time_ms}ms</span>` : ''}
-          </div>
+          <div class="heartbeat-bar">${heartbeatBars}</div>
         </div>
       `;
     }).join('');
 
+    // Update visible widget count for responsive layout
+    updateWidgetLayout();
+
   } catch (err) {
     console.error('Error loading uptime stats:', err);
   }
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 async function runUptimeCheckAll() {
@@ -3020,10 +3044,11 @@ async function runUptimeCheckAll() {
     showLoading(true);
     const res = await fetch('/api/uptime/check-all', { method: 'POST' });
     const data = await res.json();
-    
+
     if (res.ok) {
       showNotification(data.message || 'Uptime check completed', 'success');
-      loadUptimeStats();
+      // Reload heartbeat data
+      await loadUptimeStats();
     } else {
       showNotification(data.message || 'Uptime check failed', 'error');
     }
@@ -3096,31 +3121,38 @@ async function runManualCleanup() {
 }
 
 /* ======================================================
-   Dashboard Widgets Customization
+   Dashboard Widgets Customization with Drag & Drop
 ====================================================== */
 const DEFAULT_WIDGETS = [
-  { id: 'expiration', type: 'chart', title: 'Expiry Distribution', visible: true, position: 0 },
-  { id: 'health', type: 'chart', title: 'Health Status', visible: true, position: 1 },
-  { id: 'tags', type: 'chart', title: 'Tags', visible: true, position: 2 },
-  { id: 'timeline', type: 'chart', title: 'Expiry Timeline', visible: true, position: 3 },
-  { id: 'activity', type: 'activity', title: 'Activity Log', visible: true, position: 4 },
-  { id: 'uptime', type: 'uptime', title: 'Uptime Status', visible: true, position: 5 },
+  { id: 'expiration', type: 'chart', title: 'Expiry Distribution', visible: true, position: 0, size: 'sm' },
+  { id: 'health', type: 'chart', title: 'Health Status', visible: true, position: 1, size: 'sm' },
+  { id: 'tags', type: 'chart', title: 'Tags', visible: true, position: 2, size: 'sm' },
+  { id: 'timeline', type: 'chart', title: 'Expiry Timeline', visible: true, position: 3, size: 'md' },
+  { id: 'activity', type: 'activity', title: 'Activity Log', visible: true, position: 4, size: 'sm' },
+  { id: 'uptime', type: 'uptime', title: 'Uptime Monitor', visible: true, position: 5, size: 'sm' },
 ];
 
+let draggedWidget = null;
+
 function getWidgetConfig() {
-  const saved = localStorage.getItem('dashboard_widgets');
+  const saved = localStorage.getItem('dashboard_widgets_v2');
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Merge with defaults to ensure new widgets are included
+      return DEFAULT_WIDGETS.map(def => {
+        const saved = parsed.find(p => p.id === def.id);
+        return saved ? { ...def, ...saved } : def;
+      });
     } catch {
-      return DEFAULT_WIDGETS;
+      return [...DEFAULT_WIDGETS];
     }
   }
-  return DEFAULT_WIDGETS;
+  return [...DEFAULT_WIDGETS];
 }
 
 function saveWidgetConfig(widgets) {
-  localStorage.setItem('dashboard_widgets', JSON.stringify(widgets));
+  localStorage.setItem('dashboard_widgets_v2', JSON.stringify(widgets));
 }
 
 function toggleWidgetVisibility(widgetId) {
@@ -3130,29 +3162,145 @@ function toggleWidgetVisibility(widgetId) {
     widget.visible = !widget.visible;
     saveWidgetConfig(widgets);
     applyWidgetConfig();
+    updateWidgetLayout();
   }
+}
+
+function getWidgetElement(widgetId) {
+  return document.querySelector(`[data-widget-id="${widgetId}"]`);
 }
 
 function applyWidgetConfig() {
   const widgets = getWidgetConfig();
+  const chartsArea = document.getElementById('chartsArea');
+  if (!chartsArea) return;
 
-  // Map widget IDs to DOM elements
-  const widgetElements = {
-    'expiration': document.querySelector('.chart-card:has(#expirationChart)'),
-    'health': document.querySelector('.chart-card:has(#healthChart)'),
-    'tags': document.querySelector('.chart-card:has(#tagsChart)'),
-    'timeline': document.querySelector('.chart-card:has(#timelineChart)'),
-    'activity': document.querySelector('.chart-card-activity'),
-    'uptime': document.getElementById('uptimeWidget'),
-  };
+  // Sort by position and apply visibility
+  const sortedWidgets = [...widgets].sort((a, b) => a.position - b.position);
 
-  widgets.forEach(widget => {
-    const element = widgetElements[widget.id];
+  sortedWidgets.forEach((widget, index) => {
+    const element = getWidgetElement(widget.id);
     if (element) {
-      element.style.display = widget.visible ? '' : 'none';
-      element.style.order = widget.position;
+      // Special handling for uptime - only show if it has data (controlled by loadUptimeStats)
+      if (widget.id === 'uptime') {
+        element.style.order = index;
+        // Don't change visibility here - let loadUptimeStats control it
+      } else {
+        element.style.display = widget.visible ? '' : 'none';
+        element.style.order = index;
+      }
+
+      // Apply size class
+      element.classList.remove('widget-sm', 'widget-md', 'widget-lg');
+      if (widget.size) {
+        element.classList.add(`widget-${widget.size}`);
+      }
     }
   });
+
+  // Reorder DOM elements to match config
+  sortedWidgets.forEach(widget => {
+    const element = getWidgetElement(widget.id);
+    if (element && element.parentNode === chartsArea) {
+      chartsArea.appendChild(element);
+    }
+  });
+
+  updateWidgetLayout();
+}
+
+function updateWidgetLayout() {
+  const chartsArea = document.getElementById('chartsArea');
+  if (!chartsArea) return;
+
+  // Count visible widgets
+  const visibleWidgets = Array.from(chartsArea.querySelectorAll('.chart-card'))
+    .filter(el => el.style.display !== 'none');
+
+  chartsArea.setAttribute('data-widget-count', visibleWidgets.length);
+}
+
+// Initialize drag and drop for dashboard widgets
+function initWidgetDragDrop() {
+  const chartsArea = document.getElementById('chartsArea');
+  if (!chartsArea) return;
+
+  const widgets = chartsArea.querySelectorAll('.chart-card[draggable="true"]');
+
+  widgets.forEach(widget => {
+    // Drag start
+    widget.addEventListener('dragstart', (e) => {
+      draggedWidget = widget;
+      widget.classList.add('dragging');
+      chartsArea.classList.add('drag-active');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', widget.dataset.widgetId);
+    });
+
+    // Drag end
+    widget.addEventListener('dragend', () => {
+      widget.classList.remove('dragging');
+      chartsArea.classList.remove('drag-active');
+      chartsArea.querySelectorAll('.chart-card').forEach(w => w.classList.remove('drag-over'));
+      draggedWidget = null;
+
+      // Save new order
+      saveWidgetOrder();
+    });
+
+    // Drag over
+    widget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      if (draggedWidget && draggedWidget !== widget) {
+        widget.classList.add('drag-over');
+      }
+    });
+
+    // Drag leave
+    widget.addEventListener('dragleave', () => {
+      widget.classList.remove('drag-over');
+    });
+
+    // Drop
+    widget.addEventListener('drop', (e) => {
+      e.preventDefault();
+      widget.classList.remove('drag-over');
+
+      if (draggedWidget && draggedWidget !== widget) {
+        // Swap positions in DOM
+        const allWidgets = Array.from(chartsArea.querySelectorAll('.chart-card'));
+        const draggedIndex = allWidgets.indexOf(draggedWidget);
+        const dropIndex = allWidgets.indexOf(widget);
+
+        if (draggedIndex < dropIndex) {
+          widget.parentNode.insertBefore(draggedWidget, widget.nextSibling);
+        } else {
+          widget.parentNode.insertBefore(draggedWidget, widget);
+        }
+      }
+    });
+  });
+}
+
+function saveWidgetOrder() {
+  const chartsArea = document.getElementById('chartsArea');
+  if (!chartsArea) return;
+
+  const widgets = getWidgetConfig();
+  const orderedElements = Array.from(chartsArea.querySelectorAll('.chart-card[data-widget-id]'));
+
+  orderedElements.forEach((el, index) => {
+    const widgetId = el.dataset.widgetId;
+    const widget = widgets.find(w => w.id === widgetId);
+    if (widget) {
+      widget.position = index;
+    }
+  });
+
+  saveWidgetConfig(widgets);
+  showNotification('Dashboard layout saved', 'success');
 }
 
 function openWidgetCustomizer() {
@@ -3170,17 +3318,19 @@ function openWidgetCustomizer() {
         <button class="modal-close" onclick="closeWidgetCustomizer()">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="info-text">Toggle widgets on/off to customize your dashboard view.</p>
+        <p class="info-text">Toggle widgets on/off. Drag widgets on the dashboard to reorder them.</p>
         <div class="widget-list" id="widgetList">
-          ${widgets.map(w => `
+          ${widgets.sort((a, b) => a.position - b.position).map(w => `
             <div class="widget-item" data-widget-id="${w.id}">
               <label class="widget-toggle">
-                <input type="checkbox" ${w.visible ? 'checked' : ''} onchange="toggleWidgetVisibility('${w.id}')">
+                <input type="checkbox" ${w.visible ? 'checked' : ''} ${w.id === 'uptime' ? 'disabled title="Controlled by uptime data availability"' : ''} onchange="toggleWidgetVisibility('${w.id}')">
                 <span class="widget-name">${escapeHTML(w.title)}</span>
               </label>
-              <div class="widget-drag-handle">
-                <i class="fa-solid fa-grip-vertical"></i>
-              </div>
+              <select class="widget-size-select" onchange="setWidgetSize('${w.id}', this.value)" title="Widget size">
+                <option value="sm" ${w.size === 'sm' ? 'selected' : ''}>Small</option>
+                <option value="md" ${w.size === 'md' ? 'selected' : ''}>Medium</option>
+                <option value="lg" ${w.size === 'lg' ? 'selected' : ''}>Large</option>
+              </select>
             </div>
           `).join('')}
         </div>
@@ -3194,12 +3344,21 @@ function openWidgetCustomizer() {
 
   document.body.appendChild(modal);
 
-  // Add click outside to close
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       closeWidgetCustomizer();
     }
   });
+}
+
+function setWidgetSize(widgetId, size) {
+  const widgets = getWidgetConfig();
+  const widget = widgets.find(w => w.id === widgetId);
+  if (widget) {
+    widget.size = size;
+    saveWidgetConfig(widgets);
+    applyWidgetConfig();
+  }
 }
 
 function closeWidgetCustomizer() {
@@ -3211,15 +3370,18 @@ function closeWidgetCustomizer() {
 
 function resetWidgetConfig() {
   if (confirm('Reset dashboard to default layout?')) {
-    localStorage.removeItem('dashboard_widgets');
+    localStorage.removeItem('dashboard_widgets_v2');
     applyWidgetConfig();
     closeWidgetCustomizer();
-    openWidgetCustomizer(); // Reopen to show updated state
+    openWidgetCustomizer();
     showNotification('Dashboard reset to default', 'success');
   }
 }
 
-// Apply widget config on load
+// Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(applyWidgetConfig, 100);
+  setTimeout(() => {
+    applyWidgetConfig();
+    initWidgetDragDrop();
+  }, 100);
 });
