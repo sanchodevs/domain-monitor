@@ -232,21 +232,34 @@ export async function performUptimeCheck(domainId: number, domainName: string): 
   return check;
 }
 
-export async function checkAllDomainsUptime(): Promise<void> {
+export async function checkAllDomainsUptime(forceRun = false): Promise<{ checked: number; up: number; down: number }> {
   const settings = getSettingsData();
-  if (!settings.uptime_monitoring_enabled) {
+
+  // Only check enabled setting for scheduled runs, not manual runs
+  if (!forceRun && !settings.uptime_monitoring_enabled) {
     logger.debug('Uptime monitoring is disabled');
-    return;
+    return { checked: 0, up: 0, down: 0 };
   }
 
   const domains = getAllDomains();
-  logger.info('Starting uptime check for all domains', { count: domains.length });
+  logger.info('Starting uptime check for all domains', { count: domains.length, forced: forceRun });
+
+  let checked = 0;
+  let up = 0;
+  let down = 0;
 
   for (const domain of domains) {
     if (!domain.id) continue;
 
     try {
       const check = await performUptimeCheck(domain.id, domain.domain);
+      checked++;
+
+      if (check.status === 'up') {
+        up++;
+      } else {
+        down++;
+      }
 
       // Check for consecutive failures and alert
       if (check.status === 'down') {
@@ -268,7 +281,8 @@ export async function checkAllDomainsUptime(): Promise<void> {
     await sleep(100);
   }
 
-  logger.info('Uptime check completed', { count: domains.length });
+  logger.info('Uptime check completed', { checked, up, down });
+  return { checked, up, down };
 }
 
 export function getUptimeStats(): UptimeStats[] {

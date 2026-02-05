@@ -74,8 +74,11 @@ router.post('/domain/:id', async (req: Request, res: Response) => {
 router.post('/check-all', async (_req: Request, res: Response) => {
   try {
     // Run in background
-    checkAllDomainsUptime();
-    res.json({ message: 'Uptime check started for all domains' });
+    const result = await checkAllDomainsUptime(true);
+    res.json({
+      message: `Uptime check completed: ${result.checked} checked, ${result.up} up, ${result.down} down`,
+      ...result
+    });
   } catch (err) {
     console.error('Error starting uptime check:', err);
     res.status(500).json({ message: 'Failed to start uptime check' });

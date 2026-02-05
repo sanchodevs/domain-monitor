@@ -3016,14 +3016,21 @@ async function loadUptimeStats() {
 
 async function runUptimeCheckAll() {
   try {
-    showNotification('Starting uptime check for all domains...', 'info');
+    showNotification('Running uptime check for all domains...', 'info');
+    showLoading(true);
     const res = await fetch('/api/uptime/check-all', { method: 'POST' });
+    const data = await res.json();
+    
     if (res.ok) {
-      showNotification('Uptime check started', 'success');
-      setTimeout(loadUptimeStats, 5000);
+      showNotification(data.message || 'Uptime check completed', 'success');
+      loadUptimeStats();
+    } else {
+      showNotification(data.message || 'Uptime check failed', 'error');
     }
   } catch (err) {
-    showNotification('Failed to start uptime check', 'error');
+    showNotification('Failed to run uptime check', 'error');
+  } finally {
+    showLoading(false);
   }
 }
 
