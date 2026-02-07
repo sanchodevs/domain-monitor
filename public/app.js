@@ -1229,84 +1229,48 @@ function renderNsStatus(currentNs, prevNs, updatedAt, createdAt) {
   const current = (currentNs || []).map(ns => ns.toLowerCase()).sort();
   const prev = (prevNs || []).map(ns => ns.toLowerCase()).sort();
 
-  // Check if nameservers have changed
-  const hasChanged = prev.length > 0 && JSON.stringify(current) !== JSON.stringify(prev);
-
-  // Calculate time periods
-  const now = Date.now();
-  const updated = updatedAt ? new Date(updatedAt).getTime() : null;
-  const created = createdAt ? new Date(createdAt).getTime() : null;
-
-  if (!hasChanged) {
-    // No changes detected - show how long it's been stable
-    const stableSince = created || updated;
-    if (!stableSince) {
-      return `
-        <div class="ns-status stable" title="No nameserver changes detected">
-          <i class="fa-solid fa-check-circle"></i>
-          <span>No changes</span>
-        </div>`;
-    }
-
-    const daysSinceAdded = Math.floor((now - stableSince) / (1000 * 60 * 60 * 24));
-    let stableText, stableTooltip;
-
-    if (daysSinceAdded === 0) {
-      stableText = 'New';
-      stableTooltip = 'Added today - no changes yet';
-    } else if (daysSinceAdded === 1) {
-      stableText = '1 day';
-      stableTooltip = 'Stable for 1 day';
-    } else if (daysSinceAdded < 30) {
-      stableText = `${daysSinceAdded}d`;
-      stableTooltip = `Stable for ${daysSinceAdded} days`;
-    } else if (daysSinceAdded < 365) {
-      const months = Math.floor(daysSinceAdded / 30);
-      stableText = `${months}mo`;
-      stableTooltip = `Stable for ${months} month${months > 1 ? 's' : ''} (${daysSinceAdded} days)`;
-    } else {
-      const years = Math.floor(daysSinceAdded / 365);
-      const remainingMonths = Math.floor((daysSinceAdded % 365) / 30);
-      stableText = remainingMonths > 0 ? `${years}y ${remainingMonths}mo` : `${years}y`;
-      stableTooltip = `Stable for ${years} year${years > 1 ? 's' : ''}${remainingMonths > 0 ? ` ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}` : ''} (${daysSinceAdded} days)`;
-    }
-
-    const currentNsFormatted = (currentNs || []).join('\\n');
-    const fullTooltip = `${stableTooltip}\\n\\nCurrent NS:\\n${currentNsFormatted}`;
-
+  // If no current nameservers, show pending status
+  if (current.length === 0) {
     return `
-      <div class="ns-status stable" title="${escapeHTML(fullTooltip)}">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>${stableText}</span>
+      <div class="ns-status pending" title="Waiting for WHOIS data">
+        <i class="fa-solid fa-clock"></i>
+        <span>Pending</span>
       </div>`;
   }
 
-  // Nameservers have changed - show warning with time since change
-  const daysSinceChange = updated ? Math.floor((now - updated) / (1000 * 60 * 60 * 24)) : null;
-  let timeAgo;
+  // Check if nameservers have changed (only if we have previous NS to compare)
+  const hasChanged = prev.length > 0 && JSON.stringify(current) !== JSON.stringify(prev);
 
-  if (daysSinceChange === null) {
-    timeAgo = 'Changed';
-  } else if (daysSinceChange === 0) {
-    timeAgo = 'Today';
-  } else if (daysSinceChange === 1) {
-    timeAgo = '1d ago';
-  } else if (daysSinceChange < 30) {
-    timeAgo = `${daysSinceChange}d ago`;
-  } else {
-    const months = Math.floor(daysSinceChange / 30);
-    timeAgo = `${months}mo ago`;
+  if (!hasChanged) {
+    // No changes detected - stable status
+    const currentNsFormatted = (currentNs || []).join('\n');
+
+    // If no previous NS, this is initial data
+    if (prev.length === 0) {
+      return `
+        <div class="ns-status stable" title="Initial nameserver data\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
+          <i class="fa-solid fa-check-circle"></i>
+          <span>Stable</span>
+        </div>`;
+    }
+
+    // We have both current and previous NS, and they match
+    return `
+      <div class="ns-status stable" title="Nameservers unchanged\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Stable</span>
+      </div>`;
   }
 
-  // Build tooltip with previous nameservers
-  const prevNsFormatted = (prevNs || []).join('\\n');
-  const currentNsFormatted = (currentNs || []).join('\\n');
-  const tooltip = `NS Changed ${timeAgo}\\n\\nPrevious NS:\\n${prevNsFormatted}\\n\\nCurrent NS:\\n${currentNsFormatted}`;
+  // Nameservers have changed - show warning
+  const prevNsFormatted = (prevNs || []).join('\n');
+  const currentNsFormatted = (currentNs || []).join('\n');
+  const tooltip = `Nameservers Changed!\n\nPrevious:\n${prevNsFormatted}\n\nCurrent:\n${currentNsFormatted}`;
 
   return `
     <div class="ns-status changed" title="${escapeHTML(tooltip)}">
       <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>${timeAgo}</span>
+      <span>Changed</span>
     </div>`;
 }
 

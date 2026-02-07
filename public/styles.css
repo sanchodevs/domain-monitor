@@ -2150,6 +2150,15 @@ tr:hover .health-dot::after {
   animation: nsWarningPulse 2s infinite;
 }
 
+.ns-status.pending {
+  color: var(--text-muted);
+  background: var(--bg-input);
+}
+
+.ns-status.pending i {
+  font-size: 0.7rem;
+}
+
 @keyframes nsWarningPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
