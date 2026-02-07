@@ -411,12 +411,10 @@ function updateConnectionStatus(connected) {
 }
 
 function updateDomainInTable(domain) {
-  // Find and update the domain row
-  const row = document.querySelector(`tr[data-domain="${escapeHTML(domain.domain)}"]`);
-  if (row) {
-    // Update just the changed cells instead of full reload
-    load();
-  }
+  console.log('Received domain_updated:', domain);
+  // Reload the table to show updated domain data
+  // This is triggered when WHOIS refresh completes for a newly added domain
+  load();
 }
 
 function updateHealthIndicator(domainId, health) {

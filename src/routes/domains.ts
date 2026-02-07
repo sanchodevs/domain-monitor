@@ -170,6 +170,12 @@ router.post(
           await refreshDomain(newDomain, { withHealthCheck: true });
           logger.info('Initial checks completed for new domain', { domain });
 
+          // Fetch updated domain data and broadcast to clients
+          const updatedDomain = getDomainById(id);
+          if (updatedDomain) {
+            wsService.sendDomainUpdate(updatedDomain);
+          }
+
           // Also run initial uptime check
           await performUptimeCheck(id, domain);
           logger.info('Initial uptime check completed for new domain', { domain });
