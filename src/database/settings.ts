@@ -9,6 +9,16 @@ interface SettingRow {
   updated_at: string;
 }
 
+// In-memory cache for settings (TTL-based)
+interface CacheEntry {
+  value: string;
+  expiresAt: number;
+}
+
+const CACHE_TTL_MS = 30000; // 30 seconds
+const settingsCache = new Map<string, CacheEntry>();
+let settingsDataCache: { data: SettingsData; expiresAt: number } | null = null;
+
 let _statements: {
   get: Statement;
   set: Statement;
@@ -29,12 +39,34 @@ function getStatements() {
 }
 
 export function getSetting(key: string): string | null {
+  // Check cache first
+  const cached = settingsCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const row = getStatements().get.get(key) as SettingRow | undefined;
-  return row?.value ?? null;
+  const value = row?.value ?? null;
+
+  // Update cache
+  if (value !== null) {
+    settingsCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+
+  return value;
 }
 
 export function setSetting(key: string, value: string): void {
   getStatements().set.run(key, value);
+  // Invalidate cache
+  settingsCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  settingsDataCache = null; // Invalidate full settings cache
+}
+
+// Clear all settings caches (useful after bulk updates)
+export function clearSettingsCache(): void {
+  settingsCache.clear();
+  settingsDataCache = null;
 }
 
 export function deleteSetting(key: string): boolean {
@@ -51,9 +83,14 @@ export function getAllSettings(): Record<string, string> {
   return settings;
 }
 
-// Typed settings helpers
+// Typed settings helpers - with caching
 export function getSettingsData(): SettingsData {
-  return {
+  // Check cache first
+  if (settingsDataCache && settingsDataCache.expiresAt > Date.now()) {
+    return settingsDataCache.data;
+  }
+
+  const data: SettingsData = {
     refresh_schedule: getSetting('refresh_schedule') || config.defaultRefreshSchedule,
     email_enabled: getSetting('email_enabled') === 'true',
     email_recipients: JSON.parse(getSetting('email_recipients') || '[]'),
@@ -69,47 +106,58 @@ export function getSettingsData(): SettingsData {
     health_log_retention_days: parseInt(getSetting('health_log_retention_days') || '30', 10),
     auto_cleanup_enabled: getSetting('auto_cleanup_enabled') !== 'false',
   };
+
+  // Cache the result
+  settingsDataCache = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+
+  return data;
 }
 
 export function updateSettings(data: Partial<SettingsData>): void {
-  if (data.refresh_schedule !== undefined) {
-    setSetting('refresh_schedule', data.refresh_schedule);
-  }
-  if (data.email_enabled !== undefined) {
-    setSetting('email_enabled', String(data.email_enabled));
-  }
-  if (data.email_recipients !== undefined) {
-    setSetting('email_recipients', JSON.stringify(data.email_recipients));
-  }
-  if (data.alert_days !== undefined) {
-    setSetting('alert_days', JSON.stringify(data.alert_days));
-  }
-  if (data.health_check_enabled !== undefined) {
-    setSetting('health_check_enabled', String(data.health_check_enabled));
-  }
-  if (data.health_check_interval_hours !== undefined) {
-    setSetting('health_check_interval_hours', String(data.health_check_interval_hours));
-  }
-  // Uptime monitoring settings
-  if (data.uptime_monitoring_enabled !== undefined) {
-    setSetting('uptime_monitoring_enabled', String(data.uptime_monitoring_enabled));
-  }
-  if (data.uptime_check_interval_minutes !== undefined) {
-    setSetting('uptime_check_interval_minutes', String(data.uptime_check_interval_minutes));
-  }
-  if (data.uptime_alert_threshold !== undefined) {
-    setSetting('uptime_alert_threshold', String(data.uptime_alert_threshold));
-  }
-  // Audit log retention settings
-  if (data.audit_log_retention_days !== undefined) {
-    setSetting('audit_log_retention_days', String(data.audit_log_retention_days));
-  }
-  if (data.health_log_retention_days !== undefined) {
-    setSetting('health_log_retention_days', String(data.health_log_retention_days));
-  }
-  if (data.auto_cleanup_enabled !== undefined) {
-    setSetting('auto_cleanup_enabled', String(data.auto_cleanup_enabled));
-  }
+  // Use a transaction for bulk updates
+  db.transaction(() => {
+    if (data.refresh_schedule !== undefined) {
+      setSetting('refresh_schedule', data.refresh_schedule);
+    }
+    if (data.email_enabled !== undefined) {
+      setSetting('email_enabled', String(data.email_enabled));
+    }
+    if (data.email_recipients !== undefined) {
+      setSetting('email_recipients', JSON.stringify(data.email_recipients));
+    }
+    if (data.alert_days !== undefined) {
+      setSetting('alert_days', JSON.stringify(data.alert_days));
+    }
+    if (data.health_check_enabled !== undefined) {
+      setSetting('health_check_enabled', String(data.health_check_enabled));
+    }
+    if (data.health_check_interval_hours !== undefined) {
+      setSetting('health_check_interval_hours', String(data.health_check_interval_hours));
+    }
+    // Uptime monitoring settings
+    if (data.uptime_monitoring_enabled !== undefined) {
+      setSetting('uptime_monitoring_enabled', String(data.uptime_monitoring_enabled));
+    }
+    if (data.uptime_check_interval_minutes !== undefined) {
+      setSetting('uptime_check_interval_minutes', String(data.uptime_check_interval_minutes));
+    }
+    if (data.uptime_alert_threshold !== undefined) {
+      setSetting('uptime_alert_threshold', String(data.uptime_alert_threshold));
+    }
+    // Audit log retention settings
+    if (data.audit_log_retention_days !== undefined) {
+      setSetting('audit_log_retention_days', String(data.audit_log_retention_days));
+    }
+    if (data.health_log_retention_days !== undefined) {
+      setSetting('health_log_retention_days', String(data.health_log_retention_days));
+    }
+    if (data.auto_cleanup_enabled !== undefined) {
+      setSetting('auto_cleanup_enabled', String(data.auto_cleanup_enabled));
+    }
+  })();
+
+  // Invalidate caches
+  clearSettingsCache();
 }
 
 // Initialize default settings if not present

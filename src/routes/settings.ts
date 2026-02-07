@@ -5,6 +5,7 @@ import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler.js';
 import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError } from '../services/email.js';
+import { restartUptimeMonitoring } from '../services/uptime.js';
 import { logAudit } from '../database/audit.js';
 import { isValidCronExpression } from '../utils/helpers.js';
 
@@ -42,6 +43,12 @@ router.put(
     // Update scheduler if refresh schedule changed
     if (req.body.refresh_schedule) {
       updateRefreshSchedule(req.body.refresh_schedule);
+    }
+
+    // Restart uptime monitoring if uptime settings changed
+    if (req.body.uptime_monitoring_enabled !== undefined ||
+        req.body.uptime_check_interval_minutes !== undefined) {
+      restartUptimeMonitoring();
     }
 
     logAudit({

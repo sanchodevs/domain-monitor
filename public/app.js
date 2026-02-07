@@ -376,6 +376,19 @@ function handleWebSocketMessage(message) {
       updateHealthIndicator(payload.domainId, payload.health);
       break;
 
+    case 'uptime_update':
+      // Update uptime heartbeat for domain dynamically
+      console.log('Received uptime update:', payload);
+      updateUptimeHeartbeat(payload.domain_id, payload);
+      break;
+
+    case 'domain_added':
+      // Reload table when a new domain is added (to show it with initial checks)
+      showNotification(`Domain ${payload.domain} added, running initial checks...`, 'info');
+      // Delay reload slightly to let initial checks complete
+      setTimeout(() => load(), 1000);
+      break;
+
     case 'error':
       showNotification(payload.message || 'An error occurred', 'error');
       break;
@@ -412,6 +425,92 @@ function updateHealthIndicator(domainId, health) {
     const healthCell = row.querySelector('.health-indicator');
     if (healthCell) {
       healthCell.innerHTML = renderHealthIndicator(health);
+    }
+  }
+}
+
+function updateUptimeHeartbeat(domainId, uptimeCheck) {
+  const row = document.querySelector(`tr[data-domain-id="${domainId}"]`);
+  if (!row) return;
+
+  // Find the uptime cell (it's the third cell after checkbox and domain)
+  const uptimeCellTd = row.querySelector('td:nth-child(3)');
+  if (!uptimeCellTd) return;
+
+  let uptimeCell = uptimeCellTd.querySelector('.uptime-cell-content');
+
+  // If no uptime cell content exists or it just shows "-", create proper structure
+  if (!uptimeCell || uptimeCell.querySelector('.uptime-na')) {
+    // Initialize the uptime display
+    const domain = state.allDomains.find(d => d.id === domainId);
+    if (domain) {
+      // Initialize uptime data in memory
+      if (!domain.uptime) {
+        domain.uptime = {
+          current_status: uptimeCheck.status,
+          uptime_percentage: uptimeCheck.status === 'up' ? 100 : 0,
+          avg_response_time: uptimeCheck.response_time_ms || 0,
+          total_checks: 1,
+          heartbeats: []
+        };
+        // Fill with 'none' beats and add the new one at the end
+        for (let i = 0; i < 23; i++) {
+          domain.uptime.heartbeats.push({ status: 'none' });
+        }
+        domain.uptime.heartbeats.push({ status: uptimeCheck.status });
+      }
+
+      // Re-render the cell
+      uptimeCellTd.innerHTML = renderUptimeCell(domain.uptime);
+      return;
+    }
+  }
+
+  if (!uptimeCell) return;
+
+  // Update the status indicator (class is uptime-status-indicator)
+  const statusIndicator = uptimeCell.querySelector('.uptime-status-indicator');
+  if (statusIndicator) {
+    // Remove old status classes and add new one
+    statusIndicator.classList.remove('up', 'down', 'unknown');
+    statusIndicator.classList.add(uptimeCheck.status);
+    statusIndicator.title = uptimeCheck.status.toUpperCase();
+  }
+
+  // Update the mini heartbeat bar - shift left and add new beat
+  const heartbeatBar = uptimeCell.querySelector('.mini-heartbeat-bar');
+  if (heartbeatBar) {
+    // Remove the oldest beat (first child)
+    const beats = heartbeatBar.querySelectorAll('.mini-beat');
+    if (beats.length > 0) {
+      beats[0].remove();
+    }
+
+    // Add new beat at the end
+    const newBeat = document.createElement('div');
+    newBeat.className = `mini-beat ${uptimeCheck.status}`;
+    heartbeatBar.appendChild(newBeat);
+
+    // Update domain data in memory for future reference
+    const domain = state.allDomains.find(d => d.id === domainId);
+    if (domain && domain.uptime) {
+      // Shift heartbeats left
+      domain.uptime.heartbeats.shift();
+      domain.uptime.heartbeats.push({ status: uptimeCheck.status });
+      domain.uptime.current_status = uptimeCheck.status;
+      domain.uptime.total_checks++;
+
+      // Recalculate percentage based on heartbeats
+      const upCount = domain.uptime.heartbeats.filter(h => h.status === 'up').length;
+      const totalCount = domain.uptime.heartbeats.filter(h => h.status !== 'none').length;
+      if (totalCount > 0) {
+        domain.uptime.uptime_percentage = Math.round((upCount / totalCount) * 10000) / 100;
+        // Update percentage display (class is uptime-pct)
+        const percentageEl = uptimeCell.querySelector('.uptime-pct');
+        if (percentageEl) {
+          percentageEl.textContent = `${domain.uptime.uptime_percentage.toFixed(1)}%`;
+        }
+      }
     }
   }
 }
@@ -1089,11 +1188,128 @@ function renderHealthIndicator(health) {
 }
 
 /* ======================================================
+   Uptime Cell Renderer
+====================================================== */
+function renderUptimeCell(uptime) {
+  if (!uptime || uptime.total_checks === 0) {
+    return `<div class="uptime-cell-content">
+      <span class="uptime-na">-</span>
+    </div>`;
+  }
+
+  const statusClass = uptime.current_status;
+  const uptimeClass = uptime.uptime_percentage >= 99 ? 'good' : uptime.uptime_percentage >= 95 ? 'warning' : 'bad';
+
+  // Generate mini heartbeat bar
+  const heartbeatHtml = uptime.heartbeats.map(h =>
+    `<div class="mini-beat ${h.status}"></div>`
+  ).join('');
+
+  return `<div class="uptime-cell-content">
+    <div class="uptime-cell-header">
+      <span class="uptime-status-indicator ${statusClass}" title="${statusClass.toUpperCase()}"></span>
+      <span class="uptime-pct ${uptimeClass}">${uptime.uptime_percentage.toFixed(1)}%</span>
+      ${uptime.avg_response_time ? `<span class="uptime-ms">${uptime.avg_response_time}ms</span>` : ''}
+    </div>
+    <div class="mini-heartbeat-bar">${heartbeatHtml}</div>
+  </div>`;
+}
+
+/* ======================================================
    Tags Renderer
 ====================================================== */
 function renderTags(tags) {
   if (!tags || tags.length === 0) return '-';
   return tags.map(tag => `<span class="tag-badge" style="background: ${sanitizeColor(tag.color)}">${escapeHTML(tag.name)}</span>`).join(' ');
+}
+
+/* ======================================================
+   Nameserver Status Renderer
+====================================================== */
+function renderNsStatus(currentNs, prevNs, updatedAt, createdAt) {
+  // Normalize arrays for comparison
+  const current = (currentNs || []).map(ns => ns.toLowerCase()).sort();
+  const prev = (prevNs || []).map(ns => ns.toLowerCase()).sort();
+
+  // Check if nameservers have changed
+  const hasChanged = prev.length > 0 && JSON.stringify(current) !== JSON.stringify(prev);
+
+  // Calculate time periods
+  const now = Date.now();
+  const updated = updatedAt ? new Date(updatedAt).getTime() : null;
+  const created = createdAt ? new Date(createdAt).getTime() : null;
+
+  if (!hasChanged) {
+    // No changes detected - show how long it's been stable
+    const stableSince = created || updated;
+    if (!stableSince) {
+      return `
+        <div class="ns-status stable" title="No nameserver changes detected">
+          <i class="fa-solid fa-check-circle"></i>
+          <span>No changes</span>
+        </div>`;
+    }
+
+    const daysSinceAdded = Math.floor((now - stableSince) / (1000 * 60 * 60 * 24));
+    let stableText, stableTooltip;
+
+    if (daysSinceAdded === 0) {
+      stableText = 'New';
+      stableTooltip = 'Added today - no changes yet';
+    } else if (daysSinceAdded === 1) {
+      stableText = '1 day';
+      stableTooltip = 'Stable for 1 day';
+    } else if (daysSinceAdded < 30) {
+      stableText = `${daysSinceAdded}d`;
+      stableTooltip = `Stable for ${daysSinceAdded} days`;
+    } else if (daysSinceAdded < 365) {
+      const months = Math.floor(daysSinceAdded / 30);
+      stableText = `${months}mo`;
+      stableTooltip = `Stable for ${months} month${months > 1 ? 's' : ''} (${daysSinceAdded} days)`;
+    } else {
+      const years = Math.floor(daysSinceAdded / 365);
+      const remainingMonths = Math.floor((daysSinceAdded % 365) / 30);
+      stableText = remainingMonths > 0 ? `${years}y ${remainingMonths}mo` : `${years}y`;
+      stableTooltip = `Stable for ${years} year${years > 1 ? 's' : ''}${remainingMonths > 0 ? ` ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}` : ''} (${daysSinceAdded} days)`;
+    }
+
+    const currentNsFormatted = (currentNs || []).join('\\n');
+    const fullTooltip = `${stableTooltip}\\n\\nCurrent NS:\\n${currentNsFormatted}`;
+
+    return `
+      <div class="ns-status stable" title="${escapeHTML(fullTooltip)}">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>${stableText}</span>
+      </div>`;
+  }
+
+  // Nameservers have changed - show warning with time since change
+  const daysSinceChange = updated ? Math.floor((now - updated) / (1000 * 60 * 60 * 24)) : null;
+  let timeAgo;
+
+  if (daysSinceChange === null) {
+    timeAgo = 'Changed';
+  } else if (daysSinceChange === 0) {
+    timeAgo = 'Today';
+  } else if (daysSinceChange === 1) {
+    timeAgo = '1d ago';
+  } else if (daysSinceChange < 30) {
+    timeAgo = `${daysSinceChange}d ago`;
+  } else {
+    const months = Math.floor(daysSinceChange / 30);
+    timeAgo = `${months}mo ago`;
+  }
+
+  // Build tooltip with previous nameservers
+  const prevNsFormatted = (prevNs || []).join('\\n');
+  const currentNsFormatted = (currentNs || []).join('\\n');
+  const tooltip = `NS Changed ${timeAgo}\\n\\nPrevious NS:\\n${prevNsFormatted}\\n\\nCurrent NS:\\n${currentNsFormatted}`;
+
+  return `
+    <div class="ns-status changed" title="${escapeHTML(tooltip)}">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>${timeAgo}</span>
+    </div>`;
 }
 
 /* ======================================================
@@ -1220,19 +1436,19 @@ async function load() {
               ${d.error ? '<i class="fa-solid fa-triangle-exclamation error-icon" title="' + escapeHTML(d.error) + '"></i>' : ''}
             </div>
           </td>
-          <td>${group ? `<span class="group-badge"><span class="group-badge-dot" style="background: ${sanitizeColor(group.color)}"></span>${escapeHTML(group.name)}</span>` : '-'}</td>
-          <td>${renderTags(d.tags)}</td>
+          <td class="uptime-cell">${renderUptimeCell(d.uptime)}</td>
+          <td>${renderHealthIndicator(d.health)}</td>
           <td>${escapeHTML(d.registrar) || "-"}</td>
           <td>${formatDate(d.expiry_date)}</td>
           <td class="${statusClass}">${days ?? "-"}${days !== null ? " days" : ""}</td>
-          <td class="ns-servers" style="color:${nsChanged ? "var(--danger)" : "inherit"}">${nsHTML}</td>
-          <td>${formatDate(d.created_date)}</td>
-          <td>${getDomainAge(d.created_date)}</td>
+          <td class="ns-servers">${nsHTML}</td>
+          <td class="ns-status-cell">${renderNsStatus(d.name_servers, d.name_servers_prev, d.updated_at, d.created_at)}</td>
           <td>${formatDateTime(d.last_checked)}</td>
-          <td>${renderHealthIndicator(d.health)}</td>
-          <td class="less"><button class="refresh-btn" data-action="refresh" title="Refresh WHOIS"><i class="fa-solid fa-arrows-rotate"></i></button></td>
-          <td class="less"><button class="health-btn" data-action="health" title="Check Health"><i class="fa-solid fa-heart-pulse"></i></button></td>
-          <td class="less"><button class="delete-btn" data-action="delete" title="Delete domain"><i class="fa-solid fa-trash"></i></button></td>
+          <td class="actions-cell">
+            <button class="refresh-btn" data-action="refresh" title="Refresh WHOIS"><i class="fa-solid fa-arrows-rotate"></i></button>
+            <button class="health-btn" data-action="health" title="Check Health"><i class="fa-solid fa-heart-pulse"></i></button>
+            <button class="delete-btn" data-action="delete" title="Delete domain"><i class="fa-solid fa-trash"></i></button>
+          </td>
         </tr>`;
     }).join("");
 
@@ -1558,7 +1774,7 @@ async function refreshSelected() {
     return;
   }
 
-  if (!confirm(`Refresh ${domains.length} domain(s)?`)) return;
+  if (!confirm(`Refresh ${domains.length} domain(s) with health checks?`)) return;
 
   showLoading(true);
   let refreshed = 0, failed = 0;
@@ -1566,7 +1782,8 @@ async function refreshSelected() {
   for (let i = 0; i < domains.length; i++) {
     const domain = domains[i];
     try {
-      const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
+      // Refresh with health check enabled
+      const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}?withHealth=true`, { method: "POST" });
       if (res.ok) {
         refreshed++;
       } else {
@@ -1758,13 +1975,14 @@ async function refreshAll() {
       return;
     }
 
-    if (!confirm(`Refresh ${domains.length} domain(s)?\n\nThis will query WHOIS data for all domains.`)) return;
+    if (!confirm(`Refresh ${domains.length} domain(s)?\n\nThis will query WHOIS data and run health checks for all domains.`)) return;
 
     state.isRefreshing = true;
     showLoading(true);
     showRefreshProgress(true, 0, domains.length);
 
-    const res = await fetch("/api/refresh", { method: "POST" });
+    // Refresh with health checks enabled by default
+    const res = await fetch("/api/refresh?withHealth=true", { method: "POST" });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -1787,14 +2005,15 @@ async function refreshAll() {
 async function refreshOne(domain) {
   try {
     showLoading(true);
-    const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}`, { method: "POST" });
+    // Refresh with health check enabled
+    const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}?withHealth=true`, { method: "POST" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.message || "Failed to refresh");
     }
 
-    showNotification(`Domain ${domain} refreshed`, 'success');
+    showNotification(`Domain ${domain} refreshed with health check`, 'success');
     await load();
   } catch (err) {
     console.error("Error refreshing domain:", err);
@@ -2336,6 +2555,7 @@ async function openDomainDetails(domainId) {
   document.getElementById('domainWhoisInfo').innerHTML = `
     <p><strong>Registrar:</strong> ${escapeHTML(domain.registrar) || 'N/A'}</p>
     <p><strong>Created:</strong> ${formatDate(domain.created_date)}</p>
+    <p><strong>Age:</strong> ${getDomainAge(domain.created_date)}</p>
     <p><strong>Expires:</strong> ${formatDate(domain.expiry_date)}</p>
     <p><strong>Last Checked:</strong> ${formatDateTime(domain.last_checked)}</p>
     <p><strong>Name Servers:</strong> ${(domain.name_servers || []).join(', ') || 'N/A'}</p>
@@ -2758,9 +2978,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial load
   load();
-
-  // Load uptime stats if enabled
-  loadUptimeStats();
 });
 
 /* ======================================================
@@ -2965,79 +3182,8 @@ async function bulkDeleteDomains() {
 }
 
 /* ======================================================
-   Uptime Monitoring - Heartbeat Visualization
+   Uptime Monitoring
 ====================================================== */
-async function loadUptimeStats() {
-  try {
-    const res = await fetch('/api/uptime/heartbeat?buckets=45');
-    if (!res.ok) return;
-
-    const data = await res.json();
-
-    const widget = document.getElementById('uptimeWidget');
-    const container = document.getElementById('uptimeHeartbeat');
-
-    if (!data || data.length === 0) {
-      widget.style.display = 'none';
-      return;
-    }
-
-    widget.style.display = 'block';
-
-    // Sort by status (down first) then by uptime percentage
-    const sorted = data.sort((a, b) => {
-      if (a.current_status === 'down' && b.current_status !== 'down') return -1;
-      if (b.current_status === 'down' && a.current_status !== 'down') return 1;
-      return a.uptime_percentage - b.uptime_percentage;
-    });
-
-    container.innerHTML = sorted.map(item => {
-      const uptimeClass = item.uptime_percentage >= 99 ? 'good' : item.uptime_percentage >= 95 ? 'warning' : 'bad';
-
-      // Generate heartbeat bars
-      const heartbeatBars = item.heartbeats.map((beat, idx) => {
-        const tooltip = beat.timestamp
-          ? `${beat.status.toUpperCase()} - ${formatDateTime(beat.timestamp)}`
-          : 'No data';
-        return `<div class="heartbeat-beat ${beat.status}" data-tooltip="${tooltip}"></div>`;
-      }).join('');
-
-      return `
-        <div class="heartbeat-item">
-          <div class="heartbeat-header">
-            <div class="heartbeat-domain">
-              <span class="heartbeat-status ${item.current_status}"></span>
-              <span>${escapeHTML(item.domain)}</span>
-            </div>
-            <div class="heartbeat-meta">
-              <span class="heartbeat-uptime ${uptimeClass}">${item.uptime_percentage.toFixed(1)}%</span>
-              ${item.avg_response_time ? `<span class="heartbeat-response">${item.avg_response_time}ms</span>` : ''}
-            </div>
-          </div>
-          <div class="heartbeat-bar">${heartbeatBars}</div>
-        </div>
-      `;
-    }).join('');
-
-    // Update visible widget count for responsive layout
-    updateWidgetLayout();
-
-  } catch (err) {
-    console.error('Error loading uptime stats:', err);
-  }
-}
-
-function formatDateTime(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  return date.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
 async function runUptimeCheckAll() {
   try {
     showNotification('Running uptime check for all domains...', 'info');
@@ -3047,8 +3193,8 @@ async function runUptimeCheckAll() {
 
     if (res.ok) {
       showNotification(data.message || 'Uptime check completed', 'success');
-      // Reload heartbeat data
-      await loadUptimeStats();
+      // Reload table to show updated uptime data
+      await load();
     } else {
       showNotification(data.message || 'Uptime check failed', 'error');
     }
@@ -3129,7 +3275,6 @@ const DEFAULT_WIDGETS = [
   { id: 'tags', type: 'chart', title: 'Tags', visible: true, position: 2, size: 'sm' },
   { id: 'timeline', type: 'chart', title: 'Expiry Timeline', visible: true, position: 3, size: 'md' },
   { id: 'activity', type: 'activity', title: 'Activity Log', visible: true, position: 4, size: 'sm' },
-  { id: 'uptime', type: 'uptime', title: 'Uptime Monitor', visible: true, position: 5, size: 'sm' },
 ];
 
 let draggedWidget = null;
@@ -3228,8 +3373,15 @@ function initWidgetDragDrop() {
   const widgets = chartsArea.querySelectorAll('.chart-card[draggable="true"]');
 
   widgets.forEach(widget => {
-    // Drag start
+    const handle = widget.querySelector('.widget-drag-handle');
+
+    // Prevent drag when not using handle
     widget.addEventListener('dragstart', (e) => {
+      // Only allow drag if started from handle
+      if (!widget.classList.contains('drag-enabled')) {
+        e.preventDefault();
+        return;
+      }
       draggedWidget = widget;
       widget.classList.add('dragging');
       chartsArea.classList.add('drag-active');
@@ -3237,9 +3389,16 @@ function initWidgetDragDrop() {
       e.dataTransfer.setData('text/plain', widget.dataset.widgetId);
     });
 
+    // Enable drag on mousedown on handle
+    if (handle) {
+      handle.addEventListener('mousedown', () => {
+        widget.classList.add('drag-enabled');
+      });
+    }
+
     // Drag end
     widget.addEventListener('dragend', () => {
-      widget.classList.remove('dragging');
+      widget.classList.remove('dragging', 'drag-enabled');
       chartsArea.classList.remove('drag-active');
       chartsArea.querySelectorAll('.chart-card').forEach(w => w.classList.remove('drag-over'));
       draggedWidget = null;
@@ -3281,6 +3440,11 @@ function initWidgetDragDrop() {
         }
       }
     });
+  });
+
+  // Reset drag-enabled on mouseup anywhere
+  document.addEventListener('mouseup', () => {
+    widgets.forEach(w => w.classList.remove('drag-enabled'));
   });
 }
 

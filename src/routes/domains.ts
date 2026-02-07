@@ -10,14 +10,21 @@ import {
   domainExists,
   setDomainGroup,
 } from '../database/domains.js';
-import { getTagsForDomain, setDomainTags, addTagToDomain, removeTagFromDomain } from '../database/tags.js';
-import { getLatestHealth } from '../database/health.js';
+import { getTagsForDomain, getTagsForDomainsBatch, setDomainTags, addTagToDomain, removeTagFromDomain } from '../database/tags.js';
+import { getLatestHealth, getLatestHealthBatch } from '../database/health.js';
+import { getDomainUptimeSummary, getDomainUptimeSummaryBatch } from '../services/uptime.js';
 import { auditDomainCreate, auditDomainDelete } from '../database/audit.js';
 import { domainSchema, assignGroupSchema, assignTagsSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { normalizeDomain } from '../utils/helpers.js';
+import { refreshDomain } from '../services/whois.js';
+import { performUptimeCheck } from '../services/uptime.js';
+import { wsService } from '../services/websocket.js';
+import { createLogger } from '../utils/logger.js';
 import type { DomainWithRelations } from '../types/domain.js';
+
+const logger = createLogger('domains');
 
 const router = Router();
 
@@ -25,10 +32,11 @@ const router = Router();
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    // Optionally include tags and health
+    // Optionally include tags, health, and uptime
     const include = req.query.include as string || '';
     const withTags = include === 'tags' || include === 'all';
     const withHealth = include === 'health' || include === 'all';
+    const withUptime = include === 'uptime' || include === 'all';
 
     // Check if pagination is requested
     const pageParam = req.query.page;
@@ -59,11 +67,20 @@ router.get(
 
       const paginatedResult = getDomainsPaginated(page, limit, sortBy, sortOrder, search, status, groupId, registrar);
 
-      // Enrich with tags and health
+      // Get all domain IDs for batch queries
+      const domainIds = paginatedResult.data.map(d => d.id).filter((id): id is number => id !== undefined);
+
+      // Use batch queries to eliminate N+1 problem
+      const tagsMap = withTags ? getTagsForDomainsBatch(domainIds) : new Map();
+      const healthMap = withHealth ? getLatestHealthBatch(domainIds) : new Map();
+      const uptimeMap = withUptime ? getDomainUptimeSummaryBatch(domainIds, 24) : new Map();
+
+      // Enrich with tags, health, and uptime
       const enrichedData: DomainWithRelations[] = paginatedResult.data.map((domain) => ({
         ...domain,
-        tags: withTags && domain.id ? getTagsForDomain(domain.id) : undefined,
-        health: withHealth && domain.id ? getLatestHealth(domain.id) : undefined,
+        tags: withTags && domain.id ? tagsMap.get(domain.id) || [] : undefined,
+        health: withHealth && domain.id ? healthMap.get(domain.id) || null : undefined,
+        uptime: withUptime && domain.id ? uptimeMap.get(domain.id) || null : undefined,
       }));
 
       return res.json({
@@ -78,10 +95,19 @@ router.get(
     // Non-paginated response (backward compatible)
     const domains = getAllDomains();
 
+    // Get all domain IDs for batch queries
+    const domainIds = domains.map(d => d.id).filter((id): id is number => id !== undefined);
+
+    // Use batch queries to eliminate N+1 problem
+    const tagsMap = withTags ? getTagsForDomainsBatch(domainIds) : new Map();
+    const healthMap = withHealth ? getLatestHealthBatch(domainIds) : new Map();
+    const uptimeMap = withUptime ? getDomainUptimeSummaryBatch(domainIds, 24) : new Map();
+
     const result: DomainWithRelations[] = domains.map((domain) => ({
       ...domain,
-      tags: withTags && domain.id ? getTagsForDomain(domain.id) : undefined,
-      health: withHealth && domain.id ? getLatestHealth(domain.id) : undefined,
+      tags: withTags && domain.id ? tagsMap.get(domain.id) || [] : undefined,
+      health: withHealth && domain.id ? healthMap.get(domain.id) || null : undefined,
+      uptime: withUptime && domain.id ? uptimeMap.get(domain.id) || null : undefined,
     }));
 
     res.json(result);
@@ -128,7 +154,33 @@ router.post(
 
     auditDomainCreate(domain, { domain }, req.ip, req.get('User-Agent'));
 
+    // Immediately return success, then run checks in background
     res.json({ success: true, id });
+
+    // Notify clients that a new domain was added
+    wsService.sendDomainAdded(id, domain);
+
+    // Run WHOIS refresh and health check in background
+    const newDomain = getDomainById(id);
+    if (newDomain) {
+      // Run checks asynchronously (don't await - let them run in background)
+      (async () => {
+        try {
+          // WHOIS + Health check
+          await refreshDomain(newDomain, { withHealthCheck: true });
+          logger.info('Initial checks completed for new domain', { domain });
+
+          // Also run initial uptime check
+          await performUptimeCheck(id, domain);
+          logger.info('Initial uptime check completed for new domain', { domain });
+        } catch (err) {
+          logger.error('Initial checks failed for new domain', {
+            domain,
+            error: err instanceof Error ? err.message : 'Unknown error'
+          });
+        }
+      })();
+    }
   })
 );
 

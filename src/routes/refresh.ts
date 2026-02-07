@@ -19,9 +19,10 @@ router.get(
 );
 
 // Refresh all domains
+// Query params: ?withHealth=true to also run health checks after WHOIS refresh
 router.post(
   '/',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     const status = getRefreshStatus();
 
     if (status.isRefreshing) {
@@ -32,14 +33,17 @@ router.post(
       });
     }
 
+    // Check if health checks should be performed
+    const withHealthCheck = req.query.withHealth === 'true' || req.body?.withHealth === true;
+
     // Get domain names for audit
     const allDomains = getAllDomains();
     const domainNames = allDomains.map(d => d.domain);
 
     // Start refresh in background
-    refreshAllDomains()
+    refreshAllDomains(undefined, { withHealthCheck })
       .then(() => {
-        logger.info('Refresh completed');
+        logger.info('Refresh completed', { withHealthCheck });
         auditBulkRefresh(domainNames.length, domainNames);
       })
       .catch((err) => {
@@ -49,13 +53,15 @@ router.post(
     const newStatus = getRefreshStatus();
     res.json({
       success: true,
-      message: `Refreshing ${newStatus.total} domain(s)...`,
+      message: `Refreshing ${newStatus.total} domain(s)${withHealthCheck ? ' with health checks' : ''}...`,
       total: newStatus.total,
+      withHealthCheck,
     });
   })
 );
 
 // Refresh single domain
+// Query params: ?withHealth=true to also run health check after WHOIS refresh
 router.post(
   '/:domain',
   asyncHandler(async (req, res) => {
@@ -66,8 +72,11 @@ router.post(
       return res.status(404).json({ success: false, message: 'Domain not found' });
     }
 
-    await refreshDomain(domain);
-    res.json({ success: true, domain });
+    // Check if health check should be performed
+    const withHealthCheck = req.query.withHealth === 'true' || req.body?.withHealth === true;
+
+    await refreshDomain(domain, { withHealthCheck });
+    res.json({ success: true, domain, withHealthCheck });
   })
 );
 

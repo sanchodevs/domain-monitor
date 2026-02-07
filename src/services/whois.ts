@@ -8,6 +8,7 @@ import type { WHOISResult, RefreshStatus } from '../types/api.js';
 import type { Domain } from '../types/domain.js';
 import { updateDomain, getAllDomains } from '../database/domains.js';
 import { auditDomainRefresh } from '../database/audit.js';
+import { performHealthCheck } from './healthcheck.js';
 
 const logger = createLogger('whois');
 
@@ -387,8 +388,13 @@ async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> 
   }
 }
 
-export async function refreshDomain(domain: Domain): Promise<Domain> {
+export interface RefreshOptions {
+  withHealthCheck?: boolean;
+}
+
+export async function refreshDomain(domain: Domain, options: RefreshOptions = {}): Promise<Domain> {
   const oldData = { ...domain };
+  const { withHealthCheck = false } = options;
 
   try {
     const result = await fetchWhois(domain.domain);
@@ -421,6 +427,19 @@ export async function refreshDomain(domain: Domain): Promise<Domain> {
     // Audit the refresh
     auditDomainRefresh(domain.domain, oldData, domain);
 
+    // Optionally perform health check after WHOIS refresh
+    if (withHealthCheck && domain.id) {
+      try {
+        await performHealthCheck(domain.id, domain.domain);
+        logger.info('Health check completed after WHOIS refresh', { domain: domain.domain });
+      } catch (healthErr) {
+        logger.warn('Health check failed after WHOIS refresh', {
+          domain: domain.domain,
+          error: healthErr instanceof Error ? healthErr.message : 'Unknown error'
+        });
+      }
+    }
+
     logger.info('Domain refreshed', { domain: domain.domain });
     return domain;
   } catch (err) {
@@ -434,7 +453,7 @@ export async function refreshDomain(domain: Domain): Promise<Domain> {
   }
 }
 
-export async function refreshAllDomains(domains?: Domain[]): Promise<void> {
+export async function refreshAllDomains(domains?: Domain[], options: RefreshOptions = {}): Promise<void> {
   if (refreshStatus.isRefreshing) {
     throw new Error('Refresh already in progress');
   }
@@ -450,7 +469,7 @@ export async function refreshAllDomains(domains?: Domain[]): Promise<void> {
   refreshStatus.completed = 0;
   refreshStatus.startTime = Date.now();
 
-  logger.info('Starting bulk refresh', { total: domainsToRefresh.length });
+  logger.info('Starting bulk refresh', { total: domainsToRefresh.length, withHealthCheck: options.withHealthCheck });
   emitRefreshUpdate();
 
   for (let i = 0; i < domainsToRefresh.length; i++) {
@@ -459,7 +478,7 @@ export async function refreshAllDomains(domains?: Domain[]): Promise<void> {
     emitRefreshUpdate();
 
     try {
-      await refreshDomain(domain);
+      await refreshDomain(domain, options);
       logger.info(`Refreshed ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

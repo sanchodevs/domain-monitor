@@ -7,7 +7,7 @@ import type { Domain, DomainHealth } from '../types/domain.js';
 const logger = createLogger('websocket');
 
 export interface WSMessage {
-  type: 'connected' | 'refresh_progress' | 'refresh_complete' | 'domain_updated' | 'health_update' | 'uptime_update' | 'error';
+  type: 'connected' | 'refresh_progress' | 'refresh_complete' | 'domain_updated' | 'domain_added' | 'health_update' | 'uptime_update' | 'error';
   payload: unknown;
 }
 
@@ -104,6 +104,13 @@ class WebSocketService {
     this.broadcast({
       type: 'domain_updated',
       payload: domain,
+    });
+  }
+
+  sendDomainAdded(domainId: number, domain: string): void {
+    this.broadcast({
+      type: 'domain_added',
+      payload: { domainId, domain, timestamp: Date.now() },
     });
   }
 

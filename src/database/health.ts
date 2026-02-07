@@ -122,3 +122,28 @@ export function getHealthSummary(): {
     unknown,
   };
 }
+
+// Batch get latest health for multiple domains (eliminates N+1 queries)
+export function getLatestHealthBatch(domainIds: number[]): Map<number, DomainHealth> {
+  if (domainIds.length === 0) return new Map();
+
+  const placeholders = domainIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT dh.* FROM domain_health dh
+    INNER JOIN (
+      SELECT domain_id, MAX(checked_at) as max_checked
+      FROM domain_health
+      WHERE domain_id IN (${placeholders})
+      GROUP BY domain_id
+    ) latest ON dh.domain_id = latest.domain_id AND dh.checked_at = latest.max_checked
+  `).all(...domainIds) as DomainHealthRow[];
+
+  const result = new Map<number, DomainHealth>();
+  for (const row of rows) {
+    const health = rowToHealth(row);
+    if (health) {
+      result.set(row.domain_id, health);
+    }
+  }
+  return result;
+}

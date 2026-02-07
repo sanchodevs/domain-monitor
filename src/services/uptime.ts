@@ -55,6 +55,7 @@ function getStatements() {
       );
       CREATE INDEX IF NOT EXISTS idx_uptime_domain ON uptime_checks(domain_id);
       CREATE INDEX IF NOT EXISTS idx_uptime_checked ON uptime_checks(checked_at);
+      CREATE INDEX IF NOT EXISTS idx_uptime_domain_checked ON uptime_checks(domain_id, checked_at DESC);
     `);
 
     _statements = {
@@ -313,6 +314,175 @@ export function getUptimeStats(): UptimeStats[] {
 
 export function getUptimeHistory(domainId: number, limit = 100): UptimeCheck[] {
   return getStatements().getHistory.all(domainId, limit) as UptimeCheck[];
+}
+
+// Get uptime summary for a single domain (for table display)
+export function getDomainUptimeSummary(domainId: number, heartbeatCount = 24): {
+  current_status: 'up' | 'down' | 'unknown';
+  uptime_percentage: number;
+  avg_response_time: number;
+  total_checks: number;
+  heartbeats: Array<{ status: 'up' | 'down' | 'none' }>;
+} | null {
+  try {
+    const stmts = getStatements();
+
+    // Get basic stats
+    const statsRow = db.prepare(`
+      SELECT
+        COUNT(*) as total_checks,
+        SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as successful_checks,
+        ROUND(AVG(CASE WHEN status = 'up' THEN response_time_ms END), 0) as avg_response_time,
+        (SELECT status FROM uptime_checks WHERE domain_id = ? ORDER BY checked_at DESC LIMIT 1) as current_status
+      FROM uptime_checks
+      WHERE domain_id = ?
+    `).get(domainId, domainId) as {
+      total_checks: number;
+      successful_checks: number;
+      avg_response_time: number | null;
+      current_status: string | null;
+    } | undefined;
+
+    if (!statsRow || statsRow.total_checks === 0) {
+      return null;
+    }
+
+    // Get recent checks for heartbeat
+    const recentChecks = db.prepare(`
+      SELECT status FROM uptime_checks
+      WHERE domain_id = ?
+      ORDER BY checked_at DESC
+      LIMIT ?
+    `).all(domainId, heartbeatCount) as Array<{ status: 'up' | 'down' }>;
+
+    // Build heartbeats array (reversed to show oldest first)
+    const heartbeats: Array<{ status: 'up' | 'down' | 'none' }> = [];
+    const padding = heartbeatCount - recentChecks.length;
+    for (let i = 0; i < padding; i++) {
+      heartbeats.push({ status: 'none' });
+    }
+    recentChecks.reverse().forEach(c => heartbeats.push({ status: c.status }));
+
+    return {
+      current_status: (statsRow.current_status as 'up' | 'down') || 'unknown',
+      uptime_percentage: statsRow.total_checks > 0
+        ? Math.round((statsRow.successful_checks / statsRow.total_checks) * 10000) / 100
+        : 100,
+      avg_response_time: statsRow.avg_response_time || 0,
+      total_checks: statsRow.total_checks,
+      heartbeats,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Batch get uptime summaries for multiple domains (eliminates N+1 queries)
+export function getDomainUptimeSummaryBatch(domainIds: number[], heartbeatCount = 24): Map<number, {
+  current_status: 'up' | 'down' | 'unknown';
+  uptime_percentage: number;
+  avg_response_time: number;
+  total_checks: number;
+  heartbeats: Array<{ status: 'up' | 'down' | 'none' }>;
+}> {
+  if (domainIds.length === 0) return new Map();
+
+  try {
+    const placeholders = domainIds.map(() => '?').join(',');
+
+    // Get stats for all domains in one query
+    const statsRows = db.prepare(`
+      SELECT
+        domain_id,
+        COUNT(*) as total_checks,
+        SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as successful_checks,
+        ROUND(AVG(CASE WHEN status = 'up' THEN response_time_ms END), 0) as avg_response_time
+      FROM uptime_checks
+      WHERE domain_id IN (${placeholders})
+      GROUP BY domain_id
+    `).all(...domainIds) as Array<{
+      domain_id: number;
+      total_checks: number;
+      successful_checks: number;
+      avg_response_time: number | null;
+    }>;
+
+    // Get current status for all domains in one query
+    const statusRows = db.prepare(`
+      SELECT uc.domain_id, uc.status as current_status
+      FROM uptime_checks uc
+      INNER JOIN (
+        SELECT domain_id, MAX(checked_at) as max_checked
+        FROM uptime_checks
+        WHERE domain_id IN (${placeholders})
+        GROUP BY domain_id
+      ) latest ON uc.domain_id = latest.domain_id AND uc.checked_at = latest.max_checked
+    `).all(...domainIds) as Array<{
+      domain_id: number;
+      current_status: 'up' | 'down';
+    }>;
+
+    // Get recent heartbeats for all domains using window function
+    const heartbeatRows = db.prepare(`
+      SELECT domain_id, status FROM (
+        SELECT domain_id, status, ROW_NUMBER() OVER (PARTITION BY domain_id ORDER BY checked_at DESC) as rn
+        FROM uptime_checks
+        WHERE domain_id IN (${placeholders})
+      ) WHERE rn <= ?
+      ORDER BY domain_id, rn DESC
+    `).all(...domainIds, heartbeatCount) as Array<{
+      domain_id: number;
+      status: 'up' | 'down';
+    }>;
+
+    // Build result map
+    const statsMap = new Map(statsRows.map(r => [r.domain_id, r]));
+    const statusMap = new Map(statusRows.map(r => [r.domain_id, r.current_status]));
+
+    // Group heartbeats by domain
+    const heartbeatMap = new Map<number, Array<{ status: 'up' | 'down' }>>();
+    for (const row of heartbeatRows) {
+      if (!heartbeatMap.has(row.domain_id)) {
+        heartbeatMap.set(row.domain_id, []);
+      }
+      heartbeatMap.get(row.domain_id)!.push({ status: row.status });
+    }
+
+    const result = new Map<number, {
+      current_status: 'up' | 'down' | 'unknown';
+      uptime_percentage: number;
+      avg_response_time: number;
+      total_checks: number;
+      heartbeats: Array<{ status: 'up' | 'down' | 'none' }>;
+    }>();
+
+    for (const domainId of domainIds) {
+      const stats = statsMap.get(domainId);
+      if (!stats || stats.total_checks === 0) continue;
+
+      const checks = heartbeatMap.get(domainId) || [];
+      const heartbeats: Array<{ status: 'up' | 'down' | 'none' }> = [];
+      const padding = heartbeatCount - checks.length;
+      for (let i = 0; i < padding; i++) {
+        heartbeats.push({ status: 'none' });
+      }
+      checks.forEach(c => heartbeats.push({ status: c.status }));
+
+      result.set(domainId, {
+        current_status: statusMap.get(domainId) || 'unknown',
+        uptime_percentage: stats.total_checks > 0
+          ? Math.round((stats.successful_checks / stats.total_checks) * 10000) / 100
+          : 100,
+        avg_response_time: stats.avg_response_time || 0,
+        total_checks: stats.total_checks,
+        heartbeats,
+      });
+    }
+
+    return result;
+  } catch {
+    return new Map();
+  }
 }
 
 // Get heartbeat data for visualization - aggregates checks into time buckets

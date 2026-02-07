@@ -581,17 +581,6 @@
           <h3><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h3>
           <div id="activityLog" class="activity-log-list"></div>
         </div>
-        <!-- Uptime Heartbeat Widget -->
-        <div class="chart-card chart-card-uptime" data-widget-id="uptime" id="uptimeWidget" style="display: none;" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3>
-            <i class="fa-solid fa-heartbeat"></i> Uptime Monitor
-            <button class="btn btn-sm" onclick="runUptimeCheckAll()" title="Run check now" style="margin-left: auto; padding: 2px 8px; font-size: 0.65rem;">
-              <i class="fa-solid fa-play"></i>
-            </button>
-          </h3>
-          <div id="uptimeHeartbeat" class="heartbeat-container"></div>
-        </div>
       </div>
     </section>
 
@@ -738,19 +727,15 @@
           <tr>
             <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
             <th class="sortable-header" data-sort="domain">Domain</th>
-            <th>Group</th>
-            <th>Tags</th>
+            <th class="uptime-col">Uptime</th>
+            <th>Health</th>
             <th class="sortable-header" data-sort="registrar">Registrar</th>
             <th class="sortable-header" data-sort="expiry">Expires</th>
             <th>Days Left</th>
             <th>Name Servers</th>
-            <th>Created</th>
-            <th class="sortable-header" data-sort="age">Age</th>
+            <th class="ns-status-col">NS Status</th>
             <th class="sortable-header" data-sort="lastChecked">Last Check</th>
-            <th>Health</th>
-            <th class="less"></th>
-            <th class="less"></th>
-            <th class="less"></th>
+            <th class="actions-col">Actions</th>
           </tr>
         </thead>
         <tbody id="table"></tbody>

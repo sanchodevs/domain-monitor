@@ -159,3 +159,33 @@ export function getOrCreateTag(name: string, color = '#8b5cf6'): number {
   if (existing) return existing.id!;
   return createTag({ name, color });
 }
+
+// Batch get tags for multiple domains (eliminates N+1 queries)
+export function getTagsForDomainsBatch(domainIds: number[]): Map<number, Tag[]> {
+  if (domainIds.length === 0) return new Map();
+
+  const placeholders = domainIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT dt.domain_id, t.* FROM tags t
+    JOIN domain_tags dt ON t.id = dt.tag_id
+    WHERE dt.domain_id IN (${placeholders})
+    ORDER BY t.name
+  `).all(...domainIds) as Array<TagRow & { domain_id: number }>;
+
+  const result = new Map<number, Tag[]>();
+
+  // Initialize all domain IDs with empty arrays
+  for (const domainId of domainIds) {
+    result.set(domainId, []);
+  }
+
+  // Populate with actual tags
+  for (const row of rows) {
+    const tag = rowToTag(row);
+    if (tag) {
+      result.get(row.domain_id)!.push(tag);
+    }
+  }
+
+  return result;
+}

@@ -143,6 +143,8 @@ export function runMigrations(): void {
 
     CREATE INDEX IF NOT EXISTS idx_health_domain ON domain_health(domain_id);
     CREATE INDEX IF NOT EXISTS idx_health_checked ON domain_health(checked_at);
+    -- Composite index for efficient latest-per-domain queries
+    CREATE INDEX IF NOT EXISTS idx_health_domain_checked ON domain_health(domain_id, checked_at DESC);
   `);
 
   // Email alerts table
