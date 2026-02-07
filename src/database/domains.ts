@@ -270,6 +270,16 @@ export function setDomainGroup(domainId: number, groupId: number | null): boolea
   return result.changes > 0;
 }
 
+// Validate NS change - set name_servers_prev to match name_servers (acknowledge the change)
+export function validateNsChange(domainId: number): boolean {
+  const domain = getDomainById(domainId);
+  if (!domain) return false;
+
+  // Set previous NS to current NS, effectively marking the change as acknowledged
+  domain.name_servers_prev = domain.name_servers;
+  return updateDomain(domain);
+}
+
 // Bulk operations with transactions
 export function addDomains(domains: Domain[]): { added: number; skipped: number } {
   let added = 0;

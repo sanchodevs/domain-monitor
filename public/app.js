@@ -1224,15 +1224,29 @@ function renderTags(tags) {
 /* ======================================================
    Nameserver Status Renderer
 ====================================================== */
-function renderNsStatus(currentNs, prevNs, updatedAt, createdAt) {
+function renderNsStatus(domainId, currentNs, prevNs, updatedAt, createdAt) {
   // Normalize arrays for comparison
   const current = (currentNs || []).map(ns => ns.toLowerCase()).sort();
   const prev = (prevNs || []).map(ns => ns.toLowerCase()).sort();
 
+  // Format date for tooltip
+  const formatStatusDate = (dateStr) => {
+    if (!dateStr) return 'Unknown';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // If no current nameservers, show pending status
   if (current.length === 0) {
+    const sinceDate = createdAt ? `\nPending since: ${formatStatusDate(createdAt)}` : '';
     return `
-      <div class="ns-status pending" title="Waiting for WHOIS data">
+      <div class="ns-status pending" title="Waiting for WHOIS data${sinceDate}">
         <i class="fa-solid fa-clock"></i>
         <span>Pending</span>
       </div>`;
@@ -1244,11 +1258,13 @@ function renderNsStatus(currentNs, prevNs, updatedAt, createdAt) {
   if (!hasChanged) {
     // No changes detected - stable status
     const currentNsFormatted = (currentNs || []).join('\n');
+    const stableSince = updatedAt || createdAt;
+    const sinceText = stableSince ? `\nStable since: ${formatStatusDate(stableSince)}` : '';
 
     // If no previous NS, this is initial data
     if (prev.length === 0) {
       return `
-        <div class="ns-status stable" title="Initial nameserver data\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
+        <div class="ns-status stable" title="Initial nameserver data${sinceText}\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
           <i class="fa-solid fa-check-circle"></i>
           <span>Stable</span>
         </div>`;
@@ -1256,21 +1272,27 @@ function renderNsStatus(currentNs, prevNs, updatedAt, createdAt) {
 
     // We have both current and previous NS, and they match
     return `
-      <div class="ns-status stable" title="Nameservers unchanged\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
+      <div class="ns-status stable" title="Nameservers unchanged${sinceText}\n\nCurrent NS:\n${escapeHTML(currentNsFormatted)}">
         <i class="fa-solid fa-check-circle"></i>
         <span>Stable</span>
       </div>`;
   }
 
-  // Nameservers have changed - show warning
+  // Nameservers have changed - show warning with validate button
   const prevNsFormatted = (prevNs || []).join('\n');
   const currentNsFormatted = (currentNs || []).join('\n');
-  const tooltip = `Nameservers Changed!\n\nPrevious:\n${prevNsFormatted}\n\nCurrent:\n${currentNsFormatted}`;
+  const changedSince = updatedAt ? `Changed since: ${formatStatusDate(updatedAt)}\n\n` : '';
+  const tooltip = `${changedSince}Previous NS:\n${prevNsFormatted}\n\nCurrent NS:\n${currentNsFormatted}`;
 
   return `
-    <div class="ns-status changed" title="${escapeHTML(tooltip)}">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span>Changed</span>
+    <div class="ns-status-wrapper">
+      <div class="ns-status changed" title="${escapeHTML(tooltip)}">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Changed</span>
+      </div>
+      <button class="ns-validate-btn" onclick="validateNsChange(${domainId})" title="Acknowledge change and mark as stable">
+        <i class="fa-solid fa-check"></i>
+      </button>
     </div>`;
 }
 
@@ -1404,7 +1426,7 @@ async function load() {
           <td>${formatDate(d.expiry_date)}</td>
           <td class="${statusClass}">${days ?? "-"}${days !== null ? " days" : ""}</td>
           <td class="ns-servers">${nsHTML}</td>
-          <td class="ns-status-cell">${renderNsStatus(d.name_servers, d.name_servers_prev, d.updated_at, d.created_at)}</td>
+          <td class="ns-status-cell">${renderNsStatus(d.id, d.name_servers, d.name_servers_prev, d.updated_at, d.created_at)}</td>
           <td>${formatDateTime(d.last_checked)}</td>
           <td class="actions-cell">
             <button class="refresh-btn" data-action="refresh" title="Refresh WHOIS"><i class="fa-solid fa-arrows-rotate"></i></button>
@@ -1687,6 +1709,26 @@ async function deleteDomain(domain) {
     console.error("Error deleting domain:", err);
     showNotification(err.message, 'error');
     showLoading(false);
+  }
+}
+
+/* ======================================================
+   Validate NS Change (acknowledge and reset to stable)
+====================================================== */
+async function validateNsChange(domainId) {
+  try {
+    const res = await apiFetch(`/api/domains/${domainId}/validate-ns`, { method: 'POST' });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to validate NS change');
+    }
+
+    showNotification('Nameserver change validated', 'success');
+    await load();
+  } catch (err) {
+    console.error('Error validating NS change:', err);
+    showNotification(err.message, 'error');
   }
 }
 

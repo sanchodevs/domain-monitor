@@ -2164,6 +2164,38 @@ tr:hover .health-dot::after {
   50% { opacity: 0.6; }
 }
 
+/* NS Status wrapper for changed state with validate button */
+.ns-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ns-validate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--success);
+  color: white;
+  cursor: pointer;
+  font-size: 0.6rem;
+  transition: all 0.15s ease;
+}
+
+.ns-validate-btn:hover {
+  background: var(--success-dark, #27ae60);
+  transform: scale(1.1);
+}
+
+.ns-validate-btn:active {
+  transform: scale(0.95);
+}
+
 /* Tooltip styling for NS status */
 .ns-status[title] {
   position: relative;

@@ -9,6 +9,7 @@ import {
   deleteDomainById,
   domainExists,
   setDomainGroup,
+  validateNsChange,
 } from '../database/domains.js';
 import { getTagsForDomain, getTagsForDomainsBatch, setDomainTags, addTagToDomain, removeTagFromDomain } from '../database/tags.js';
 import { getLatestHealth, getLatestHealthBatch } from '../database/health.js';
@@ -325,6 +326,31 @@ router.delete(
     }
 
     removeTagFromDomain(domainId, tagId);
+    res.json({ success: true });
+  })
+);
+
+// Validate NS change (acknowledge and mark as stable)
+router.post(
+  '/:id/validate-ns',
+  asyncHandler(async (req, res) => {
+    const domainId = parseInt(String(req.params.id), 10);
+
+    if (isNaN(domainId) || domainId <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
+    const domain = getDomainById(domainId);
+    if (!domain) {
+      return res.status(404).json({ success: false, message: 'Domain not found' });
+    }
+
+    const success = validateNsChange(domainId);
+    if (!success) {
+      return res.status(500).json({ success: false, message: 'Failed to validate NS change' });
+    }
+
+    logger.info('NS change validated', { domainId, domain: domain.domain });
     res.json({ success: true });
   })
 );
