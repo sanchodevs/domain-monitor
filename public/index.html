@@ -554,21 +554,36 @@
 
       <!-- Charts Area - Draggable Grid -->
       <div class="charts-area" id="chartsArea">
-        <!-- Row 1: 3 doughnut charts -->
-        <div class="chart-card" data-widget-id="expiration" draggable="true">
+        <!-- Row 1: Uptime Status + Critical Alerts + Health Status -->
+        <div class="chart-card" data-widget-id="uptime-status" draggable="true">
           <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-chart-pie"></i> Expiry Distribution</h3>
-          <canvas id="expirationChart"></canvas>
+          <h3><i class="fa-solid fa-signal"></i> Site Status</h3>
+          <div class="uptime-status-widget">
+            <div class="status-big-number up">
+              <span class="status-count" id="sitesUpCount">0</span>
+              <span class="status-label">Sites Up</span>
+            </div>
+            <div class="status-big-number down">
+              <span class="status-count" id="sitesDownCount">0</span>
+              <span class="status-label">Sites Down</span>
+            </div>
+            <div class="status-big-number unknown">
+              <span class="status-count" id="sitesUnknownCount">0</span>
+              <span class="status-label">Unknown</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card chart-card-alerts" data-widget-id="alerts" draggable="true">
+          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+          <h3><i class="fa-solid fa-triangle-exclamation"></i> Critical Alerts</h3>
+          <div id="criticalAlerts" class="alerts-list">
+            <div class="no-alerts"><i class="fa-solid fa-check-circle"></i> No critical alerts</div>
+          </div>
         </div>
         <div class="chart-card" data-widget-id="health" draggable="true">
           <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
           <h3><i class="fa-solid fa-heart-pulse"></i> Health Status</h3>
           <canvas id="healthChart"></canvas>
-        </div>
-        <div class="chart-card" data-widget-id="tags" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-tags"></i> Tags</h3>
-          <canvas id="tagsChart"></canvas>
         </div>
         <!-- Row 2: Timeline + Activity Log -->
         <div class="chart-card chart-timeline" data-widget-id="timeline" draggable="true">
@@ -588,6 +603,12 @@
     <section class="quick-actions">
       <div class="add-domain-inline">
         <input id="domainInput" placeholder="Enter domain name (e.g., example.com)" autocomplete="off">
+        <select id="domainGroupSelect" class="add-domain-select" title="Assign to group (optional)">
+          <option value="">No Group</option>
+        </select>
+        <select id="domainTagSelect" class="add-domain-select" title="Add tag (optional)">
+          <option value="">No Tag</option>
+        </select>
         <button class="btn btn-add" onclick="addDomain()">
           <i class="fa-solid fa-plus"></i> Add
         </button>

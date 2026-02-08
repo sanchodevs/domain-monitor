@@ -39,13 +39,6 @@ function getThemeColors() {
 function updateChartColors() {
   const colors = getThemeColors();
 
-  // Update expiration chart
-  if (state.charts.expiration) {
-    state.charts.expiration.data.datasets[0].backgroundColor = colors.chartColors;
-    state.charts.expiration.options.plugins.legend.labels.color = colors.textSecondary;
-    state.charts.expiration.update('none');
-  }
-
   // Update timeline chart
   if (state.charts.timeline) {
     state.charts.timeline.data.datasets[0].backgroundColor = colors.primary;
@@ -61,12 +54,6 @@ function updateChartColors() {
     state.charts.health.data.datasets[0].backgroundColor = colors.healthColors;
     state.charts.health.options.plugins.legend.labels.color = colors.textSecondary;
     state.charts.health.update('none');
-  }
-
-  // Update tags chart
-  if (state.charts.tags) {
-    state.charts.tags.options.plugins.legend.labels.color = colors.textSecondary;
-    state.charts.tags.update('none');
   }
 }
 
@@ -518,10 +505,8 @@ function updateUptimeHeartbeat(domainId, uptimeCheck) {
 ====================================================== */
 function initCharts() {
   try {
-    const expirationCtx = document.getElementById('expirationChart')?.getContext('2d');
     const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
     const healthCtx = document.getElementById('healthChart')?.getContext('2d');
-    const tagsCtx = document.getElementById('tagsChart')?.getContext('2d');
 
     const colors = getThemeColors();
 
@@ -535,25 +520,6 @@ function initCharts() {
       padding: 6
     }
   };
-
-  if (expirationCtx) {
-    state.charts.expiration = new Chart(expirationCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Expired', '< 30 days', '< 90 days', '< 180 days', '> 180 days'],
-        datasets: [{
-          data: [0, 0, 0, 0, 0],
-          backgroundColor: colors.chartColors,
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: compactLegendOptions }
-      }
-    });
-  }
 
   if (timelineCtx) {
     state.charts.timeline = new Chart(timelineCtx, {
@@ -605,25 +571,6 @@ function initCharts() {
     });
   }
 
-  // Tags Distribution Chart
-  if (tagsCtx) {
-    state.charts.tags = new Chart(tagsCtx, {
-      type: 'doughnut',
-      data: {
-        labels: [],
-        datasets: [{
-          data: [],
-          backgroundColor: [],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: compactLegendOptions }
-      }
-    });
-  }
   } catch (err) {
     console.error('Error initializing charts:', err);
     // Charts will gracefully degrade - app continues to function
@@ -636,25 +583,6 @@ function updateCharts(domains) {
 
   if (!domains || !domains.length) {
     return;
-  }
-
-  // Expiration distribution chart
-  const stats = { expired: 0, exp30: 0, exp90: 0, exp180: 0, safe: 0 };
-  domains.forEach(d => {
-    const days = getExpiryDays(d.expiry_date);
-    if (days === null) return;
-    if (days <= 0) stats.expired++;
-    else if (days <= 30) stats.exp30++;
-    else if (days <= 90) stats.exp90++;
-    else if (days <= 180) stats.exp180++;
-    else stats.safe++;
-  });
-
-  if (state.charts.expiration) {
-    state.charts.expiration.data.datasets[0].data = [
-      stats.expired, stats.exp30, stats.exp90, stats.exp180, stats.safe
-    ];
-    state.charts.expiration.update();
   }
 
   // Timeline chart - group by month (next 6 months for better fit)
@@ -703,46 +631,6 @@ function updateCharts(domains) {
       healthStats.sslValid, healthStats.sslInvalid
     ];
     state.charts.health.update();
-  }
-
-  // Tags Distribution Chart
-  if (state.charts.tags && state.tags.length > 0) {
-    const tagCounts = {};
-    const tagColors = {};
-
-    // Initialize all tags with 0
-    state.tags.forEach(tag => {
-      tagCounts[tag.name] = 0;
-      tagColors[tag.name] = tag.color;
-    });
-
-    // Count domains per tag
-    domains.forEach(d => {
-      if (d.tags && d.tags.length > 0) {
-        d.tags.forEach(tag => {
-          if (tagCounts.hasOwnProperty(tag.name)) {
-            tagCounts[tag.name]++;
-          }
-        });
-      }
-    });
-
-    // Filter out tags with 0 domains and sort by count
-    const sortedTags = Object.entries(tagCounts)
-      .filter(([, count]) => count > 0)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8);
-
-    if (sortedTags.length > 0) {
-      state.charts.tags.data.labels = sortedTags.map(t => t[0]);
-      state.charts.tags.data.datasets[0].data = sortedTags.map(t => t[1]);
-      state.charts.tags.data.datasets[0].backgroundColor = sortedTags.map(t => tagColors[t[0]]);
-    } else {
-      state.charts.tags.data.labels = ['No tags'];
-      state.charts.tags.data.datasets[0].data = [1];
-      state.charts.tags.data.datasets[0].backgroundColor = ['#4a4a4a'];
-    }
-    state.charts.tags.update();
   }
 }
 
@@ -1163,14 +1051,67 @@ function updateGroupFilter() {
 }
 
 /* ======================================================
+   Add Domain Dropdowns (Group & Tag)
+====================================================== */
+function updateAddDomainDropdowns() {
+  const groupSelect = document.getElementById('domainGroupSelect');
+  const tagSelect = document.getElementById('domainTagSelect');
+
+  if (groupSelect) {
+    groupSelect.innerHTML = '<option value="">No Group</option>' +
+      state.groups.map(g => `<option value="${g.id}">${escapeHTML(g.name)}</option>`).join('');
+  }
+
+  if (tagSelect) {
+    tagSelect.innerHTML = '<option value="">No Tag</option>' +
+      state.tags.map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`).join('');
+  }
+}
+
+/* ======================================================
+   Critical Alerts Widget
+====================================================== */
+function updateCriticalAlerts(alerts) {
+  const container = document.getElementById('criticalAlerts');
+  if (!container) return;
+
+  if (!alerts || alerts.length === 0) {
+    container.innerHTML = '<div class="no-alerts"><i class="fa-solid fa-check-circle"></i> No critical alerts</div>';
+    return;
+  }
+
+  // Sort by severity (critical first) and limit to 10
+  const sortedAlerts = alerts
+    .sort((a, b) => (a.severity === 'critical' ? -1 : 1) - (b.severity === 'critical' ? -1 : 1))
+    .slice(0, 10);
+
+  container.innerHTML = sortedAlerts.map(alert => `
+    <div class="alert-item ${alert.severity}">
+      <i class="fa-solid ${alert.icon}"></i>
+      <span class="alert-domain">${escapeHTML(alert.domain)}</span>
+      <span class="alert-message">${escapeHTML(alert.message)}</span>
+    </div>
+  `).join('');
+}
+
+/* ======================================================
    Health Indicator
 ====================================================== */
 function renderHealthIndicator(health) {
   if (!health) {
     return `<div class="health-indicator">
-      <span class="health-dot dns" title="DNS: Unknown"></span>
-      <span class="health-dot http" title="HTTP: Unknown"></span>
-      <span class="health-dot ssl" title="SSL: Unknown"></span>
+      <div class="health-dot-wrapper">
+        <span class="health-dot-label">DNS</span>
+        <span class="health-dot dns" title="DNS: Unknown"></span>
+      </div>
+      <div class="health-dot-wrapper">
+        <span class="health-dot-label">HTTP</span>
+        <span class="health-dot http" title="HTTP: Unknown"></span>
+      </div>
+      <div class="health-dot-wrapper">
+        <span class="health-dot-label">SSL</span>
+        <span class="health-dot ssl" title="SSL: Unknown"></span>
+      </div>
     </div>`;
   }
 
@@ -1179,9 +1120,18 @@ function renderHealthIndicator(health) {
   const sslClass = health.ssl_valid === true ? 'ok' : (health.ssl_valid === false ? 'error' : '');
 
   return `<div class="health-indicator">
-    <span class="health-dot dns ${dnsClass}" title="DNS: ${health.dns_resolved ? 'OK' : 'Failed'}"></span>
-    <span class="health-dot http ${httpClass}" title="HTTP: ${health.http_status || 'N/A'}"></span>
-    <span class="health-dot ssl ${sslClass}" title="SSL: ${health.ssl_valid ? 'Valid' : (health.ssl_valid === false ? 'Invalid' : 'N/A')}"></span>
+    <div class="health-dot-wrapper">
+      <span class="health-dot-label">DNS</span>
+      <span class="health-dot dns ${dnsClass}" title="DNS: ${health.dns_resolved ? 'OK' : 'Failed'}"></span>
+    </div>
+    <div class="health-dot-wrapper">
+      <span class="health-dot-label">HTTP</span>
+      <span class="health-dot http ${httpClass}" title="HTTP: ${health.http_status || 'N/A'}"></span>
+    </div>
+    <div class="health-dot-wrapper">
+      <span class="health-dot-label">SSL</span>
+      <span class="health-dot ssl ${sslClass}" title="SSL: ${health.ssl_valid ? 'Valid' : (health.ssl_valid === false ? 'Invalid' : 'N/A')}"></span>
+    </div>
   </div>`;
 }
 
@@ -1371,6 +1321,9 @@ async function load() {
     // Update group filter dropdown
     updateGroupFilter();
 
+    // Update add-domain dropdowns
+    updateAddDomainDropdowns();
+
     // For paginated mode, server already filtered/sorted
     // For non-paginated mode, apply client-side filters
     let filteredDomains = displayDomains;
@@ -1383,18 +1336,57 @@ async function load() {
     // For now, calculate from what we have (in paginated mode, this will be per-page stats)
     const statsSource = state.pagination.enabled ? filteredDomains : displayDomains;
     const stats = { expired: 0, exp15: 0, exp30: 0, exp90: 0, exp180: 0, unchecked: 0 };
+    const uptimeStats = { up: 0, down: 0, unknown: 0 };
+    const criticalAlerts = [];
+
     statsSource.forEach(d => {
       if (!d.last_checked) {
         stats.unchecked++;
       }
       const days = getExpiryDays(d.expiry_date);
       if (days !== null) {
-        if (days <= 0) stats.expired++;
-        else {
-          if (days <= 15) stats.exp15++;
+        if (days <= 0) {
+          stats.expired++;
+          criticalAlerts.push({ type: 'expired', domain: d.domain, message: 'Domain expired', icon: 'fa-calendar-xmark', severity: 'critical' });
+        } else {
+          if (days <= 15) {
+            stats.exp15++;
+            criticalAlerts.push({ type: 'expiring', domain: d.domain, message: `Expires in ${days} days`, icon: 'fa-calendar-exclamation', severity: 'warning' });
+          }
           if (days <= 30) stats.exp30++;
           if (days <= 90) stats.exp90++;
           if (days <= 180) stats.exp180++;
+        }
+      }
+
+      // Uptime status
+      if (d.uptime && d.uptime.current_status) {
+        if (d.uptime.current_status === 'up') {
+          uptimeStats.up++;
+        } else if (d.uptime.current_status === 'down') {
+          uptimeStats.down++;
+          criticalAlerts.push({ type: 'down', domain: d.domain, message: 'Site is down', icon: 'fa-server', severity: 'critical' });
+        } else {
+          uptimeStats.unknown++;
+        }
+      } else {
+        uptimeStats.unknown++;
+      }
+
+      // NS change alerts
+      const currentNs = (d.name_servers || []).map(ns => ns.toLowerCase()).sort();
+      const prevNs = (d.name_servers_prev || []).map(ns => ns.toLowerCase()).sort();
+      if (prevNs.length > 0 && JSON.stringify(currentNs) !== JSON.stringify(prevNs)) {
+        criticalAlerts.push({ type: 'ns-changed', domain: d.domain, message: 'Nameservers changed', icon: 'fa-server', severity: 'warning' });
+      }
+
+      // Health alerts
+      if (d.health) {
+        if (!d.health.dns_resolved) {
+          criticalAlerts.push({ type: 'dns-fail', domain: d.domain, message: 'DNS resolution failed', icon: 'fa-globe', severity: 'critical' });
+        }
+        if (d.health.ssl_valid === false) {
+          criticalAlerts.push({ type: 'ssl-invalid', domain: d.domain, message: 'SSL certificate invalid', icon: 'fa-lock-open', severity: 'warning' });
         }
       }
     });
@@ -1454,6 +1446,17 @@ async function load() {
     document.getElementById("exp30").innerText = stats.exp30;
     document.getElementById("exp90").innerText = stats.exp90;
     document.getElementById("exp180").innerText = stats.exp180;
+
+    // Update uptime status widget
+    const sitesUpEl = document.getElementById("sitesUpCount");
+    const sitesDownEl = document.getElementById("sitesDownCount");
+    const sitesUnknownEl = document.getElementById("sitesUnknownCount");
+    if (sitesUpEl) sitesUpEl.textContent = uptimeStats.up;
+    if (sitesDownEl) sitesDownEl.textContent = uptimeStats.down;
+    if (sitesUnknownEl) sitesUnknownEl.textContent = uptimeStats.unknown;
+
+    // Update critical alerts widget
+    updateCriticalAlerts(criticalAlerts);
 
     // Highlight critical stat card if there are expired domains
     const expiredCard = document.getElementById("expiredCard");
@@ -1657,7 +1660,12 @@ function changePageSize(size) {
 ====================================================== */
 async function addDomain() {
   const input = document.getElementById("domainInput");
+  const groupSelect = document.getElementById("domainGroupSelect");
+  const tagSelect = document.getElementById("domainTagSelect");
+
   const domain = input.value.trim();
+  const groupId = groupSelect?.value ? parseInt(groupSelect.value, 10) : null;
+  const tagId = tagSelect?.value ? parseInt(tagSelect.value, 10) : null;
 
   if (!domain) {
     showNotification("Please enter a domain", 'error');
@@ -1669,7 +1677,7 @@ async function addDomain() {
     const res = await fetch("/api/domains", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({domain})
+      body: JSON.stringify({ domain, group_id: groupId })
     });
 
     const data = await res.json().catch(() => ({}));
@@ -1678,7 +1686,18 @@ async function addDomain() {
       throw new Error(data.message || "Failed to add domain");
     }
 
+    // If a tag was selected, add it to the domain
+    if (tagId && data.id) {
+      try {
+        await apiFetch(`/api/domains/${data.id}/tags/${tagId}`, { method: 'POST' });
+      } catch (tagErr) {
+        console.error('Failed to add tag:', tagErr);
+      }
+    }
+
     input.value = "";
+    if (groupSelect) groupSelect.value = "";
+    if (tagSelect) tagSelect.value = "";
     showNotification(`Domain ${domain} added successfully`, 'success');
     await load();
   } catch (err) {
@@ -3274,9 +3293,9 @@ async function runManualCleanup() {
    Dashboard Widgets Customization with Drag & Drop
 ====================================================== */
 const DEFAULT_WIDGETS = [
-  { id: 'expiration', type: 'chart', title: 'Expiry Distribution', visible: true, position: 0, size: 'sm' },
-  { id: 'health', type: 'chart', title: 'Health Status', visible: true, position: 1, size: 'sm' },
-  { id: 'tags', type: 'chart', title: 'Tags', visible: true, position: 2, size: 'sm' },
+  { id: 'uptime-status', type: 'status', title: 'Site Status', visible: true, position: 0, size: 'sm' },
+  { id: 'alerts', type: 'alerts', title: 'Critical Alerts', visible: true, position: 1, size: 'sm' },
+  { id: 'health', type: 'chart', title: 'Health Status', visible: true, position: 2, size: 'sm' },
   { id: 'timeline', type: 'chart', title: 'Expiry Timeline', visible: true, position: 3, size: 'md' },
   { id: 'activity', type: 'activity', title: 'Activity Log', visible: true, position: 4, size: 'sm' },
 ];

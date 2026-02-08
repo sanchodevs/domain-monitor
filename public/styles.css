@@ -1516,6 +1516,125 @@ select:focus {
   overflow: hidden;
 }
 
+.chart-card-alerts {
+  overflow: hidden;
+}
+
+/* Uptime Status Widget */
+.uptime-status-widget {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 100%;
+  padding: var(--space-3);
+}
+
+.status-big-number {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.status-big-number .status-count {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.status-big-number .status-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-big-number.up .status-count {
+  color: var(--success);
+}
+
+.status-big-number.down .status-count {
+  color: var(--danger);
+}
+
+.status-big-number.unknown .status-count {
+  color: var(--text-muted);
+}
+
+/* Critical Alerts Widget */
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.no-alerts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--success);
+  font-size: 0.8rem;
+  padding: var(--space-4);
+  height: 100%;
+}
+
+.no-alerts i {
+  font-size: 1rem;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  background: var(--bg-surface);
+}
+
+.alert-item.critical {
+  background: rgba(220, 53, 69, 0.15);
+  border-left: 3px solid var(--danger);
+}
+
+.alert-item.warning {
+  background: rgba(255, 193, 7, 0.1);
+  border-left: 3px solid var(--warning);
+}
+
+.alert-item i {
+  color: inherit;
+  font-size: 0.7rem;
+  width: 16px;
+  text-align: center;
+}
+
+.alert-item.critical i {
+  color: var(--danger);
+}
+
+.alert-item.warning i {
+  color: var(--warning);
+}
+
+.alert-item .alert-domain {
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-item .alert-message {
+  color: var(--text-secondary);
+  margin-left: auto;
+  font-size: 0.68rem;
+}
+
 /* Activity Log Styles */
 .activity-log-list {
   flex: 1;
@@ -1618,6 +1737,22 @@ select:focus {
   flex: 1;
   border: none;
   background: var(--bg-input);
+}
+
+.add-domain-select {
+  width: 120px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.add-domain-select:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 .add-domain-inline .btn-toggle {
@@ -1951,8 +2086,23 @@ table button:active {
 /* Health indicator in table */
 .health-indicator {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   align-items: center;
+}
+
+.health-dot-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.health-dot-label {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 500;
 }
 
 .health-dot {

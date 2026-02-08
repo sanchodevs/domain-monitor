@@ -136,7 +136,7 @@ router.post(
   '/',
   validateBody(domainSchema),
   asyncHandler(async (req, res) => {
-    const { domain } = req.body;
+    const { domain, group_id } = req.body;
 
     if (domainExists(domain)) {
       return res.status(400).json({ success: false, message: 'Domain already exists' });
@@ -151,9 +151,10 @@ router.post(
       name_servers_prev: [],
       last_checked: null,
       error: null,
+      group_id: group_id || null,
     });
 
-    auditDomainCreate(domain, { domain }, req.ip, req.get('User-Agent'));
+    auditDomainCreate(domain, { domain, group_id }, req.ip, req.get('User-Agent'));
 
     // Immediately return success, then run checks in background
     res.json({ success: true, id });
