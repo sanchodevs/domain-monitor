@@ -1054,8 +1054,8 @@ function updateGroupFilter() {
    Add Domain Dropdowns (Group & Tag)
 ====================================================== */
 function updateAddDomainDropdowns() {
-  const groupSelect = document.getElementById('domainGroupSelect');
-  const tagSelect = document.getElementById('domainTagSelect');
+  const groupSelect = document.getElementById('addDomainGroup');
+  const tagSelect = document.getElementById('addDomainTag');
 
   if (groupSelect) {
     groupSelect.innerHTML = '<option value="">No Group</option>' +
@@ -1660,8 +1660,8 @@ function changePageSize(size) {
 ====================================================== */
 async function addDomain() {
   const input = document.getElementById("domainInput");
-  const groupSelect = document.getElementById("domainGroupSelect");
-  const tagSelect = document.getElementById("domainTagSelect");
+  const groupSelect = document.getElementById("addDomainGroup");
+  const tagSelect = document.getElementById("addDomainTag");
 
   const domain = input.value.trim();
   const groupId = groupSelect?.value ? parseInt(groupSelect.value, 10) : null;
