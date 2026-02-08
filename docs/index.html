@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domain Monitor - Documentation</title>
+  <meta name="description" content="Comprehensive documentation for Domain Monitor - a self-hosted domain management and monitoring system">
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fa;
+      --bg-code: #f1f3f5;
+      --text-primary: #212529;
+      --text-secondary: #495057;
+      --text-muted: #6c757d;
+      --border-color: #dee2e6;
+      --accent-color: #0066cc;
+      --accent-hover: #0052a3;
+      --success-color: #28a745;
+      --warning-color: #ffc107;
+      --danger-color: #dc3545;
+      --sidebar-width: 280px;
+      --header-height: 60px;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-code: #0f0f23;
+      --text-primary: #e4e4e7;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --border-color: #27272a;
+      --accent-color: #60a5fa;
+      --accent-hover: #93c5fd;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-height);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    .version {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: var(--accent-color);
+      color: white;
+      border-radius: 12px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      padding: 8px 12px 8px 36px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      width: 250px;
+      font-size: 0.875rem;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    .search-box::before {
+      content: "🔍";
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.875rem;
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-primary);
+    }
+
+    .theme-toggle:hover {
+      background: var(--bg-code);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      width: var(--sidebar-width);
+      height: calc(100vh - var(--header-height));
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+
+    .toc-link {
+      display: block;
+      padding: 8px 24px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .toc-link:hover {
+      color: var(--accent-color);
+      background: var(--bg-code);
+    }
+
+    .toc-link.active {
+      color: var(--accent-color);
+      border-left-color: var(--accent-color);
+      background: var(--bg-code);
+    }
+
+    .toc-link.toc-sub {
+      padding-left: 40px;
+      font-size: 0.8125rem;
+    }
+
+    /* Main Content */
+    .main {
+      margin-left: var(--sidebar-width);
+      margin-top: var(--header-height);
+      padding: 48px;
+      max-width: 900px;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    h1 { font-size: 2.5rem; margin-top: 0; }
+    h2 { font-size: 1.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); }
+    h3 { font-size: 1.375rem; }
+    h4 { font-size: 1.125rem; }
+
+    p {
+      margin-bottom: 1rem;
+      color: var(--text-secondary);
+    }
+
+    a {
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    strong {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Code */
+    code {
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+      font-size: 0.875em;
+      background: var(--bg-code);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent-color);
+    }
+
+    pre {
+      background: var(--bg-code);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border-color);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.875rem;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border: 1px solid var(--border-color);
+    }
+
+    th {
+      background: var(--bg-secondary);
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: var(--bg-secondary);
+    }
+
+    /* Lists */
+    ul, ol {
+      margin: 1rem 0;
+      padding-left: 2rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    /* Badges */
+    .badge {
+      height: 20px;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    /* Horizontal Rule */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 2rem 0;
+    }
+
+    /* Search Results */
+    .search-results {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .search-results.active {
+      display: block;
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-result-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 24px;
+      }
+
+      .search-box input {
+        width: 150px;
+      }
+
+      h1 { font-size: 1.75rem; }
+      h2 { font-size: 1.375rem; }
+      h3 { font-size: 1.125rem; }
+    }
+
+    /* Print Styles */
+    @media print {
+      .header, .sidebar {
+        display: none;
+      }
+
+      .main {
+        margin: 0;
+        padding: 0;
+        max-width: 100%;
+      }
+    }
+
+    /* Auto-generated notice */
+    .auto-generated {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 48px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <a href="#" class="logo">📡 Domain Monitor</a>
+      <span class="version">v2.0.0</span>
+    </div>
+    <div class="header-right">
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search documentation..." autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="toc">
+      <a href="#table-of-contents" class="toc-link ">Table of Contents</a>
+        <a href="#what-is-domain-monitor" class="toc-link ">What is Domain Monitor?</a>
+        <a href="#who-is-this-for" class="toc-link toc-sub">Who is this for?</a>
+        <a href="#key-features" class="toc-link ">Key Features</a>
+        <a href="#domain-tracking" class="toc-link toc-sub">Domain Tracking</a>
+        <a href="#health-monitoring" class="toc-link toc-sub">Health Monitoring</a>
+        <a href="#organization" class="toc-link toc-sub">Organization</a>
+        <a href="#dashboard-alerts" class="toc-link toc-sub">Dashboard & Alerts</a>
+        <a href="#quick-start" class="toc-link ">Quick Start</a>
+        <a href="#option-1-docker-recommended" class="toc-link toc-sub">Option 1: Docker (Recommended)</a>
+        <a href="#option-2-manual-installation" class="toc-link toc-sub">Option 2: Manual Installation</a>
+        <a href="#first-steps-after-installation" class="toc-link toc-sub">First Steps After Installation</a>
+        <a href="#how-it-works" class="toc-link ">How It Works</a>
+        <a href="#the-big-picture" class="toc-link toc-sub">The Big Picture</a>
+        <a href="#data-flow-adding-a-domain" class="toc-link toc-sub">Data Flow: Adding a Domain</a>
+        <a href="#where-does-the-data-come-from" class="toc-link toc-sub">Where Does the Data Come From?</a>
+        <a href="#scheduled-tasks" class="toc-link toc-sub">Scheduled Tasks</a>
+        <a href="#dashboard-guide" class="toc-link ">Dashboard Guide</a>
+        <a href="#top-statistics-bar" class="toc-link toc-sub">Top Statistics Bar</a>
+        <a href="#dashboard-widgets" class="toc-link toc-sub">Dashboard Widgets</a>
+        <a href="#domain-table" class="toc-link toc-sub">Domain Table</a>
+        <a href="#adding-domains" class="toc-link toc-sub">Adding Domains</a>
+        <a href="#filtering-sorting" class="toc-link toc-sub">Filtering & Sorting</a>
+        <a href="#configuration" class="toc-link ">Configuration</a>
+        <a href="#environment-variables" class="toc-link toc-sub">Environment Variables</a>
+        <a href="#in-app-settings" class="toc-link toc-sub">In-App Settings</a>
+        <a href="#api-reference" class="toc-link ">API Reference</a>
+        <a href="#domains" class="toc-link toc-sub">Domains</a>
+        <a href="#groups" class="toc-link toc-sub">Groups</a>
+        <a href="#tags" class="toc-link toc-sub">Tags</a>
+        <a href="#whois-refresh" class="toc-link toc-sub">WHOIS Refresh</a>
+        <a href="#health-checks" class="toc-link toc-sub">Health Checks</a>
+        <a href="#uptime" class="toc-link toc-sub">Uptime</a>
+        <a href="#importexport" class="toc-link toc-sub">Import/Export</a>
+        <a href="#settings" class="toc-link toc-sub">Settings</a>
+        <a href="#audit-log" class="toc-link toc-sub">Audit Log</a>
+        <a href="#websocket" class="toc-link toc-sub">WebSocket</a>
+        <a href="#architecture" class="toc-link ">Architecture</a>
+        <a href="#project-structure" class="toc-link toc-sub">Project Structure</a>
+        <a href="#database-schema" class="toc-link toc-sub">Database Schema</a>
+        <a href="#technology-stack" class="toc-link toc-sub">Technology Stack</a>
+        <a href="#troubleshooting" class="toc-link ">Troubleshooting</a>
+        <a href="#common-issues" class="toc-link toc-sub">Common Issues</a>
+        <a href="#debug-mode" class="toc-link toc-sub">Debug Mode</a>
+        <a href="#checking-logs" class="toc-link toc-sub">Checking Logs</a>
+        <a href="#contributing" class="toc-link ">Contributing</a>
+        <a href="#development-setup" class="toc-link toc-sub">Development Setup</a>
+        <a href="#license" class="toc-link ">License</a>
+        <a href="#support" class="toc-link ">Support</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <h1>Domain Monitor</h1>
+
+<p>
+A comprehensive, self-hosted domain management and monitoring system that tracks domain registration, monitors website health, checks uptime, and alerts you before domains expire.
+</p>
+
+<p>
+!<a href="https://img.shields.io/badge/Node.js-18+-green">Node.js</a>
+!<a href="https://img.shields.io/badge/TypeScript-5.3+-blue">TypeScript</a>
+!<a href="https://img.shields.io/badge/SQLite-3-blue">SQLite</a>
+!<a href="https://img.shields.io/badge/License-MIT-blue">License</a>
+</p>
+
+<hr>
+
+<h2 id="table-of-contents">Table of Contents</h2>
+
+<ol><li><a href="#what-is-domain-monitor">What is Domain Monitor?</a></li></ol>
+<ol><li><a href="#key-features">Key Features</a></li></ol>
+<ol><li><a href="#quick-start">Quick Start</a></li></ol>
+<ol><li><a href="#how-it-works">How It Works</a></li></ol>
+<ol><li><a href="#dashboard-guide">Dashboard Guide</a></li></ol>
+<ol><li><a href="#configuration">Configuration</a></li></ol>
+<ol><li><a href="#api-reference">API Reference</a></li></ol>
+<ol><li><a href="#architecture">Architecture</a></li></ol>
+<ol><li><a href="#troubleshooting">Troubleshooting</a></li></ol>
+<ol><li><a href="#contributing">Contributing</a></li></ol>
+
+<hr>
+
+<h2 id="what-is-domain-monitor">What is Domain Monitor?</h2>
+
+<strong>Domain Monitor</strong> is a tool that helps you keep track of all your domain names in one place. Think of it as a control center for your domains where you can:<ul><li data-level="1"><strong>See when domains expire</strong> - Never lose a domain because you forgot to renew it</li></ul><ul><li data-level="0"><strong>Check if websites are working</strong> - Know immediately if a site goes down</li></ul><ul><li data-level="0"><strong>Monitor DNS and SSL certificates</strong> - Catch security issues before they become problems</li></ul><ul><li data-level="0"><strong>Get email alerts</strong> - Receive notifications before domains expire</li></ul><ul><li data-level="0"><strong>Organize domains</strong> - Group and tag domains for easy management</li></ul>
+
+<h3 id="who-is-this-for">Who is this for?</h3><ul><li data-level="1"><strong>Web developers</strong> managing multiple client websites</li></ul><ul><li data-level="0"><strong>IT administrators</strong> overseeing company domains</li></ul><ul><li data-level="0"><strong>Domain investors</strong> tracking portfolio expiration dates</li></ul><ul><li data-level="0"><strong>Small businesses</strong> wanting to monitor their online presence</li></ul><ul><li data-level="0"><strong>Anyone</strong> with more than a handful of domains to manage</li></ul>
+
+<hr>
+
+<h2 id="key-features">Key Features</h2>
+
+<h3 id="domain-tracking">Domain Tracking</h3>
+<table><tr><td>Feature</td><td>What it does</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>WHOIS Lookup</strong></td><td>Fetches registration info (registrar, creation date, expiry date, nameservers)</td></tr></table>
+<table><tr><td><strong>Expiration Alerts</strong></td><td>Warns you 7, 14, and 30 days before expiry</td></tr></table>
+<table><tr><td><strong>Nameserver Monitoring</strong></td><td>Detects when DNS servers change (potential security issue)</td></tr></table>
+<table><tr><td><strong>Bulk Import/Export</strong></td><td>Add hundreds of domains via CSV, export your data anytime</td></tr></table>
+
+<h3 id="health-monitoring">Health Monitoring</h3>
+<table><tr><td>Feature</td><td>What it does</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>DNS Checks</strong></td><td>Verifies domain resolves to an IP address</td></tr></table>
+<table><tr><td><strong>HTTP Checks</strong></td><td>Confirms website responds with valid status code</td></tr></table>
+<table><tr><td><strong>SSL Checks</strong></td><td>Validates certificate is present and not expired</td></tr></table>
+<table><tr><td><strong>Uptime Monitoring</strong></td><td>Pings sites every 1-60 minutes, tracks availability percentage</td></tr></table>
+
+<h3 id="organization">Organization</h3>
+<table><tr><td>Feature</td><td>What it does</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>Groups</strong></td><td>Organize domains by client, project, or purpose</td></tr></table>
+<table><tr><td><strong>Tags</strong></td><td>Add multiple labels (production, staging, important, etc.)</td></tr></table>
+<table><tr><td><strong>Search & Filter</strong></td><td>Find domains by name, registrar, status, or group</td></tr></table>
+<table><tr><td><strong>Pagination</strong></td><td>Handle thousands of domains efficiently</td></tr></table>
+
+<h3 id="dashboard-alerts">Dashboard & Alerts</h3>
+<table><tr><td>Feature</td><td>What it does</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>Site Status Widget</strong></td><td>Shows how many sites are up, down, or unknown</td></tr></table>
+<table><tr><td><strong>Critical Alerts Widget</strong></td><td>Highlights expired domains, down sites, NS changes</td></tr></table>
+<table><tr><td><strong>Expiry Timeline</strong></td><td>Chart showing when domains expire over next 6 months</td></tr></table>
+<table><tr><td><strong>Activity Log</strong></td><td>Recent actions and changes in real-time</td></tr></table>
+<table><tr><td><strong>Email Notifications</strong></td><td>SMTP-based alerts sent to your inbox</td></tr></table>
+
+<hr>
+
+<h2 id="quick-start">Quick Start</h2>
+
+<h3 id="option-1-docker-recommended">Option 1: Docker (Recommended)</h3>
+
+<p>
+``<code>bash
+</p>
+<h1>Clone the repository</h1>
+<p>
+git clone https://github.com/sanchodevs/domain-monitor.git
+cd domain-monitor
+</p>
+
+<h1>Create environment file</h1>
+<p>
+cp .env.example .env
+</p>
+
+<h1>Edit .env and add your WHOIS API key (required)</h1>
+<h1>Get a free key at: https://apilayer.com/marketplace/whois-api</h1>
+
+<h1>Start the application</h1>
+<p>
+docker-compose up -d
+</p>
+
+<h1>Open in browser</h1>
+<p>
+open http://localhost:3000
+</code>`<code>
+</p>
+
+<h3 id="option-2-manual-installation">Option 2: Manual Installation</h3>
+
+</code>`<code>bash
+<h1>Clone and enter directory</h1>
+<p>
+git clone https://github.com/sanchodevs/domain-monitor.git
+cd domain-monitor
+</p>
+
+<h1>Install dependencies</h1>
+<p>
+npm install
+</p>
+
+<h1>Create and configure environment</h1>
+<p>
+cp .env.example .env
+</p>
+<h1>Edit .env with your settings</h1>
+
+<h1>Build TypeScript</h1>
+<p>
+npm run build
+</p>
+
+<h1>Start server</h1>
+<p>
+npm start
+</code>`<code>
+</p>
+
+<h3 id="first-steps-after-installation">First Steps After Installation</h3>
+
+<ol><li><strong>Add your first domain</strong> - Type a domain name (e.g., </code>example.com<code>) and click Add</li></ol>
+<ol><li><strong>Wait for WHOIS data</strong> - The system automatically fetches registration info</li></ol>
+<ol><li><strong>Run a health check</strong> - Click the heart icon to check DNS/HTTP/SSL</li></ol>
+<ol><li><strong>Create groups</strong> - Go to Settings > Groups to organize your domains</li></ol>
+<ol><li><strong>Set up email alerts</strong> - Configure SMTP in Settings if you want notifications</li></ol>
+
+<hr>
+
+<h2 id="how-it-works">How It Works</h2>
+
+<h3 id="the-big-picture">The Big Picture</h3>
+
+</code>`<code>
+<p>
+┌─────────────────────────────────────────────────────────────────┐
+│                         YOUR BROWSER                             │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              Dashboard (index.html + app.js)             │    │
+│  │  - View domains, health status, alerts                   │    │
+│  │  - Add/edit/delete domains                               │    │
+│  │  - Configure settings                                    │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTP + WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      EXPRESS SERVER (Node.js)                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   REST API   │  │  WebSocket   │  │  Scheduler   │          │
+│  │  /api/...    │  │  Real-time   │  │  Cron jobs   │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+│  SQLite Database │ │ WHOIS APIs   │ │  SMTP Server     │
+│  - Domains       │ │ - APILayer   │ │  - Send alerts   │
+│  - Health logs   │ │ - Direct     │ │                  │
+│  - Settings      │ │ - RDAP       │ │                  │
+└──────────────────┘ └──────────────┘ └──────────────────┘
+</code>`<code>
+</p>
+
+<h3 id="data-flow-adding-a-domain">Data Flow: Adding a Domain</h3>
+
+<p>
+Here's what happens when you add a domain like </code>mywebsite.com<code>:
+</p>
+
+</code>`<code>
+<ol><li>YOU: Type "mywebsite.com" and click Add</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>FRONTEND: Sends POST /api/domains with { domain: "mywebsite.com" }</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>SERVER: Validates domain format, checks it doesn't already exist</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>DATABASE: Inserts new domain record with empty WHOIS fields</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>WEBSOCKET: Broadcasts "domain_added" to all connected browsers</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>BACKGROUND TASK: Starts fetching WHOIS data...</li></ol>
+<p>
+   │
+   ├─► WHOIS API (APILayer): "Tell me about mywebsite.com"
+   │   └─► Response: registrar, created, expires, nameservers
+   │
+   ├─► HEALTH CHECK: DNS lookup, HTTP request, SSL check
+   │
+   └─► UPTIME CHECK: Initial ping to record first status
+                    │
+                    ▼
+</p>
+<ol><li>DATABASE: Updates domain with all fetched data</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>WEBSOCKET: Broadcasts "domain_updated" with new data</li></ol>
+<p>
+                    │
+                    ▼
+</p>
+<ol><li>FRONTEND: Automatically refreshes to show complete info</li></ol>
+</code>`<code>
+
+<h3 id="where-does-the-data-come-from">Where Does the Data Come From?</h3>
+
+<table><tr><td>Data Type</td><td>Source</td><td>How it's fetched</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>WHOIS Data</strong></td><td>APILayer.com API</td><td>HTTP request with API key</td></tr></table>
+<table><tr><td><strong>WHOIS Fallback</strong></td><td>Direct WHOIS servers</td><td>Using </code>whois-json<code> library</td></tr></table>
+<table><tr><td><strong>WHOIS for .info</strong></td><td>RDAP protocol</td><td>HTTP request to registry</td></tr></table>
+<table><tr><td><strong>DNS Status</strong></td><td>System DNS resolver</td><td>Node.js </code>dns.resolve4()<code></td></tr></table>
+<table><tr><td><strong>HTTP Status</strong></td><td>Target website</td><td>HEAD request with 5s timeout</td></tr></table>
+<table><tr><td><strong>SSL Certificate</strong></td><td>Target website</td><td>TLS connection on port 443</td></tr></table>
+<table><tr><td><strong>Uptime Data</strong></td><td>Target website</td><td>Periodic HTTP requests</td></tr></table>
+
+<h3 id="scheduled-tasks">Scheduled Tasks</h3>
+
+<p>
+The system runs automatic tasks in the background:
+</p>
+
+<table><tr><td>Task</td><td>Default Schedule</td><td>What it does</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>WHOIS Refresh</strong></td><td>Sunday 2:00 AM</td><td>Updates all domain registration data</td></tr></table>
+<table><tr><td><strong>Email Alerts</strong></td><td>Daily 9:00 AM</td><td>Sends expiration warnings</td></tr></table>
+<table><tr><td><strong>Uptime Checks</strong></td><td>Every 5 minutes</td><td>Pings all domains, records status</td></tr></table>
+<table><tr><td><strong>Data Cleanup</strong></td><td>Daily</td><td>Removes old logs per retention settings</td></tr></table>
+
+<hr>
+
+<h2 id="dashboard-guide">Dashboard Guide</h2>
+
+<h3 id="top-statistics-bar">Top Statistics Bar</h3>
+
+<p>
+Shows at-a-glance counts:<ul><li data-level="0"><strong>Total Domains</strong> - How many domains you're tracking</li></ul><ul><li data-level="0"><strong>Expired</strong> - Domains past their expiry date (urgent!)</li></ul><ul><li data-level="0"><strong>< 15 Days</strong> - Expiring very soon (critical)</li></ul><ul><li data-level="0"><strong>< 30 Days</strong> - Expiring soon (warning)</li></ul><ul><li data-level="0"><strong>< 90 Days</strong> - Expiring in ~3 months (plan ahead)</li></ul><ul><li data-level="0"><strong>< 6 Months</strong> - Expiring within 6 months (awareness)</li></ul>
+</p>
+
+<h3 id="dashboard-widgets">Dashboard Widgets</h3>
+
+<h4 id="site-status-widget">Site Status Widget</h4>
+<p>
+Shows three big numbers:<ul><li data-level="0"><strong>Sites Up</strong> (green) - Websites responding normally</li></ul><ul><li data-level="0"><strong>Sites Down</strong> (red) - Websites not responding</li></ul><ul><li data-level="0"><strong>Unknown</strong> (gray) - No uptime data yet</li></ul>
+</p>
+
+<h4 id="critical-alerts-widget">Critical Alerts Widget</h4>
+<p>
+Lists urgent issues requiring attention:<ul><li data-level="0">Expired domains</li></ul><ul><li data-level="0">Domains expiring in < 15 days</li></ul><ul><li data-level="0">Sites that are down</li></ul><ul><li data-level="0">Nameserver changes detected</li></ul><ul><li data-level="0">DNS resolution failures</li></ul><ul><li data-level="0">Invalid SSL certificates</li></ul>
+</p>
+
+<h4 id="health-status-chart">Health Status Chart</h4>
+<p>
+Pie chart showing:<ul><li data-level="0">DNS OK vs DNS Failed</li></ul><ul><li data-level="0">HTTP OK vs HTTP Failed</li></ul><ul><li data-level="0">SSL Valid vs SSL Invalid</li></ul>
+</p>
+
+<h4 id="expiry-timeline">Expiry Timeline</h4>
+<p>
+Bar chart showing how many domains expire each month for the next 6 months.
+</p>
+
+<h4 id="activity-log">Activity Log</h4>
+<p>
+Real-time feed of recent actions:<ul><li data-level="0">Domains added/deleted</li></ul><ul><li data-level="0">WHOIS refreshes</li></ul><ul><li data-level="0">Health checks</li></ul><ul><li data-level="0">Settings changes</li></ul>
+</p>
+
+<h3 id="domain-table">Domain Table</h3>
+
+<p>
+Each row shows:
+</p>
+
+<table><tr><td>Column</td><td>What it shows</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>Checkbox</strong></td><td>Select for bulk operations</td></tr></table>
+<table><tr><td><strong>Domain</strong></td><td>Domain name (click to view details)</td></tr></table>
+<table><tr><td><strong>Uptime</strong></td><td>Heartbeat bar + percentage + current status</td></tr></table>
+<table><tr><td><strong>Health</strong></td><td>Three dots for DNS/HTTP/SSL (green=ok, red=error)</td></tr></table>
+<table><tr><td><strong>Registrar</strong></td><td>Who the domain is registered with</td></tr></table>
+<table><tr><td><strong>Expires</strong></td><td>Expiration date</td></tr></table>
+<table><tr><td><strong>Days Left</strong></td><td>Days until expiration (color-coded)</td></tr></table>
+<table><tr><td><strong>Nameservers</strong></td><td>Current DNS servers</td></tr></table>
+<table><tr><td><strong>NS Status</strong></td><td>Stable/Changed/Pending with validate button</td></tr></table>
+<table><tr><td><strong>Last Checked</strong></td><td>When WHOIS was last refreshed</td></tr></table>
+<table><tr><td><strong>Actions</strong></td><td>Refresh, Health Check, Delete buttons</td></tr></table>
+
+<h3 id="adding-domains">Adding Domains</h3>
+
+<strong>Single Domain:</strong>
+<ol><li>Type domain in the input field (e.g., </code>example.com<code>)</li></ol>
+<ol><li>Optionally select a Group from dropdown</li></ol>
+<ol><li>Optionally select a Tag from dropdown</li></ol>
+<ol><li>Click "Add"</li></ol>
+
+<strong>Bulk Add:</strong>
+<ol><li>Click the layers icon next to Add button</li></ol>
+<ol><li>Enter multiple domains (one per line or comma-separated)</li></ol>
+<ol><li>Click "Add Domains"</li></ol>
+
+<strong>CSV Import:</strong>
+<ol><li>Go to Settings > Import/Export</li></ol>
+<ol><li>Download the CSV template</li></ol>
+<ol><li>Fill in your domains</li></ol>
+<ol><li>Upload the file</li></ol>
+
+<h3 id="filtering-sorting">Filtering & Sorting</h3><ul><li data-level="1"><strong>Search</strong> - Type to filter by domain name, registrar, or nameservers</li></ul><ul><li data-level="0"><strong>Status Filter</strong> - Show only expired, expiring soon, or healthy</li></ul><ul><li data-level="0"><strong>Group Filter</strong> - Show only domains in a specific group</li></ul><ul><li data-level="0"><strong>Registrar Filter</strong> - Show only domains from a specific registrar</li></ul><ul><li data-level="0"><strong>Column Headers</strong> - Click to sort ascending/descending</li></ul>
+
+<hr>
+
+<h2 id="configuration">Configuration</h2>
+
+<h3 id="environment-variables">Environment Variables</h3>
+
+<p>
+Create a </code>.env<code> file with these settings:
+</p>
+
+<h4 id="required-settings">Required Settings</h4>
+
+</code>`<code>env
+<h1>WHOIS API Key (get free at apilayer.com)</h1>
+<p>
+APILAYER_KEY=your_api_key_here
+</code>`<code>
+</p>
+
+<h4 id="server-settings">Server Settings</h4>
+
+</code>`<code>env
+<p>
+PORT=3000                    # Port to run on
+NODE_ENV=production          # production or development
+</code>`<code>
+</p>
+
+<h4 id="authentication-optional">Authentication (Optional)</h4>
+
+</code>`<code>env
+<p>
+AUTH_ENABLED=true            # Enable login requirement
+ADMIN_USERNAME=admin         # Login username
+ADMIN_PASSWORD=secure123     # Login password
+SESSION_SECRET=random-string # Cookie signing secret
+</code>`<code>
+</p>
+
+<h4 id="email-alerts-optional">Email Alerts (Optional)</h4>
+
+</code>`<code>env
+<p>
+SMTP_HOST=smtp.gmail.com     # SMTP server
+SMTP_PORT=587                # Usually 587 (TLS) or 465 (SSL)
+SMTP_SECURE=false            # true for port 465
+SMTP_USER=your@email.com     # SMTP username
+SMTP_PASS=app-password       # SMTP password
+SMTP_FROM=Domain Monitor <alerts@example.com>
+</code>`<code>
+</p>
+
+<h4 id="logging-optional">Logging (Optional)</h4>
+
+</code>`<code>env
+<p>
+LOG_LEVEL=info               # debug, info, warn, error
+LOG_TO_FILE=false            # Write logs to file
+LOG_DIR=./logs               # Log directory
+</code>`<code>
+</p>
+
+<h3 id="in-app-settings">In-App Settings</h3>
+
+<p>
+Access via Settings button (gear icon):
+</p>
+
+<h4 id="general-tab">General Tab</h4><ul><li data-level="0"><strong>Refresh Schedule</strong> - Cron expression for WHOIS refresh (default: Sunday 2 AM)</li></ul>
+
+<h4 id="email-tab">Email Tab</h4><ul><li data-level="0"><strong>Enable Email Alerts</strong> - Toggle on/off</li></ul><ul><li data-level="0"><strong>Recipients</strong> - Comma-separated email addresses</li></ul><ul><li data-level="0"><strong>Alert Days</strong> - Days before expiry to send alerts (e.g., 7, 14, 30)</li></ul><ul><li data-level="0"><strong>Test Email</strong> - Send a test to verify configuration</li></ul>
+
+<h4 id="uptime-tab">Uptime Tab</h4><ul><li data-level="0"><strong>Enable Monitoring</strong> - Toggle on/off</li></ul><ul><li data-level="0"><strong>Check Interval</strong> - How often to ping (1-60 minutes)</li></ul><ul><li data-level="0"><strong>Alert Threshold</strong> - Consecutive failures before alerting</li></ul>
+
+<h4 id="retention-tab">Retention Tab</h4><ul><li data-level="0"><strong>Auto Cleanup</strong> - Enable automatic log deletion</li></ul><ul><li data-level="0"><strong>Audit Log Retention</strong> - Days to keep audit logs (default: 90)</li></ul><ul><li data-level="0"><strong>Health Log Retention</strong> - Days to keep health checks (default: 30)</li></ul>
+
+<h4 id="groups-tab">Groups Tab</h4><ul><li data-level="0">Create, edit, delete domain groups</li></ul><ul><li data-level="0">Assign colors for visual organization</li></ul>
+
+<h4 id="tags-tab">Tags Tab</h4><ul><li data-level="0">Create, edit, delete domain tags</li></ul><ul><li data-level="0">Assign colors for quick identification</li></ul>
+
+<h4 id="api-keys-tab">API Keys Tab</h4><ul><li data-level="0">Add WHOIS API keys from multiple providers</li></ul><ul><li data-level="0">Set priority order for key usage</li></ul><ul><li data-level="0">Enable/disable individual keys</li></ul>
+
+<hr>
+
+<h2 id="api-reference">API Reference</h2>
+
+<p>
+All API endpoints are under </code>/api/<code>. Authentication required for write operations if </code>AUTH_ENABLED=true<code>.
+</p>
+
+<h3 id="domains">Domains</h3>
+
+</code>`<code>http
+<h1>List all domains (with optional filters)</h1>
+<p>
+GET /api/domains?include=all&page=1&limit=50&search=example
+</p>
+
+<h1>Add single domain</h1>
+<p>
+POST /api/domains
+{ "domain": "example.com", "group_id": 1 }
+</p>
+
+<h1>Get domain details</h1>
+<p>
+GET /api/domains/:id
+</p>
+
+<h1>Delete domain</h1>
+<p>
+DELETE /api/domains/:domain
+</p>
+
+<h1>Validate NS change (acknowledge)</h1>
+<p>
+POST /api/domains/:id/validate-ns
+</p>
+
+<h1>Assign group</h1>
+<p>
+POST /api/domains/:id/group
+{ "group_id": 1 }
+</p>
+
+<h1>Assign tags</h1>
+<p>
+PUT /api/domains/:id/tags
+{ "tag_ids": [1, 2, 3] }
+</code>`<code>
+</p>
+
+<h3 id="groups">Groups</h3>
+
+</code>`<code>http
+<p>
+GET /api/groups              # List all groups
+POST /api/groups             # Create group { "name": "...", "color": "#..." }
+PUT /api/groups/:id          # Update group
+DELETE /api/groups/:id       # Delete group
+</code>`<code>
+</p>
+
+<h3 id="tags">Tags</h3>
+
+</code>`<code>http
+<p>
+GET /api/tags                # List all tags
+POST /api/tags               # Create tag { "name": "...", "color": "#..." }
+DELETE /api/tags/:id         # Delete tag
+POST /api/domains/:id/tags/:tagId    # Add tag to domain
+DELETE /api/domains/:id/tags/:tagId  # Remove tag from domain
+</code>`<code>
+</p>
+
+<h3 id="whois-refresh">WHOIS Refresh</h3>
+
+</code>`<code>http
+<p>
+GET /api/refresh/status      # Get refresh progress
+POST /api/refresh            # Refresh all domains
+POST /api/refresh/:domain    # Refresh single domain
+</code>`<code>
+</p>
+
+<h3 id="health-checks">Health Checks</h3>
+
+</code>`<code>http
+<p>
+GET /api/health                      # App health status
+GET /api/health/summary              # Health summary counts
+GET /api/health/domain/:id           # Domain health history
+POST /api/health/domain/:id          # Run health check
+POST /api/health/check-all           # Check all domains
+</code>`<code>
+</p>
+
+<h3 id="uptime">Uptime</h3>
+
+</code>`<code>http
+<p>
+GET /api/uptime/stats                # All domain uptime stats
+GET /api/uptime/domain/:id           # Domain uptime history
+POST /api/uptime/domain/:id          # Run uptime check
+POST /api/uptime/restart             # Restart monitoring service
+</code>`<code>
+</p>
+
+<h3 id="importexport">Import/Export</h3>
+
+</code>`<code>http
+<p>
+GET /api/import/template             # Download CSV template
+POST /api/import/csv                 # Upload CSV (multipart/form-data)
+GET /api/export/csv                  # Download domains as CSV
+GET /api/export/json                 # Download domains as JSON
+</code>`<code>
+</p>
+
+<h3 id="settings">Settings</h3>
+
+</code>`<code>http
+<p>
+GET /api/settings                    # Get all settings
+PUT /api/settings                    # Update settings
+POST /api/settings/email/test        # Send test email
+</code>`<code>
+</p>
+
+<h3 id="audit-log">Audit Log</h3>
+
+</code>`<code>http
+<p>
+GET /api/audit?limit=100&entity_type=domain&action=create
+</code>`<code>
+</p>
+
+<h3 id="websocket">WebSocket</h3>
+
+<p>
+Connect to </code>ws://localhost:3000/ws<code> for real-time updates:
+</p>
+
+</code>`<code>javascript
+<p>
+const ws = new WebSocket('ws://localhost:3000/ws');
+ws.onmessage = (event) => {
+  const { type, payload } = JSON.parse(event.data);
+  // type: connected, refresh_progress, refresh_complete,
+  //       domain_updated, domain_added, health_update, uptime_update
+};
+</code>`<code>
+</p>
+
+<hr>
+
+<h2 id="architecture">Architecture</h2>
+
+<h3 id="project-structure">Project Structure</h3>
+
+</code>`<code>
+<p>
+domain-monitor/
+├── public/                  # Frontend (served statically)
+│   ├── index.html          # Main HTML page
+│   ├── app.js              # Frontend JavaScript (~3500 lines)
+│   └── styles.css          # CSS styling
+│
+├── src/                     # Backend TypeScript
+│   ├── index.ts            # Entry point
+│   ├── server.ts           # Express server setup
+│   │
+│   ├── config/             # Configuration
+│   │   ├── index.ts        # Environment loading & validation
+│   │   └── schema.ts       # Zod validation schemas
+│   │
+│   ├── database/           # Data layer (SQLite)
+│   │   ├── db.ts           # Database connection
+│   │   ├── index.ts        # Table creation & migrations
+│   │   ├── domains.ts      # Domain CRUD operations
+│   │   ├── groups.ts       # Group CRUD operations
+│   │   ├── tags.ts         # Tag CRUD operations
+│   │   ├── health.ts       # Health check storage
+│   │   ├── audit.ts        # Audit log storage
+│   │   ├── settings.ts     # Settings storage (with caching)
+│   │   ├── sessions.ts     # Session storage
+│   │   └── apikeys.ts      # API key management
+│   │
+│   ├── routes/             # API endpoints
+│   │   ├── index.ts        # Route aggregator
+│   │   ├── domains.ts      # /api/domains/<em>
+│   │   ├── groups.ts       # /api/groups/</em>
+│   │   ├── tags.ts         # /api/tags/<em>
+│   │   ├── refresh.ts      # /api/refresh/</em>
+│   │   ├── health.ts       # /api/health/<em>
+│   │   ├── uptime.ts       # /api/uptime/</em>
+│   │   ├── settings.ts     # /api/settings/<em>
+│   │   ├── import.ts       # /api/import/</em>
+│   │   ├── export.ts       # /api/export/<em>
+│   │   ├── audit.ts        # /api/audit/</em>
+│   │   ├── apikeys.ts      # /api/apikeys/<em>
+│   │   └── auth.ts         # /api/auth/</em>
+│   │
+│   ├── services/           # Business logic
+│   │   ├── whois.ts        # WHOIS lookups (multiple providers)
+│   │   ├── healthcheck.ts  # DNS/HTTP/SSL checks
+│   │   ├── uptime.ts       # Uptime monitoring loop
+│   │   ├── scheduler.ts    # Cron job management
+│   │   ├── email.ts        # SMTP email sending
+│   │   ├── websocket.ts    # Real-time updates
+│   │   └── cleanup.ts      # Log retention cleanup
+│   │
+│   ├── middleware/         # Express middleware
+│   │   ├── auth.ts         # Authentication check
+│   │   ├── validation.ts   # Request validation
+│   │   ├── logging.ts      # Request logging
+│   │   └── errorHandler.ts # Error handling
+│   │
+│   ├── types/              # TypeScript interfaces
+│   │   ├── domain.ts       # Domain, Health, Group, Tag types
+│   │   ├── api.ts          # API response types
+│   │   └── audit.ts        # Audit log types
+│   │
+│   └── utils/              # Helpers
+│       ├── logger.ts       # Pino logger setup
+│       └── helpers.ts      # Utility functions
+│
+├── data/                    # SQLite database (created at runtime)
+├── package.json            # Dependencies
+├── tsconfig.json           # TypeScript config
+└── .env                    # Environment variables
+</code>`<code>
+</p>
+
+<h3 id="database-schema">Database Schema</h3>
+
+</code>`<code>sql
+<p>
+-- Core domain data
+domains (
+  id, domain, registrar, created_date, expiry_date,
+  name_servers, name_servers_prev, last_checked, error, group_id
+)
+</p>
+
+<p>
+-- Organization
+groups (id, name, color, description)
+tags (id, name, color)
+domain_tags (domain_id, tag_id)
+</p>
+
+<p>
+-- Monitoring data
+domain_health (id, domain_id, dns_resolved, http_status, ssl_valid, ...)
+uptime_checks (id, domain_id, status, response_time_ms, ...)
+</p>
+
+<p>
+-- System
+settings (key, value)
+audit_log (id, entity_type, entity_id, action, old_value, new_value, ...)
+sessions (id, expires_at)
+api_keys (id, name, key_encrypted, provider, enabled, ...)
+</code>`<code>
+</p>
+
+<h3 id="technology-stack">Technology Stack</h3>
+
+<table><tr><td>Layer</td><td>Technology</td><td>Why</td></tr></table>
+<p>
+__TABLE_HEADER__
+</p>
+<table><tr><td><strong>Runtime</strong></td><td>Node.js 18+</td><td>JavaScript everywhere, great ecosystem</td></tr></table>
+<table><tr><td><strong>Language</strong></td><td>TypeScript</td><td>Type safety, better developer experience</td></tr></table>
+<table><tr><td><strong>Web Framework</strong></td><td>Express.js</td><td>Simple, flexible, well-documented</td></tr></table>
+<table><tr><td><strong>Database</strong></td><td>SQLite (better-sqlite3)</td><td>Zero config, file-based, fast</td></tr></table>
+<table><tr><td><strong>WHOIS Data</strong></td><td>APILayer + fallbacks</td><td>Reliable data with redundancy</td></tr></table>
+<table><tr><td><strong>Real-time</strong></td><td>WebSocket (ws)</td><td>Push updates without polling</td></tr></table>
+<table><tr><td><strong>Scheduling</strong></td><td>node-cron</td><td>Standard cron syntax</td></tr></table>
+<table><tr><td><strong>Email</strong></td><td>Nodemailer</td><td>Battle-tested SMTP library</td></tr></table>
+<table><tr><td><strong>Validation</strong></td><td>Zod</td><td>Runtime type validation</td></tr></table>
+<table><tr><td><strong>Logging</strong></td><td>Pino</td><td>Fast JSON logging</td></tr></table>
+<table><tr><td><strong>Frontend</strong></td><td>Vanilla JS + Chart.js</td><td>No framework overhead</td></tr></table>
+
+<hr>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<h4 id=""Database is locked"">"Database is locked"</h4><ul><li data-level="0">Ensure only one instance of the app is running</li></ul><ul><li data-level="0">Check file permissions on the </code>data/<code> directory</li></ul>
+
+<h4 id="whois-data-not-loading">WHOIS data not loading</h4><ul><li data-level="0">Verify </code>APILAYER_KEY<code> is set in </code>.env<code></li></ul><ul><li data-level="0">Check API key has remaining quota</li></ul><ul><li data-level="0">Some TLDs (.biz, .info) use fallback methods</li></ul>
+
+<h4 id="websocket-not-connecting">WebSocket not connecting</h4><ul><li data-level="0">Check if running behind a proxy (needs WebSocket support)</li></ul><ul><li data-level="0">Verify firewall allows WebSocket connections</li></ul><ul><li data-level="0">Check browser console for errors</li></ul>
+
+<h4 id="emails-not-sending">Emails not sending</h4><ul><li data-level="0">Verify SMTP settings in </code>.env<code></li></ul><ul><li data-level="0">For Gmail, use an "App Password" not your regular password</li></ul><ul><li data-level="0">Check spam folder</li></ul><ul><li data-level="0">Use Settings > Test Email to diagnose</li></ul>
+
+<h4 id="health-checks-showing-unknown">Health checks showing unknown</h4><ul><li data-level="0">Run manual health check (heart icon)</li></ul><ul><li data-level="0">Check if domain is accessible from server</li></ul><ul><li data-level="0">Some sites block automated requests</li></ul>
+
+<h3 id="debug-mode">Debug Mode</h3>
+
+<p>
+Run with debug logging:
+</p>
+
+</code>`<code>bash
+<p>
+LOG_LEVEL=debug npm start
+</code>`<code>
+</p>
+
+<h3 id="checking-logs">Checking Logs</h3>
+
+</code>`<code>bash
+<h1>If LOG_TO_FILE=true</h1>
+<p>
+tail -f logs/app.log
+</p>
+
+<h1>Docker logs</h1>
+<p>
+docker-compose logs -f
+</code>`<code>
+</p>
+
+<hr>
+
+<h2 id="contributing">Contributing</h2>
+
+<p>
+Contributions are welcome! Here's how to get started:
+</p>
+
+<ol><li><strong>Fork</strong> the repository</li></ol>
+<ol><li><strong>Clone</strong> your fork locally</li></ol>
+<ol><li><strong>Create a branch</strong> for your feature (</code>git checkout -b feature/amazing<code>)</li></ol>
+<ol><li><strong>Make changes</strong> and test thoroughly</li></ol>
+<ol><li><strong>Commit</strong> with clear messages</li></ol>
+<ol><li><strong>Push</strong> to your fork</li></ol>
+<ol><li><strong>Open a Pull Request</strong></li></ol>
+
+<h3 id="development-setup">Development Setup</h3>
+
+</code>`<code>bash
+<h1>Install dependencies</h1>
+<p>
+npm install
+</p>
+
+<h1>Run in development mode (with hot reload)</h1>
+<p>
+npm run dev
+</p>
+
+<h1>Run tests</h1>
+<p>
+npm test
+</p>
+
+<h1>Build for production</h1>
+<p>
+npm run build
+</code>``
+</p>
+
+<hr>
+
+<h2 id="license">License</h2>
+
+<p>
+MIT License - See <a href="LICENSE">LICENSE</a> for details.
+</p>
+
+<hr>
+
+<h2 id="support">Support</h2><ul><li data-level="1"><strong>Issues</strong>: <a href="https://github.com/sanchodevs/domain-monitor/issues">GitHub Issues</a></li></ul><ul><li data-level="0"><strong>Discussions</strong>: <a href="https://github.com/sanchodevs/domain-monitor/discussions">GitHub Discussions</a></li></ul>
+
+<hr>
+
+<p>
+Built with care for domain administrators everywhere.
+</p>
+
+    <div class="auto-generated">
+      This documentation was auto-generated from README.md<br>
+      Last updated: 2026-02-08
+    </div>
+  </main>
+
+  <script>
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    function setTheme(dark) {
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      themeToggle.textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+
+    // Initialize theme
+    const savedTheme = localStorage.getItem('theme');
+    setTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      setTheme(!isDark);
+    });
+
+    // Active section highlighting
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = document.querySelectorAll('h2[id], h3[id]');
+
+    function updateActiveSection() {
+      const scrollPos = window.scrollY + 100;
+
+      let current = '';
+      sections.forEach(section => {
+        if (section.offsetTop <= scrollPos) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      tocLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveSection);
+    updateActiveSection();
+
+    // Search functionality
+    const searchInput = document.getElementById('search');
+    const searchResults = document.getElementById('searchResults');
+    const mainContent = document.querySelector('.main');
+
+    const searchableContent = [];
+    sections.forEach(section => {
+      const id = section.getAttribute('id');
+      const title = section.textContent;
+      let content = '';
+      let sibling = section.nextElementSibling;
+      while (sibling && !sibling.matches('h2, h3')) {
+        content += sibling.textContent + ' ';
+        sibling = sibling.nextElementSibling;
+      }
+      searchableContent.push({ id, title, content: content.toLowerCase() });
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+
+      if (query.length < 2) {
+        searchResults.classList.remove('active');
+        return;
+      }
+
+      const results = searchableContent.filter(item =>
+        item.title.toLowerCase().includes(query) ||
+        item.content.includes(query)
+      ).slice(0, 8);
+
+      if (results.length === 0) {
+        searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+      } else {
+        searchResults.innerHTML = results.map(item =>
+          `<div class="search-result-item" data-id="${item.id}">${item.title}</div>`
+        ).join('');
+      }
+
+      searchResults.classList.add('active');
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.id) {
+        window.location.hash = item.dataset.id;
+        searchResults.classList.remove('active');
+        searchInput.value = '';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-box')) {
+        searchResults.classList.remove('active');
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Cmd/Ctrl + K to focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInput.focus();
+      }
+      // Escape to close search
+      if (e.key === 'Escape') {
+        searchResults.classList.remove('active');
+        searchInput.blur();
+      }
+    });
+  </script>
+</body>
+</html>

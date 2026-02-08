@@ -5,12 +5,14 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && npm run docs:generate",
     "start": "node dist/index.js",
     "start:legacy": "node server.js",
     "desktop": "electron .",
     "test": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "docs:generate": "node scripts/generate-docs.js",
+    "docs:watch": "node scripts/generate-docs.js --watch"
   },
   "dependencies": {
     "axios": "^1.13.2",
