@@ -3572,3 +3572,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initWidgetDragDrop();
   }, 100);
 });
+
+// Set copyright year dynamically
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('copyrightYear');
+  if (el) el.textContent = new Date().getFullYear();
+});
