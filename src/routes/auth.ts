@@ -3,6 +3,7 @@ import { login, logout, isAuthEnabled, getAuthStatus, optionalAuthMiddleware } f
 import { loginSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { loginLimiter } from '../middleware/rateLimit.js';
 import { config } from '../config/index.js';
 import type { AuthenticatedRequest } from '../types/api.js';
 
@@ -20,6 +21,7 @@ router.get(
 // Login
 router.post(
   '/login',
+  loginLimiter,
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
     if (!isAuthEnabled()) {

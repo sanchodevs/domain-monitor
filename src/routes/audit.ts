@@ -17,8 +17,8 @@ router.get(
     const action = req.query.action as AuditAction | undefined;
     const start_date = req.query.start_date as string | undefined;
     const end_date = req.query.end_date as string | undefined;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 50;
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50), 500);
 
     const offset = (page - 1) * limit;
 
@@ -47,7 +47,7 @@ router.get(
   '/:entityType/:entityId',
   asyncHandler(async (req, res) => {
     const { entityType, entityId } = req.params;
-    const limit = parseInt(req.query.limit as string, 10) || 100;
+    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit || '100'), 10) || 100), 1000);
 
     const entries = getAuditLogForEntity(entityType as EntityType, String(entityId), limit);
     res.json(entries);
@@ -58,7 +58,7 @@ router.get(
 router.delete(
   '/cleanup',
   asyncHandler(async (req, res) => {
-    const daysToKeep = parseInt(req.query.days as string, 10) || 90;
+    const daysToKeep = Math.min(Math.max(parseInt(String(req.query.days || '90'), 10) || 90, 7), 365);
     const deleted = cleanupAuditLog(daysToKeep);
     res.json({ success: true, deleted });
   })

@@ -120,6 +120,12 @@ export interface GroupWithCount extends Group {
   domain_count: number;
 }
 
+// Return all groups as a Map<id, Group> — useful for bulk lookups without N+1 queries
+export function getAllGroupsMap(): Map<number, Group> {
+  const groups = getAllGroups();
+  return new Map(groups.map(g => [g.id!, g]));
+}
+
 export function getAllGroupsWithCounts(): GroupWithCount[] {
   const groups = getAllGroups();
   return groups.map(group => ({

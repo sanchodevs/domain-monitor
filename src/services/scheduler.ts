@@ -14,6 +14,16 @@ export function getRefreshSchedule(): string {
   return getSetting('refresh_schedule') || config.defaultRefreshSchedule;
 }
 
+// Maximum time to allow a full refresh to run (2 hours) before forcing reset
+const REFRESH_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+async function runRefreshWithTimeout(): Promise<void> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Refresh timed out after 2 hours')), REFRESH_TIMEOUT_MS)
+  );
+  await Promise.race([refreshAllDomains(), timeoutPromise]);
+}
+
 export function updateRefreshSchedule(cronExpression: string): boolean {
   if (!cron.validate(cronExpression)) {
     logger.error('Invalid cron expression', { cronExpression });
@@ -29,7 +39,7 @@ export function updateRefreshSchedule(cronExpression: string): boolean {
   refreshTask = cron.schedule(cronExpression, async () => {
     logger.info('Scheduled refresh started');
     try {
-      await refreshAllDomains();
+      await runRefreshWithTimeout();
       logger.info('Scheduled refresh completed');
     } catch (err) {
       logger.error('Scheduled refresh failed', { error: err });
@@ -79,5 +89,5 @@ export function getSchedulerStatus(): {
 // Manual trigger for scheduled refresh
 export async function triggerScheduledRefresh(): Promise<void> {
   logger.info('Manual scheduled refresh triggered');
-  await refreshAllDomains();
+  await runRefreshWithTimeout();
 }

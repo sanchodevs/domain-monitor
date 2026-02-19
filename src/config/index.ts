@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import path from 'path';
+import logger from '../utils/logger.js';
 
 export const config = {
   // Server
@@ -68,9 +69,18 @@ export function validateConfig(): void {
   }
 
   if (errors.length > 0) {
-    console.error('Configuration errors:');
-    errors.forEach(e => console.error(`  - ${e}`));
+    logger.error('Configuration errors — server cannot start:');
+    errors.forEach(e => logger.error(`  - ${e}`));
     process.exit(1);
+  }
+
+  // Warnings (non-fatal)
+  if (!config.encryptionKey) {
+    logger.warn('ENCRYPTION_KEY is not set. API keys stored in the database will use a weaker fallback encryption. Set ENCRYPTION_KEY for production deployments.');
+  }
+
+  if (config.isProduction && !config.authEnabled) {
+    logger.warn('WARNING: Authentication is disabled in production. All API endpoints are publicly accessible. Set AUTH_ENABLED=true to secure the application.');
   }
 }
 

@@ -10,6 +10,7 @@ import settingsRouter from './settings.js';
 import apikeysRouter from './apikeys.js';
 import healthRouter from './health.js';
 import auditRouter from './audit.js';
+import uptimeRouter from './uptime.js';
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use('/settings', settingsRouter);
 router.use('/apikeys', apikeysRouter);
 router.use('/health', healthRouter);
 router.use('/audit', auditRouter);
+router.use('/uptime', uptimeRouter);
 
 export default router;

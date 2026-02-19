@@ -24,13 +24,17 @@ const targets: pino.TransportTargetOptions[] = [
   },
 ];
 
-// Add file transport if enabled
+// Add rotating file transport if enabled
 if (LOG_TO_FILE) {
-  const logFile = path.join(LOG_DIR, `app-${new Date().toISOString().split('T')[0]}.log`);
   targets.push({
-    target: 'pino/file',
+    target: 'pino-roll',
     level: LOG_LEVEL,
-    options: { destination: logFile },
+    options: {
+      file: path.join(LOG_DIR, 'app.log'),
+      frequency: 'daily',
+      size: '20m',
+      limit: { count: 7 }, // keep 7 days of logs
+    },
   });
 }
 

@@ -3,6 +3,8 @@ import { getDomainById, getAllDomains } from '../database/domains.js';
 import { getHealthHistory, getHealthSummary, cleanupOldHealthRecords } from '../database/health.js';
 import { checkDomainHealth, checkAllDomainsHealth, getLatestHealthForDomain } from '../services/healthcheck.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { heavyOpLimiter } from '../middleware/rateLimit.js';
+import { db } from '../database/db.js';
 import { wsService } from '../services/websocket.js';
 import { createLogger } from '../utils/logger.js';
 import { auditHealthCheck, auditBulkHealthCheck } from '../database/audit.js';
@@ -14,8 +16,24 @@ const logger = createLogger('health-routes');
 router.get(
   '/',
   asyncHandler(async (_req, res) => {
+    let dbStatus = 'ok';
+    try {
+      db.prepare('SELECT 1').get();
+    } catch {
+      dbStatus = 'unavailable';
+    }
+
+    if (dbStatus !== 'ok') {
+      return res.status(503).json({
+        status: 'unhealthy',
+        database: dbStatus,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     res.json({
       status: 'healthy',
+      database: dbStatus,
       timestamp: new Date().toISOString(),
       websocket_clients: wsService.getClientCount(),
     });
@@ -94,6 +112,7 @@ router.post(
 // Trigger health check for all domains
 router.post(
   '/check-all',
+  heavyOpLimiter,
   asyncHandler(async (_req, res) => {
     // Get domain names for audit
     const allDomains = getAllDomains();

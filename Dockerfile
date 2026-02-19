@@ -36,14 +36,20 @@ RUN npm ci --only=production && \
     npm rebuild better-sqlite3 && \
     apk del python3 make g++
 
-# Create data and logs directories
-RUN mkdir -p /app/data /app/logs
+# Create non-root user and data/logs directories
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup && \
+    mkdir -p /app/data /app/logs && \
+    chown -R appuser:appgroup /app/data /app/logs
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/data/domains.db
 ENV LOG_DIR=/app/logs
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 3000
