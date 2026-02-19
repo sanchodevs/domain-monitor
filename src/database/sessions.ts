@@ -1,6 +1,9 @@
 import { db } from './db.js';
 import crypto from 'crypto';
 import type { Statement } from 'better-sqlite3';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('sessions');
 
 interface SessionRow {
   id: string;
@@ -12,7 +15,6 @@ let _statements: {
   get: Statement;
   create: Statement;
   delete: Statement;
-  deleteExpired: Statement;
   cleanup: Statement;
 } | null = null;
 
@@ -22,7 +24,6 @@ function getStatements() {
       get: db.prepare('SELECT * FROM sessions WHERE id = ?'),
       create: db.prepare('INSERT INTO sessions (id, expires_at) VALUES (?, ?)'),
       delete: db.prepare('DELETE FROM sessions WHERE id = ?'),
-      deleteExpired: db.prepare('DELETE FROM sessions WHERE expires_at < datetime(\'now\')'),
       cleanup: db.prepare('DELETE FROM sessions WHERE expires_at < datetime(\'now\')'),
     };
   }
@@ -72,7 +73,7 @@ export function startSessionCleanup(intervalMs = 60 * 60 * 1000): NodeJS.Timeout
   return setInterval(() => {
     const cleaned = cleanupExpiredSessions();
     if (cleaned > 0) {
-      console.log(`Cleaned up ${cleaned} expired sessions`);
+      logger.info('Cleaned up expired sessions', { count: cleaned });
     }
   }, intervalMs);
 }

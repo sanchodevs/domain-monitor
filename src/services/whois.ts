@@ -472,36 +472,39 @@ export async function refreshAllDomains(domains?: Domain[], options: RefreshOpti
   logger.info('Starting bulk refresh', { total: domainsToRefresh.length, withHealthCheck: options.withHealthCheck });
   emitRefreshUpdate();
 
-  for (let i = 0; i < domainsToRefresh.length; i++) {
-    const domain = domainsToRefresh[i];
-    refreshStatus.currentDomain = domain.domain;
-    emitRefreshUpdate();
+  try {
+    for (let i = 0; i < domainsToRefresh.length; i++) {
+      const domain = domainsToRefresh[i];
+      refreshStatus.currentDomain = domain.domain;
+      emitRefreshUpdate();
 
-    try {
-      await refreshDomain(domain, options);
-      logger.info(`Refreshed ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      logger.error(`Failed to refresh ${domain.domain}`, { error: errorMessage });
+      try {
+        await refreshDomain(domain, options);
+        logger.info(`Refreshed ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        logger.error(`Failed to refresh ${domain.domain}`, { error: errorMessage });
+      }
+
+      refreshStatus.completed = i + 1;
+      emitRefreshUpdate();
+
+      // Rate limiting
+      if (i < domainsToRefresh.length - 1) {
+        await sleep(config.whoisDelayMs);
+      }
     }
 
-    refreshStatus.completed = i + 1;
+    logger.info('Bulk refresh completed', {
+      total: domainsToRefresh.length,
+      duration: Date.now() - (refreshStatus.startTime || Date.now()),
+    });
+  } finally {
+    // Always reset refresh state, even if aborted by timeout or error
+    refreshStatus.isRefreshing = false;
+    refreshStatus.currentDomain = undefined;
     emitRefreshUpdate();
-
-    // Rate limiting
-    if (i < domainsToRefresh.length - 1) {
-      await sleep(config.whoisDelayMs);
-    }
   }
-
-  refreshStatus.isRefreshing = false;
-  refreshStatus.currentDomain = undefined;
-  emitRefreshUpdate();
-
-  logger.info('Bulk refresh completed', {
-    total: domainsToRefresh.length,
-    duration: Date.now() - (refreshStatus.startTime || Date.now()),
-  });
 }
 
 export function getRefreshStatus(): RefreshStatus {

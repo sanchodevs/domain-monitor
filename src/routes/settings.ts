@@ -3,11 +3,12 @@ import { getSettingsData, updateSettings } from '../database/settings.js';
 import { settingsSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler.js';
 import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError } from '../services/email.js';
 import { restartUptimeMonitoring } from '../services/uptime.js';
 import { logAudit } from '../database/audit.js';
-import { isValidCronExpression } from '../utils/helpers.js';
+import cron from 'node-cron';
 
 const router = Router();
 
@@ -17,10 +18,21 @@ router.get(
   asyncHandler(async (_req, res) => {
     const settings = getSettingsData();
     const scheduler = getSchedulerStatus();
+    const emailStatus = getEmailStatus();
+
+    let email_warning: string | undefined;
+    if (settings.email_enabled) {
+      if (!emailStatus.initialized) {
+        email_warning = `Email alerts are enabled but SMTP is not configured: ${emailStatus.reason || 'missing settings'}`;
+      } else if (settings.email_recipients.length === 0) {
+        email_warning = 'Email alerts are enabled but no recipients are configured';
+      }
+    }
 
     res.json({
       ...settings,
       scheduler_running: scheduler.isRunning,
+      ...(email_warning && { email_warning }),
     });
   })
 );
@@ -33,7 +45,7 @@ router.put(
     const oldSettings = getSettingsData();
 
     // Validate cron expression if provided
-    if (req.body.refresh_schedule && !isValidCronExpression(req.body.refresh_schedule)) {
+    if (req.body.refresh_schedule && !cron.validate(req.body.refresh_schedule)) {
       return res.status(400).json({ success: false, message: 'Invalid cron expression' });
     }
 
@@ -77,11 +89,18 @@ router.get(
 // Test email configuration
 router.post(
   '/email/test',
+  heavyOpLimiter,
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ success: false, message: 'Email address required' });
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email address format' });
     }
 
     // Check email status first

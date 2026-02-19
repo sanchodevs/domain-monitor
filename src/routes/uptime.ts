@@ -6,6 +6,7 @@ import {
   checkAllDomainsUptime,
   restartUptimeMonitoring,
   getAllHeartbeatData,
+  getUptimeStatus,
 } from '../services/uptime.js';
 import {
   getLogRetentionStats,
@@ -16,200 +17,148 @@ import {
 } from '../services/cleanup.js';
 import { getDomainById } from '../database/domains.js';
 import { logAudit } from '../database/audit.js';
-import type { Request, Response } from 'express';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { heavyOpLimiter } from '../middleware/rateLimit.js';
+import { createLogger } from '../utils/logger.js';
 
 const router = Router();
+const logger = createLogger('uptime-routes');
+
+// Get uptime monitoring service status
+router.get('/status', asyncHandler(async (_req, res) => {
+  const status = getUptimeStatus();
+  res.json(status);
+}));
 
 // Get uptime stats for all domains
-router.get('/stats', (_req: Request, res: Response) => {
-  try {
-    const stats = getUptimeStats();
-    res.json(stats);
-  } catch (err) {
-    console.error('Error getting uptime stats:', err);
-    res.status(500).json({ message: 'Failed to get uptime stats' });
-  }
-});
+router.get('/stats', asyncHandler(async (_req, res) => {
+  const stats = getUptimeStats();
+  res.json(stats);
+}));
 
 // Get heartbeat data for all domains (for visualization)
-router.get('/heartbeat', (req: Request, res: Response) => {
-  try {
-    const buckets = parseInt(req.query.buckets as string, 10) || 45;
-    const data = getAllHeartbeatData(Math.min(buckets, 90));
-    res.json(data);
-  } catch (err) {
-    console.error('Error getting heartbeat data:', err);
-    res.status(500).json({ message: 'Failed to get heartbeat data' });
-  }
-});
+router.get('/heartbeat', asyncHandler(async (req, res) => {
+  const buckets = Math.min(Math.max(parseInt(req.query.buckets as string, 10) || 45, 1), 90);
+  const data = getAllHeartbeatData(buckets);
+  res.json(data);
+}));
 
 // Get uptime history for a specific domain
-router.get('/domain/:id', (req: Request, res: Response) => {
-  try {
-    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const domainId = parseInt(idParam, 10);
-    const limit = parseInt(req.query.limit as string, 10) || 100;
-
-    if (isNaN(domainId)) {
-      return res.status(400).json({ message: 'Invalid domain ID' });
-    }
-
-    const history = getUptimeHistory(domainId, Math.min(limit, 1000));
-    res.json(history);
-  } catch (err) {
-    console.error('Error getting uptime history:', err);
-    res.status(500).json({ message: 'Failed to get uptime history' });
+router.get('/domain/:id', asyncHandler(async (req, res) => {
+  const domainId = parseInt(String(req.params.id), 10);
+  if (isNaN(domainId) || domainId <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid domain ID' });
   }
-});
+
+  const limit = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 100, 1), 1000);
+  const history = getUptimeHistory(domainId, limit);
+  res.json(history);
+}));
 
 // Trigger uptime check for a specific domain
-router.post('/domain/:id', async (req: Request, res: Response) => {
-  try {
-    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const domainId = parseInt(idParam, 10);
-
-    if (isNaN(domainId)) {
-      return res.status(400).json({ message: 'Invalid domain ID' });
-    }
-
-    const domain = getDomainById(domainId);
-    if (!domain) {
-      return res.status(404).json({ message: 'Domain not found' });
-    }
-
-    const check = await performUptimeCheck(domainId, domain.domain);
-    res.json(check);
-  } catch (err) {
-    console.error('Error checking uptime:', err);
-    res.status(500).json({ message: 'Failed to check uptime' });
+router.post('/domain/:id', asyncHandler(async (req, res) => {
+  const domainId = parseInt(String(req.params.id), 10);
+  if (isNaN(domainId) || domainId <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid domain ID' });
   }
-});
+
+  const domain = getDomainById(domainId);
+  if (!domain) {
+    return res.status(404).json({ success: false, message: 'Domain not found' });
+  }
+
+  const check = await performUptimeCheck(domainId, domain.domain);
+  res.json(check);
+}));
 
 // Trigger uptime check for all domains
-router.post('/check-all', async (_req: Request, res: Response) => {
-  try {
-    // Run in background
-    const result = await checkAllDomainsUptime(true);
-    res.json({
-      message: `Uptime check completed: ${result.checked} checked, ${result.up} up, ${result.down} down`,
-      ...result
-    });
-  } catch (err) {
-    console.error('Error starting uptime check:', err);
-    res.status(500).json({ message: 'Failed to start uptime check' });
-  }
-});
+router.post('/check-all', heavyOpLimiter, asyncHandler(async (_req, res) => {
+  const result = await checkAllDomainsUptime(true);
+  logger.info('Uptime check-all completed', result);
+  res.json({
+    success: true,
+    message: `Uptime check completed: ${result.checked} checked, ${result.up} up, ${result.down} down`,
+    ...result,
+  });
+}));
 
 // Restart uptime monitoring (after settings change)
-router.post('/restart', (_req: Request, res: Response) => {
-  try {
-    restartUptimeMonitoring();
-    res.json({ message: 'Uptime monitoring restarted' });
-  } catch (err) {
-    console.error('Error restarting uptime monitoring:', err);
-    res.status(500).json({ message: 'Failed to restart uptime monitoring' });
-  }
-});
+router.post('/restart', asyncHandler(async (_req, res) => {
+  restartUptimeMonitoring();
+  res.json({ success: true, message: 'Uptime monitoring restarted' });
+}));
 
 // Get log retention stats
-router.get('/retention/stats', (_req: Request, res: Response) => {
-  try {
-    const stats = getLogRetentionStats();
-    res.json(stats);
-  } catch (err) {
-    console.error('Error getting retention stats:', err);
-    res.status(500).json({ message: 'Failed to get retention stats' });
-  }
-});
+router.get('/retention/stats', asyncHandler(async (_req, res) => {
+  const stats = getLogRetentionStats();
+  res.json(stats);
+}));
 
 // Run cleanup manually
-router.post('/retention/cleanup', (req: Request, res: Response) => {
-  try {
-    const stats = runAutoCleanup();
+router.post('/retention/cleanup', asyncHandler(async (req, res) => {
+  const stats = runAutoCleanup();
 
-    logAudit({
-      entity_type: 'system',
-      entity_id: 'cleanup',
-      action: 'scheduled',
-      new_value: JSON.stringify(stats),
-      ip_address: req.ip || undefined,
-      user_agent: req.get('User-Agent') || undefined,
-    });
+  logAudit({
+    entity_type: 'system',
+    entity_id: 'cleanup',
+    action: 'scheduled',
+    new_value: JSON.stringify(stats),
+    ip_address: req.ip || undefined,
+    user_agent: req.get('User-Agent') || undefined,
+  });
 
-    res.json({
-      message: 'Cleanup completed',
-      ...stats,
-    });
-  } catch (err) {
-    console.error('Error running cleanup:', err);
-    res.status(500).json({ message: 'Failed to run cleanup' });
-  }
-});
+  res.json({ success: true, message: 'Cleanup completed', ...stats });
+}));
 
 // Clean audit log with custom days
-router.delete('/retention/audit', (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string, 10) || 90;
-    const deleted = cleanupAuditLog(days);
+router.delete('/retention/audit', asyncHandler(async (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days as string, 10) || 90, 1), 365);
+  const deleted = cleanupAuditLog(days);
 
-    logAudit({
-      entity_type: 'system',
-      entity_id: 'audit_cleanup',
-      action: 'delete',
-      new_value: JSON.stringify({ deleted, olderThanDays: days }),
-      ip_address: req.ip || undefined,
-      user_agent: req.get('User-Agent') || undefined,
-    });
+  logAudit({
+    entity_type: 'system',
+    entity_id: 'audit_cleanup',
+    action: 'delete',
+    new_value: JSON.stringify({ deleted, olderThanDays: days }),
+    ip_address: req.ip || undefined,
+    user_agent: req.get('User-Agent') || undefined,
+  });
 
-    res.json({ message: `Deleted ${deleted} audit log entries older than ${days} days` });
-  } catch (err) {
-    console.error('Error cleaning audit log:', err);
-    res.status(500).json({ message: 'Failed to clean audit log' });
-  }
-});
+  res.json({ success: true, message: `Deleted ${deleted} audit log entries older than ${days} days` });
+}));
 
 // Clean health log with custom days
-router.delete('/retention/health', (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string, 10) || 30;
-    const deleted = cleanupHealthLog(days);
+router.delete('/retention/health', asyncHandler(async (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days as string, 10) || 30, 1), 365);
+  const deleted = cleanupHealthLog(days);
 
-    logAudit({
-      entity_type: 'system',
-      entity_id: 'health_cleanup',
-      action: 'delete',
-      new_value: JSON.stringify({ deleted, olderThanDays: days }),
-      ip_address: req.ip || undefined,
-      user_agent: req.get('User-Agent') || undefined,
-    });
+  logAudit({
+    entity_type: 'system',
+    entity_id: 'health_cleanup',
+    action: 'delete',
+    new_value: JSON.stringify({ deleted, olderThanDays: days }),
+    ip_address: req.ip || undefined,
+    user_agent: req.get('User-Agent') || undefined,
+  });
 
-    res.json({ message: `Deleted ${deleted} health log entries older than ${days} days` });
-  } catch (err) {
-    console.error('Error cleaning health log:', err);
-    res.status(500).json({ message: 'Failed to clean health log' });
-  }
-});
+  res.json({ success: true, message: `Deleted ${deleted} health log entries older than ${days} days` });
+}));
 
 // Clean uptime log with custom days
-router.delete('/retention/uptime', (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string, 10) || 30;
-    const deleted = cleanupUptimeLog(days);
+router.delete('/retention/uptime', asyncHandler(async (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days as string, 10) || 30, 1), 365);
+  const deleted = cleanupUptimeLog(days);
 
-    logAudit({
-      entity_type: 'system',
-      entity_id: 'uptime_cleanup',
-      action: 'delete',
-      new_value: JSON.stringify({ deleted, olderThanDays: days }),
-      ip_address: req.ip || undefined,
-      user_agent: req.get('User-Agent') || undefined,
-    });
+  logAudit({
+    entity_type: 'system',
+    entity_id: 'uptime_cleanup',
+    action: 'delete',
+    new_value: JSON.stringify({ deleted, olderThanDays: days }),
+    ip_address: req.ip || undefined,
+    user_agent: req.get('User-Agent') || undefined,
+  });
 
-    res.json({ message: `Deleted ${deleted} uptime log entries older than ${days} days` });
-  } catch (err) {
-    console.error('Error cleaning uptime log:', err);
-    res.status(500).json({ message: 'Failed to clean uptime log' });
-  }
-});
+  res.json({ success: true, message: `Deleted ${deleted} uptime log entries older than ${days} days` });
+}));
 
 export default router;

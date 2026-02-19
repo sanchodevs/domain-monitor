@@ -31,6 +31,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - HEALTH_CHECK_ENABLED=${HEALTH_CHECK_ENABLED:-true}
       - HEALTH_CHECK_INTERVAL_HOURS=${HEALTH_CHECK_INTERVAL_HOURS:-24}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s

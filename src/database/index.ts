@@ -50,6 +50,10 @@ export function runMigrations(): void {
     );
   `);
 
+  // Integrity: nullify any group_id references to groups that no longer exist
+  // (SQLite ALTER TABLE cannot add FK constraints to existing columns)
+  db.exec('UPDATE domains SET group_id = NULL WHERE group_id IS NOT NULL AND group_id NOT IN (SELECT id FROM groups)');
+
   // Tags table
   db.exec(`
     CREATE TABLE IF NOT EXISTS tags (
@@ -162,6 +166,7 @@ export function runMigrations(): void {
 
     CREATE INDEX IF NOT EXISTS idx_alerts_domain ON email_alerts(domain_id);
     CREATE INDEX IF NOT EXISTS idx_alerts_status ON email_alerts(status);
+    CREATE INDEX IF NOT EXISTS idx_alerts_sent ON email_alerts(sent_at);
   `);
 
   logger.info('Database migrations completed');

@@ -66,15 +66,31 @@ class WebSocketService {
 
   private send(ws: WebSocket, message: WSMessage): void {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
+      try {
+        ws.send(JSON.stringify(message));
+      } catch (err) {
+        logger.error('Failed to send WebSocket message', { error: err instanceof Error ? err.message : String(err) });
+        this.clients.delete(ws);
+      }
     }
   }
 
   broadcast(message: WSMessage): void {
-    const data = JSON.stringify(message);
+    let data: string;
+    try {
+      data = JSON.stringify(message);
+    } catch (err) {
+      logger.error('Failed to serialize WebSocket message', { error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
     for (const client of this.clients) {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(data);
+        try {
+          client.send(data);
+        } catch (err) {
+          logger.error('Failed to broadcast WebSocket message', { error: err instanceof Error ? err.message : String(err) });
+          this.clients.delete(client);
+        }
       }
     }
   }

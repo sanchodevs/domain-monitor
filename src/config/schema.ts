@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import cron from 'node-cron';
 
 // Domain validation - RFC-compliant
 export const domainSchema = z.object({
@@ -36,7 +37,7 @@ export const tagSchema = z.object({
 export const settingsSchema = z.object({
   refresh_schedule: z
     .string()
-    .regex(/^[\d\s\*\/,-]+$/, 'Invalid cron expression')
+    .refine((val) => cron.validate(val), 'Invalid cron expression')
     .optional(),
   email_enabled: z.boolean().optional(),
   email_recipients: z.array(z.string().email('Invalid email address')).optional(),

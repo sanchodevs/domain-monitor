@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDomain, getAllDomains } from '../database/domains.js';
 import { refreshDomain, refreshAllDomains, getRefreshStatus } from '../services/whois.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { normalizeDomain } from '../utils/helpers.js';
 import { createLogger } from '../utils/logger.js';
 import { auditBulkRefresh } from '../database/audit.js';
@@ -22,6 +23,7 @@ router.get(
 // Query params: ?withHealth=true to also run health checks after WHOIS refresh
 router.post(
   '/',
+  heavyOpLimiter,
   asyncHandler(async (req, res) => {
     const status = getRefreshStatus();
 
@@ -64,6 +66,7 @@ router.post(
 // Query params: ?withHealth=true to also run health check after WHOIS refresh
 router.post(
   '/:domain',
+  heavyOpLimiter,
   asyncHandler(async (req, res) => {
     const domainName = normalizeDomain(decodeURIComponent(String(req.params.domain)));
     const domain = getDomain(domainName);

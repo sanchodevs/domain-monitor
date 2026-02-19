@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import path from 'path';
@@ -18,6 +19,7 @@ import { startAutoCleanup, stopAutoCleanup } from './services/cleanup.js';
 import { initializeAuth, authMiddleware, optionalAuthMiddleware } from './middleware/auth.js';
 import { requestLogger } from './middleware/logging.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { standardLimiter } from './middleware/rateLimit.js';
 import { onRefreshUpdate } from './services/whois.js';
 import { createLogger } from './utils/logger.js';
 import type { AuthenticatedRequest } from './types/api.js';
@@ -43,6 +45,24 @@ onRefreshUpdate((status) => {
   wsService.sendRefreshProgress(status);
 });
 
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'],
+    },
+  },
+  // HSTS only in production (dev uses http)
+  strictTransportSecurity: config.isProduction
+    ? { maxAge: 31536000, includeSubDomains: true }
+    : false,
+}));
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -63,26 +83,22 @@ app.get('/', (_req, res) => {
 // Serve static files
 app.use(express.static('public'));
 
+// Apply rate limiting to all API routes
+app.use('/api', standardLimiter);
+
 // API routes
 // Auth routes don't need auth middleware - mount them separately
 import authRouter from './routes/auth.js';
-import uptimeRouter from './routes/uptime.js';
 app.use('/api/auth', authRouter);
-app.use('/api/uptime', uptimeRouter);
 
-// All other API routes with auth check for modifications
+// All other API routes with auth check
 app.use('/api', optionalAuthMiddleware, (req, res, next) => {
   // Skip auth check for /api/auth routes (handled above)
   if (req.path.startsWith('/auth')) {
     next();
     return;
   }
-  // For GET requests, don't require auth
-  if (req.method === 'GET') {
-    next();
-    return;
-  }
-  // For modifications, check if auth is enabled
+  // Require auth for all methods when auth is enabled
   if (config.authEnabled) {
     authMiddleware(req as AuthenticatedRequest, res, next);
     return;

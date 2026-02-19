@@ -4,11 +4,15 @@ import { getAllDomains } from '../database/domains.js';
 import { getSettingsData } from '../database/settings.js';
 import { wsService } from './websocket.js';
 import { sleep } from '../utils/helpers.js';
+import { sendUptimeAlert } from './email.js';
 import https from 'https';
 import http from 'http';
 import type { Statement } from 'better-sqlite3';
 
 const logger = createLogger('uptime');
+
+// Track domains for which an alert has already been sent this down-cycle to avoid repeat emails
+const alertedDomainIds = new Set<number>();
 
 interface UptimeCheck {
   domain_id: number;
@@ -139,7 +143,7 @@ async function checkUptime(domain: string): Promise<{ status: 'up' | 'down'; res
       }
     );
 
-    httpsReq.on('error', (err) => {
+    httpsReq.on('error', (_err) => {
       // Fallback to HTTP
       const httpReq = http.get(
         `http://${domain}`,
@@ -258,6 +262,8 @@ export async function checkAllDomainsUptime(forceRun = false): Promise<{ checked
 
       if (check.status === 'up') {
         up++;
+        // Clear alert state when domain recovers so next outage triggers a fresh alert
+        alertedDomainIds.delete(domain.id);
       } else {
         down++;
       }
@@ -265,13 +271,19 @@ export async function checkAllDomainsUptime(forceRun = false): Promise<{ checked
       // Check for consecutive failures and alert
       if (check.status === 'down') {
         const failures = getConsecutiveFailures(domain.id);
-        if (failures >= settings.uptime_alert_threshold) {
+        if (failures >= settings.uptime_alert_threshold && !alertedDomainIds.has(domain.id)) {
           logger.warn('Domain down alert threshold reached', {
             domain: domain.domain,
             consecutiveFailures: failures,
             threshold: settings.uptime_alert_threshold,
           });
-          // TODO: Send email alert
+          alertedDomainIds.add(domain.id);
+          try {
+            await sendUptimeAlert(domain.domain, failures, settings.uptime_alert_threshold, check.error);
+          } catch (alertErr) {
+            logger.error('Failed to send uptime alert email', { domain: domain.domain, error: alertErr });
+            alertedDomainIds.delete(domain.id); // Allow retry on next cycle
+          }
         }
       }
     } catch (err) {
@@ -325,8 +337,6 @@ export function getDomainUptimeSummary(domainId: number, heartbeatCount = 24): {
   heartbeats: Array<{ status: 'up' | 'down' | 'none' }>;
 } | null {
   try {
-    const stmts = getStatements();
-
     // Get basic stats
     const statsRow = db.prepare(`
       SELECT
@@ -660,4 +670,17 @@ export function stopUptimeMonitoring(): void {
 export function restartUptimeMonitoring(): void {
   stopUptimeMonitoring();
   startUptimeMonitoring();
+}
+
+export function getUptimeStatus(): {
+  monitoring_enabled: boolean;
+  check_interval_minutes: number;
+  is_running: boolean;
+} {
+  const settings = getSettingsData();
+  return {
+    monitoring_enabled: settings.uptime_monitoring_enabled,
+    check_interval_minutes: settings.uptime_check_interval_minutes,
+    is_running: uptimeInterval !== null,
+  };
 }

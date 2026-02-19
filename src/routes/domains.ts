@@ -12,8 +12,8 @@ import {
   validateNsChange,
 } from '../database/domains.js';
 import { getTagsForDomain, getTagsForDomainsBatch, setDomainTags, addTagToDomain, removeTagFromDomain } from '../database/tags.js';
-import { getLatestHealth, getLatestHealthBatch } from '../database/health.js';
-import { getDomainUptimeSummary, getDomainUptimeSummaryBatch } from '../services/uptime.js';
+import { getLatestHealthBatch } from '../database/health.js';
+import { getDomainUptimeSummaryBatch } from '../services/uptime.js';
 import { auditDomainCreate, auditDomainDelete } from '../database/audit.js';
 import { domainSchema, assignGroupSchema, assignTagsSchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
@@ -182,10 +182,9 @@ router.post(
           await performUptimeCheck(id, domain);
           logger.info('Initial uptime check completed for new domain', { domain });
         } catch (err) {
-          logger.error('Initial checks failed for new domain', {
-            domain,
-            error: err instanceof Error ? err.message : 'Unknown error'
-          });
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          logger.error('Initial checks failed for new domain', { domain, error: errorMessage });
+          wsService.sendError(`Initial checks failed for ${domain}: ${errorMessage}`);
         }
       })();
     }

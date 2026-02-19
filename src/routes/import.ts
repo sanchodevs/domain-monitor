@@ -6,6 +6,7 @@ import { addDomain, domainExists } from '../database/domains.js';
 import { getGroupByName, createGroup } from '../database/groups.js';
 import { getOrCreateTag, addTagToDomain } from '../database/tags.js';
 import { logAudit, auditImport } from '../database/audit.js';
+import { db } from '../database/db.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { createLogger } from '../utils/logger.js';
 import type { CSVImportResult } from '../types/api.js';
@@ -50,6 +51,13 @@ router.post(
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to parse CSV';
       return res.status(400).json({ success: false, message: `Invalid CSV format: ${message}` });
+    }
+
+    if (records.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: `CSV file contains ${records.length} rows. Maximum allowed is 500.`,
+      });
     }
 
     const result: CSVImportResult = { imported: 0, skipped: 0, errors: [] };
@@ -101,28 +109,29 @@ router.post(
           }
         }
 
-        // Add domain
-        const domainId = addDomain({
-          domain,
-          registrar: record.registrar || record.Registrar || '',
-          created_date: '',
-          expiry_date: '',
-          name_servers: [],
-          name_servers_prev: [],
-          last_checked: null,
-          error: null,
-          group_id: groupId,
-        });
-
-        // Handle tags
+        // Add domain and its tags atomically
         const tagsStr = record.tags || record.Tags || record.TAGS;
-        if (tagsStr) {
-          const tagNames = tagsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
-          for (const tagName of tagNames) {
-            const tagId = getOrCreateTag(tagName);
-            addTagToDomain(domainId, tagId);
+        db.transaction(() => {
+          const domainId = addDomain({
+            domain,
+            registrar: record.registrar || record.Registrar || '',
+            created_date: '',
+            expiry_date: '',
+            name_servers: [],
+            name_servers_prev: [],
+            last_checked: null,
+            error: null,
+            group_id: groupId,
+          });
+
+          if (tagsStr) {
+            const tagNames = tagsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+            for (const tagName of tagNames) {
+              const tagId = getOrCreateTag(tagName);
+              addTagToDomain(domainId, tagId);
+            }
           }
-        }
+        })();
 
         result.imported++;
 
