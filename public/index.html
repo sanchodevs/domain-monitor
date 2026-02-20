@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
   <!-- Error Boundary Overlay -->
   <div id="error-boundary" class="error-boundary" style="display: none;">
     <div class="error-boundary-content">
@@ -22,6 +23,10 @@
       </button>
     </div>
   </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MODALS (stay as modals — domain detail, import, etc.)
+       ═══════════════════════════════════════════════════ -->
 
   <!-- Login Modal -->
   <div id="loginModal" class="modal" style="display: none;">
@@ -47,427 +52,6 @@
           </button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Settings Modal -->
-  <div id="settingsModal" class="modal" style="display: none;">
-    <div class="modal-content modal-lg">
-      <div class="modal-header">
-        <h2><i class="fa-solid fa-cog"></i> Settings</h2>
-        <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="settings-tabs">
-          <button class="tab-btn active" data-tab="general">General</button>
-          <button class="tab-btn" data-tab="schedule">Schedule</button>
-          <button class="tab-btn" data-tab="uptime">Uptime</button>
-          <button class="tab-btn" data-tab="retention">Retention</button>
-          <button class="tab-btn" data-tab="email">Email</button>
-          <button class="tab-btn" data-tab="slack">Slack</button>
-          <button class="tab-btn" data-tab="signal">Signal</button>
-          <button class="tab-btn" data-tab="webhooks">Webhooks</button>
-          <button class="tab-btn" data-tab="apikeys">API Keys</button>
-          <button class="tab-btn" data-tab="security">Security</button>
-          <button class="tab-btn" data-tab="advanced">Advanced</button>
-          <button class="tab-btn" data-tab="users">Users</button>
-        </div>
-
-        <!-- General Tab -->
-        <div class="tab-content active" id="tab-general">
-          <h3>General Settings</h3>
-          <div class="form-group">
-            <label for="settingAlertDays">Expiration Alert Days</label>
-            <input type="number" id="settingAlertDays" min="1" max="365" value="30">
-            <small>Days before expiration to show warnings</small>
-          </div>
-          <div class="form-group">
-            <label for="settingTimezone">Display Timezone</label>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <select id="settingTimezone" style="flex:1;"></select>
-              <button type="button" class="btn btn-sm" onclick="detectTimezone()" title="Auto-detect from browser">&#x1F310; Detect</button>
-            </div>
-            <small>All dates and times in the UI, logs, and alerts will use this timezone</small>
-          </div>
-        </div>
-
-        <!-- Schedule Tab -->
-        <div class="tab-content" id="tab-schedule">
-          <h3>Auto-Refresh Schedule</h3>
-          <div class="form-group">
-            <label for="settingCron">Cron Expression</label>
-            <input type="text" id="settingCron" placeholder="0 0 * * *">
-            <small>Default: 0 0 * * * (daily at midnight)</small>
-          </div>
-          <div class="schedule-presets">
-            <button class="preset-btn" onclick="setCronPreset('0 0 * * *')">Daily</button>
-            <button class="preset-btn" onclick="setCronPreset('0 0 * * 0')">Weekly</button>
-            <button class="preset-btn" onclick="setCronPreset('0 */6 * * *')">Every 6 hours</button>
-            <button class="preset-btn" onclick="setCronPreset('0 */12 * * *')">Every 12 hours</button>
-          </div>
-        </div>
-
-        <!-- Uptime Monitoring Tab -->
-        <div class="tab-content" id="tab-uptime">
-          <h3>Uptime Monitoring</h3>
-          <p class="info-text">Monitor domain availability with periodic HTTP checks and track response times.</p>
-          <div class="form-group">
-            <label for="settingUptimeEnabled">
-              <input type="checkbox" id="settingUptimeEnabled"> Enable Uptime Monitoring
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingUptimeInterval">Check Interval (minutes)</label>
-            <input type="number" id="settingUptimeInterval" min="1" max="60" value="5">
-            <small>How often to check domain availability (1-60 minutes)</small>
-          </div>
-          <div class="form-group">
-            <label for="settingUptimeThreshold">Alert Threshold</label>
-            <input type="number" id="settingUptimeThreshold" min="1" max="10" value="3">
-            <small>Number of consecutive failures before alerting</small>
-          </div>
-          <div class="uptime-actions">
-            <button class="btn" onclick="runUptimeCheckAll()">
-              <i class="fa-solid fa-play"></i> Run Check Now
-            </button>
-            <button class="btn" onclick="restartUptimeService()">
-              <i class="fa-solid fa-rotate"></i> Restart Service
-            </button>
-          </div>
-
-          <hr style="border-color:var(--border);margin:20px 0;">
-          <h3>Health Checks</h3>
-          <p class="info-text">Periodic DNS, HTTP, and SSL checks run on a separate schedule from uptime monitoring.</p>
-          <div class="form-group">
-            <label for="settingHealthCheckEnabled">
-              <input type="checkbox" id="settingHealthCheckEnabled" checked> Enable Health Checks
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingHealthCheckInterval">Health Check Interval (hours)</label>
-            <input type="number" id="settingHealthCheckInterval" min="1" max="168" value="24">
-            <small>How often to run DNS/HTTP/SSL checks (1-168 hours)</small>
-          </div>
-        </div>
-
-        <!-- Retention Settings Tab -->
-        <div class="tab-content" id="tab-retention">
-          <h3>Data Retention</h3>
-          <p class="info-text">Configure automatic cleanup of old log entries to manage database size.</p>
-          <div class="form-group">
-            <label for="settingAutoCleanup">
-              <input type="checkbox" id="settingAutoCleanup" checked> Enable Auto Cleanup
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingAuditRetention">Audit Log Retention (days)</label>
-            <input type="number" id="settingAuditRetention" min="7" max="365" value="90">
-            <small>Delete audit log entries older than this many days</small>
-          </div>
-          <div class="form-group">
-            <label for="settingHealthRetention">Health Log Retention (days)</label>
-            <input type="number" id="settingHealthRetention" min="1" max="90" value="30">
-            <small>Delete health check records older than this many days</small>
-          </div>
-          <div class="retention-stats" id="retentionStats">
-            <h4>Current Usage</h4>
-            <div class="stats-grid">
-              <div class="stat-item">
-                <span class="stat-label">Audit Log Entries</span>
-                <span class="stat-value" id="auditLogCount">-</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Health Log Entries</span>
-                <span class="stat-value" id="healthLogCount">-</span>
-              </div>
-            </div>
-          </div>
-          <div class="retention-actions">
-            <button class="btn" onclick="loadRetentionStats()">
-              <i class="fa-solid fa-sync"></i> Refresh Stats
-            </button>
-            <button class="btn btn-danger" onclick="runManualCleanup()">
-              <i class="fa-solid fa-trash"></i> Run Cleanup Now
-            </button>
-          </div>
-        </div>
-
-        <!-- Email Tab -->
-        <div class="tab-content" id="tab-email">
-          <h3>Email Alert Settings</h3>
-          <div class="form-group">
-            <label for="settingEmailEnabled">
-              <input type="checkbox" id="settingEmailEnabled"> Enable Email Alerts
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingEmailRecipients">Alert Recipients</label>
-            <input type="text" id="settingEmailRecipients" placeholder="admin@example.com, team@example.com">
-            <small>Comma-separated email addresses to receive expiration alerts</small>
-          </div>
-          <div class="form-group">
-            <label for="settingAlertDaysEmail">Alert Before Expiration (days)</label>
-            <input type="text" id="settingAlertDaysEmail" placeholder="7, 14, 30">
-            <small>Send alerts this many days before domains expire (comma-separated)</small>
-          </div>
-          <div class="form-group">
-            <label for="settingEmailAlertCron">Alert Schedule (Cron)</label>
-            <input type="text" id="settingEmailAlertCron" placeholder="0 9 * * *">
-            <small>When to run expiration alert checks (default: daily at 9 AM). DB settings override env vars.</small>
-          </div>
-
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <h4>SMTP Configuration</h4>
-          <p class="info-text" id="smtpStatusBanner" style="display:none;"></p>
-          <p class="info-text">These settings override the environment variables (<code>SMTP_HOST</code>, etc.). Leave blank to use env vars.</p>
-          <div class="form-row-flex">
-            <div class="form-group" style="flex:2">
-              <label for="settingSmtpHost">SMTP Host</label>
-              <input type="text" id="settingSmtpHost" placeholder="smtp.example.com (or leave blank for env)">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label for="settingSmtpPort">Port</label>
-              <input type="number" id="settingSmtpPort" placeholder="587" min="1" max="65535">
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="settingSmtpSecure">
-              <input type="checkbox" id="settingSmtpSecure"> Use TLS/SSL (port 465)
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingSmtpUser">SMTP Username</label>
-            <input type="text" id="settingSmtpUser" placeholder="user@example.com">
-          </div>
-          <div class="form-group">
-            <label for="settingSmtpPass">SMTP Password</label>
-            <input type="password" id="settingSmtpPass" placeholder="Leave blank to keep current password">
-            <small>Leave blank to keep the current stored password unchanged</small>
-          </div>
-          <div class="form-group">
-            <label for="settingSmtpFrom">From Address</label>
-            <input type="email" id="settingSmtpFrom" placeholder="Domain Monitor &lt;noreply@example.com&gt;">
-            <small>The sender address shown in alert emails</small>
-          </div>
-          <div class="form-group">
-            <button class="btn" onclick="reinitSmtp()" id="btnReinitSmtp">
-              <i class="fa-solid fa-rotate"></i> Re-initialize SMTP
-            </button>
-            <small style="margin-left:8px">Apply new SMTP settings without restarting the server</small>
-          </div>
-
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <div class="form-group">
-            <label for="settingTestEmail">Send Test Email</label>
-            <div class="input-group">
-              <input type="email" id="settingTestEmail" placeholder="your@email.com">
-              <button class="btn" onclick="testEmailSettings()">
-                <i class="fa-solid fa-paper-plane"></i> Send Test
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Slack Tab -->
-        <div class="tab-content" id="tab-slack">
-          <h3>Slack Notifications</h3>
-          <p class="info-text">Send alerts to a Slack channel via an Incoming Webhook URL. Create one at <strong>api.slack.com/apps</strong> → Incoming Webhooks.</p>
-          <div class="form-group">
-            <label for="settingSlackEnabled">
-              <input type="checkbox" id="settingSlackEnabled"> Enable Slack Notifications
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingSlackWebhookUrl">Incoming Webhook URL</label>
-            <input type="url" id="settingSlackWebhookUrl" placeholder="https://hooks.slack.com/services/T.../B.../...">
-            <small>Paste your Slack Incoming Webhook URL here</small>
-          </div>
-          <div class="form-group">
-            <label>Events to Send</label>
-            <div class="events-checkboxes" id="slackEventsCheckboxes"></div>
-          </div>
-          <div class="form-group">
-            <button class="btn" onclick="testSlackNotification()">
-              <i class="fa-solid fa-paper-plane"></i> Send Test Message
-            </button>
-          </div>
-        </div>
-
-        <!-- Signal Tab -->
-        <div class="tab-content" id="tab-signal">
-          <h3>Signal Notifications</h3>
-          <p class="info-text">Send alerts via Signal using <strong>signal-cli REST API</strong>. You must have a self-hosted <code>signal-cli-rest-api</code> instance running.</p>
-          <div class="form-group">
-            <label for="settingSignalEnabled">
-              <input type="checkbox" id="settingSignalEnabled"> Enable Signal Notifications
-            </label>
-          </div>
-          <div class="form-group">
-            <label for="settingSignalApiUrl">signal-cli REST API URL</label>
-            <input type="url" id="settingSignalApiUrl" placeholder="http://localhost:8080">
-            <small>Base URL of your signal-cli REST API instance</small>
-          </div>
-          <div class="form-group">
-            <label for="settingSignalSender">Sender Phone Number</label>
-            <input type="text" id="settingSignalSender" placeholder="+12345678900">
-            <small>The registered Signal number that sends the messages</small>
-          </div>
-          <div class="form-group">
-            <label for="settingSignalRecipients">Recipients</label>
-            <input type="text" id="settingSignalRecipients" placeholder="+12345678900, +19876543210">
-            <small>Comma-separated phone numbers or Signal group IDs</small>
-          </div>
-          <div class="form-group">
-            <label>Events to Send</label>
-            <div class="events-checkboxes" id="signalEventsCheckboxes"></div>
-          </div>
-          <div class="form-group">
-            <button class="btn" onclick="testSignalNotification()">
-              <i class="fa-solid fa-paper-plane"></i> Send Test Message
-            </button>
-          </div>
-        </div>
-
-        <!-- Webhooks Tab -->
-        <div class="tab-content" id="tab-webhooks">
-          <h3>Outgoing Webhooks</h3>
-          <p class="info-text">POST a JSON payload to any URL when events occur. Each webhook can subscribe to specific events and optionally use an HMAC secret for verification.</p>
-          <div id="webhooksList" class="webhooks-list"></div>
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <h4>Add Webhook</h4>
-          <div class="form-group">
-            <label for="newWebhookName">Name</label>
-            <input type="text" id="newWebhookName" placeholder="My Webhook">
-          </div>
-          <div class="form-group">
-            <label for="newWebhookUrl">URL</label>
-            <input type="url" id="newWebhookUrl" placeholder="https://example.com/hook">
-          </div>
-          <div class="form-group">
-            <label for="newWebhookSecret">Secret (optional)</label>
-            <input type="password" id="newWebhookSecret" placeholder="Leave blank to auto-generate">
-            <small>Used to sign payloads with HMAC-SHA256 (X-Hub-Signature-256 header)</small>
-          </div>
-          <div class="form-group">
-            <label>Events</label>
-            <div class="events-checkboxes" id="newWebhookEventsCheckboxes"></div>
-          </div>
-          <button class="btn btn-add" onclick="addWebhook()">
-            <i class="fa-solid fa-plus"></i> Add Webhook
-          </button>
-        </div>
-
-        <!-- API Keys Tab -->
-        <div class="tab-content" id="tab-apikeys">
-          <h3>API Key Management</h3>
-          <p class="info-text">Manage multiple API keys for load balancing and rotation.</p>
-          <div id="apiKeysList" class="api-keys-list"></div>
-          <div class="form-group">
-            <label for="newApiKeyName">Add New API Key</label>
-            <div class="input-group">
-              <input type="text" id="newApiKeyName" placeholder="Key name (e.g., Primary)">
-              <input type="password" id="newApiKeyValue" placeholder="API key value">
-              <button class="btn btn-add" onclick="addApiKey()">
-                <i class="fa-solid fa-plus"></i> Add
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Security Tab -->
-        <div class="tab-content" id="tab-security">
-          <h3>Security Settings</h3>
-          <div class="form-group">
-            <label for="settingSessionMaxAge">Session Max Age (days)</label>
-            <input type="number" id="settingSessionMaxAge" min="1" max="365" placeholder="7">
-            <small>How long login sessions remain valid before requiring re-authentication (1–365 days)</small>
-          </div>
-          <div class="form-group">
-            <label for="settingRateLimitMax">Rate Limit (requests per 15 min)</label>
-            <input type="number" id="settingRateLimitMax" min="100" max="10000" placeholder="2000">
-            <small>Maximum API requests per IP per 15-minute window. Changes take effect after server restart.</small>
-          </div>
-          <div class="form-group">
-            <p class="info-text">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-              <strong>Auth &amp; Encryption:</strong> <code>AUTH_ENABLED</code>, <code>SESSION_SECRET</code>, and <code>ENCRYPTION_KEY</code> must be set in your <code>.env</code> file — these cannot be changed at runtime.
-            </p>
-          </div>
-        </div>
-
-        <!-- Advanced Tab -->
-        <div class="tab-content" id="tab-advanced">
-          <h3>Advanced Settings</h3>
-          <h4>WHOIS / Domain Refresh</h4>
-          <div class="form-row-flex">
-            <div class="form-group" style="flex:1;min-width:140px">
-              <label for="settingWhoisTimeout">WHOIS Timeout (seconds)</label>
-              <input type="number" id="settingWhoisTimeout" min="5" max="120" placeholder="30">
-              <small>Max wait for a WHOIS response</small>
-            </div>
-            <div class="form-group" style="flex:1;min-width:140px">
-              <label for="settingWhoisDelay">Delay Between Lookups (ms)</label>
-              <input type="number" id="settingWhoisDelay" min="500" max="10000" placeholder="2000">
-              <small>Throttle to avoid rate limiting</small>
-            </div>
-            <div class="form-group" style="flex:1;min-width:120px">
-              <label for="settingWhoisRetries">Max Retries</label>
-              <input type="number" id="settingWhoisRetries" min="0" max="10" placeholder="3">
-              <small>Retry attempts on failure</small>
-            </div>
-          </div>
-
-          <h4 style="margin-top:16px">Uptime Monitoring</h4>
-          <div class="form-group">
-            <label for="settingUptimeTimeout">Uptime Check Timeout (seconds)</label>
-            <input type="number" id="settingUptimeTimeout" min="5" max="60" placeholder="10">
-            <small>How long to wait for a response before marking a check as failed</small>
-          </div>
-        </div>
-
-        <!-- Users Tab -->
-        <div class="tab-content" id="tab-users">
-          <h3>User Management</h3>
-          <p class="info-text">Manage users who can access Domain Monitor. Only admins can manage users.</p>
-          <div id="usersList" class="users-list"></div>
-
-          <hr style="border-color:var(--border);margin:16px 0;">
-          <h4>Add New User</h4>
-          <div class="form-row-flex">
-            <div class="form-group" style="flex:2;min-width:160px">
-              <label for="newUserUsername">Username</label>
-              <input type="text" id="newUserUsername" placeholder="username">
-            </div>
-            <div class="form-group" style="flex:1;min-width:120px">
-              <label for="newUserRole">Role</label>
-              <select id="newUserRole">
-                <option value="viewer">Viewer</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="newUserPassword">Password</label>
-              <input type="password" id="newUserPassword" placeholder="Password">
-            </div>
-            <div class="form-group">
-              <label for="newUserPasswordConfirm">Confirm Password</label>
-              <input type="password" id="newUserPasswordConfirm" placeholder="Confirm password">
-            </div>
-          </div>
-          <button class="btn btn-add" onclick="createUser()">
-            <i class="fa-solid fa-user-plus"></i> Create User
-          </button>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeModal('settingsModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveSettings()">
-          <i class="fa-solid fa-save"></i> Save Settings
-        </button>
-      </div>
     </div>
   </div>
 
@@ -561,7 +145,7 @@
           </div>
           <p id="responseTimeEmpty" style="color:var(--text-muted);font-size:13px;display:none;">No uptime data available for this domain.</p>
         </div>
-                <div class="detail-section">
+        <div class="detail-section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <h4 style="margin:0;">Change History</h4>
             <button class="btn btn-sm" id="loadHistoryBtn" onclick="loadDomainHistory()" style="font-size:12px;padding:4px 10px;">
@@ -593,7 +177,6 @@
         <div class="bulk-ops-info">
           <span class="bulk-ops-count" id="bulkOpsCount">0</span> domains selected
         </div>
-
         <div class="bulk-ops-tabs">
           <button class="bulk-tab-btn active" data-bulk-tab="assign-group">
             <i class="fa-solid fa-folder"></i> Assign Group
@@ -605,8 +188,6 @@
             <i class="fa-solid fa-bolt"></i> Actions
           </button>
         </div>
-
-        <!-- Assign Group Tab -->
         <div class="bulk-tab-content active" id="bulk-tab-assign-group">
           <div class="form-group">
             <label>Select Group</label>
@@ -618,8 +199,6 @@
             <i class="fa-solid fa-folder-plus"></i> Assign Group to Selected
           </button>
         </div>
-
-        <!-- Assign Tags Tab -->
         <div class="bulk-tab-content" id="bulk-tab-assign-tags">
           <div class="form-group">
             <label>Select Tags to Add</label>
@@ -634,8 +213,6 @@
             </button>
           </div>
         </div>
-
-        <!-- Actions Tab -->
         <div class="bulk-tab-content" id="bulk-tab-actions">
           <div class="bulk-actions-list">
             <button class="btn btn-block" onclick="bulkRefreshWhois()">
@@ -688,38 +265,6 @@
     </div>
   </div>
 
-  <!-- Audit Log Modal -->
-  <div id="auditModal" class="modal" style="display: none;">
-    <div class="modal-content modal-lg">
-      <div class="modal-header">
-        <h2><i class="fa-solid fa-clipboard-list"></i> Audit Log</h2>
-        <button class="modal-close" onclick="closeModal('auditModal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="audit-filters">
-          <select id="auditEntityFilter">
-            <option value="">All Entities</option>
-            <option value="domain">Domains</option>
-            <option value="group">Groups</option>
-            <option value="tag">Tags</option>
-            <option value="settings">Settings</option>
-          </select>
-          <select id="auditActionFilter">
-            <option value="">All Actions</option>
-            <option value="create">Created</option>
-            <option value="update">Updated</option>
-            <option value="delete">Deleted</option>
-          </select>
-          <button class="btn" onclick="loadAuditLog()">
-            <i class="fa-solid fa-filter"></i> Filter
-          </button>
-        </div>
-        <div id="auditLogList" class="audit-log-list"></div>
-      </div>
-    </div>
-  </div>
-
-
   <!-- Timeline Chart Modal -->
   <div id="timelineModal" class="modal" style="display: none;">
     <div class="modal-content modal-xl">
@@ -745,376 +290,950 @@
     </div>
   </div>
 
-  <div class="container">
+  <!-- ═══════════════════════════════════════════════════
+       MOBILE SIDEBAR HAMBURGER + OVERLAY
+       ═══════════════════════════════════════════════════ -->
+  <button class="sidebar-mobile-btn" onclick="toggleMobileSidebar()" title="Menu">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+  <div class="sidebar-mobile-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
 
-    <!-- Header -->
-    <header class="header">
-      <h1><img alt="Domain Monitor" src="favicon.png" /> Domain Monitor</h1>
-      <div class="header-actions">
-        <span id="connectionStatus" class="connection-status" title="WebSocket Status">
+  <!-- ═══════════════════════════════════════════════════
+       APP LAYOUT
+       ═══════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside id="app-sidebar" class="sidebar">
+      <div class="sidebar-logo">
+        <img src="favicon.png" class="sidebar-logo-icon" alt="Domain Monitor">
+        <span class="sidebar-logo-text">Domain Monitor</span>
+      </div>
+
+      <button class="sidebar-collapse-btn" onclick="toggleSidebar()" id="sidebarCollapseBtn" title="Toggle sidebar">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+
+      <nav class="sidebar-nav" role="navigation" aria-label="Main navigation">
+        <ul class="sidebar-nav-list">
+          <li>
+            <a class="sidebar-nav-item" data-page="dashboard" data-tooltip="Dashboard" href="#dashboard">
+              <i class="fa-solid fa-gauge-high"></i>
+              <span class="sidebar-nav-label">Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav-item" data-page="domains" data-tooltip="Domains" href="#domains">
+              <i class="fa-solid fa-globe"></i>
+              <span class="sidebar-nav-label">Domains</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav-item" data-page="uptime" data-tooltip="Uptime" href="#uptime">
+              <i class="fa-solid fa-signal"></i>
+              <span class="sidebar-nav-label">Uptime</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav-item" data-page="notifications" data-tooltip="Notifications" href="#notifications">
+              <i class="fa-solid fa-bell"></i>
+              <span class="sidebar-nav-label">Notifications</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav-item" data-page="audit" data-tooltip="Audit Log" href="#audit">
+              <i class="fa-solid fa-clipboard-list"></i>
+              <span class="sidebar-nav-label">Audit Log</span>
+            </a>
+          </li>
+        </ul>
+
+        <div class="sidebar-divider"></div>
+
+        <ul class="sidebar-nav-list">
+          <li>
+            <a class="sidebar-nav-item" data-page="settings" data-tooltip="Settings" href="#settings">
+              <i class="fa-solid fa-gear"></i>
+              <span class="sidebar-nav-label">Settings</span>
+            </a>
+          </li>
+          <li>
+            <a class="sidebar-nav-item" data-page="users" data-tooltip="Users" href="#users">
+              <i class="fa-solid fa-users"></i>
+              <span class="sidebar-nav-label">Users</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span id="connectionStatus" class="sidebar-nav-item sidebar-connection" title="WebSocket Status">
           <i class="fa-solid fa-circle"></i>
+          <span class="sidebar-nav-label">Connected</span>
         </span>
-<button class="btn-icon notification-bell" onclick="toggleNotificationSidebar()" title="Notifications" id="notifBellBtn">
-          <i class="fa-solid fa-bell"></i>
-          <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+        <button class="sidebar-footer-btn" onclick="toggleTheme()" title="Toggle Theme">
+          <i class="fa-solid fa-sun theme-icon-light"></i>
+          <i class="fa-solid fa-moon theme-icon-dark"></i>
+          <span class="sidebar-nav-label">Theme</span>
         </button>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
-          <i class="fa-solid fa-sun"></i>
-          <i class="fa-solid fa-moon"></i>
+        <button class="sidebar-footer-btn" id="logoutBtn" onclick="handleLogout()" style="display:none;" title="Logout">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span class="sidebar-nav-label">Logout</span>
         </button>
-        <button class="btn btn-refresh" onclick="refreshAll()">
-          <i class="fa-solid fa-arrows-rotate"></i> Refresh All
-        </button>
-        <button class="btn" onclick="openModal('importModal')">
-          <i class="fa-solid fa-file-import"></i> Import
-        </button>
-        <button class="btn btn-export" onclick="exportCSV()">
-          <i class="fa-solid fa-file-csv"></i> Export
-        </button>
-        <div class="dropdown">
-          <button class="btn btn-icon" onclick="toggleDropdown('moreMenu')">
-            <i class="fa-solid fa-ellipsis-v"></i>
-          </button>
-          <div id="moreMenu" class="dropdown-menu">
-            <a href="#" onclick="openModal('groupsModal'); closeDropdown();">
-              <i class="fa-solid fa-folder"></i> Manage Groups
-            </a>
-            <a href="#" onclick="openModal('tagsModal'); closeDropdown();">
-              <i class="fa-solid fa-tags"></i> Manage Tags
-            </a>
-            <a href="#" onclick="runHealthChecks(); closeDropdown();">
-              <i class="fa-solid fa-heart-pulse"></i> Run Health Checks
-            </a>
-            <a href="#" onclick="openModal('auditModal'); loadAuditLog(); closeDropdown();">
-              <i class="fa-solid fa-clipboard-list"></i> Audit Log
-            </a>
-            <a href="#" onclick="openWidgetCustomizer(); closeDropdown();">
-              <i class="fa-solid fa-grip"></i> Customize Dashboard
-            </a>
-            <hr>
-            <a href="#" onclick="openModal('settingsModal'); loadSettings(); closeDropdown();">
-              <i class="fa-solid fa-cog"></i> Settings
-            </a>
-            <a href="#" id="logoutBtn" onclick="handleLogout(); closeDropdown();" style="display: none;">
-              <i class="fa-solid fa-sign-out-alt"></i> Logout
-            </a>
-          </div>
-        </div>
       </div>
-    </header>
+    </aside>
 
-    <!-- Dashboard Overview -->
-    <section class="dashboard-overview">
-      <!-- Stats Sidebar -->
-      <div class="stats-sidebar">
-        <div class="stat-card stat-total">
-          <div class="stat-icon"><i class="fa-solid fa-globe"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="totalDomains">0</span>
-            <span class="stat-label">Total Domains</span>
-          </div>
-        </div>
-        <div class="stat-card stat-critical" id="expiredCard">
-          <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="expired">0</span>
-            <span class="stat-label">Expired</span>
-          </div>
-        </div>
-        <div class="stat-card stat-urgent">
-          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="exp15">0</span>
-            <span class="stat-label">Within 15 days</span>
-          </div>
-        </div>
-        <div class="stat-card stat-warning">
-          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="exp30">0</span>
-            <span class="stat-label">Within 30 days</span>
-          </div>
-        </div>
-        <div class="stat-card stat-notice">
-          <div class="stat-icon"><i class="fa-solid fa-calendar"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="exp90">0</span>
-            <span class="stat-label">Within 90 days</span>
-          </div>
-        </div>
-        <div class="stat-card stat-safe">
-          <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="exp180">0</span>
-            <span class="stat-label">Within 6 months</span>
-          </div>
-        </div>
-      </div>
+    <!-- ── MAIN CONTENT ── -->
+    <main id="app-main" class="app-main">
 
-      <!-- Charts Area - Draggable Grid -->
-      <div class="charts-area" id="chartsArea">
-        <!-- Row 1: Uptime Status + Critical Alerts + Health Status -->
-        <div class="chart-card" data-widget-id="uptime-status" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-signal"></i> Site Status</h3>
-          <div class="uptime-status-widget">
+      <!-- ════════════════════════════
+           PAGE: DASHBOARD
+           ════════════════════════════ -->
+      <section id="page-dashboard" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
+          <div class="page-actions">
+            <button class="btn-icon notification-bell" onclick="toggleNotificationSidebar()" title="Notifications" id="notifBellBtn">
+              <i class="fa-solid fa-bell"></i>
+              <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+            </button>
+            <button class="btn" onclick="openWidgetCustomizer()" title="Customize dashboard">
+              <i class="fa-solid fa-grip"></i> Customize
+            </button>
+            <button class="btn btn-refresh" onclick="refreshAll()">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh All
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Overview -->
+        <section class="dashboard-overview">
+          <!-- Stats Sidebar -->
+          <div class="stats-sidebar">
+            <div class="stat-card stat-total">
+              <div class="stat-icon"><i class="fa-solid fa-globe"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="totalDomains">0</span>
+                <span class="stat-label">Total Domains</span>
+              </div>
+            </div>
+            <div class="stat-card stat-critical" id="expiredCard">
+              <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="expired">0</span>
+                <span class="stat-label">Expired</span>
+              </div>
+            </div>
+            <div class="stat-card stat-urgent">
+              <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="exp15">0</span>
+                <span class="stat-label">Within 15 days</span>
+              </div>
+            </div>
+            <div class="stat-card stat-warning">
+              <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="exp30">0</span>
+                <span class="stat-label">Within 30 days</span>
+              </div>
+            </div>
+            <div class="stat-card stat-notice">
+              <div class="stat-icon"><i class="fa-solid fa-calendar"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="exp90">0</span>
+                <span class="stat-label">Within 90 days</span>
+              </div>
+            </div>
+            <div class="stat-card stat-safe">
+              <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+              <div class="stat-content">
+                <span class="stat-value" id="exp180">0</span>
+                <span class="stat-label">Within 6 months</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Area -->
+          <div class="charts-area" id="chartsArea">
+            <div class="chart-card" data-widget-id="uptime-status" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-signal"></i> Site Status</h3>
+              <div class="uptime-status-widget">
+                <div class="status-big-number up">
+                  <span class="status-count" id="sitesUpCount">0</span>
+                  <span class="status-label">Sites Up</span>
+                </div>
+                <div class="status-big-number down">
+                  <span class="status-count" id="sitesDownCount">0</span>
+                  <span class="status-label">Sites Down</span>
+                </div>
+                <div class="status-big-number unknown">
+                  <span class="status-count" id="sitesUnknownCount">0</span>
+                  <span class="status-label">Unknown</span>
+                </div>
+              </div>
+            </div>
+            <div class="chart-card chart-card-alerts" data-widget-id="alerts" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-triangle-exclamation"></i> Critical Alerts</h3>
+              <div id="criticalAlerts" class="alerts-list">
+                <div class="no-alerts"><i class="fa-solid fa-check-circle"></i> No critical alerts</div>
+              </div>
+            </div>
+            <div class="chart-card" data-widget-id="health" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-heart-pulse"></i> Health Status</h3>
+              <canvas id="healthChart"></canvas>
+            </div>
+            <div class="chart-card chart-timeline" data-widget-id="timeline" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-chart-bar"></i> Expiry Timeline</h3>
+              <canvas id="timelineChart"></canvas>
+            </div>
+            <div class="chart-card chart-card-activity" data-widget-id="activity" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h3>
+              <div id="activityLog" class="activity-log-list"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- ════════════════════════════
+           PAGE: DOMAINS
+           ════════════════════════════ -->
+      <section id="page-domains" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-globe"></i> Domains</h1>
+          <div class="page-actions">
+            <button class="btn" onclick="openModal('importModal')">
+              <i class="fa-solid fa-file-import"></i> Import
+            </button>
+            <button class="btn btn-export" onclick="exportCSV()">
+              <i class="fa-solid fa-file-csv"></i> Export
+            </button>
+            <button class="btn" onclick="openModal('groupsModal'); loadGroups();">
+              <i class="fa-solid fa-folder"></i> Groups
+            </button>
+            <button class="btn" onclick="openModal('tagsModal'); loadTags();">
+              <i class="fa-solid fa-tags"></i> Tags
+            </button>
+            <button class="btn" onclick="openTimelineChart()">
+              <i class="fa-solid fa-timeline"></i> Timeline
+            </button>
+            <button class="btn btn-refresh" onclick="refreshAll()">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh All
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Actions Bar -->
+        <section class="quick-actions">
+          <div class="add-domain-inline">
+            <input id="domainInput" placeholder="Enter domain name (e.g., example.com)" autocomplete="off">
+            <select id="addDomainGroup" class="add-domain-select" title="Assign to group (optional)">
+              <option value="">No Group</option>
+            </select>
+            <select id="addDomainTag" class="add-domain-select" title="Add tag (optional)">
+              <option value="">No Tag</option>
+            </select>
+            <button class="btn btn-add" onclick="addDomain()">
+              <i class="fa-solid fa-plus"></i> Add
+            </button>
+            <button class="btn btn-toggle" onclick="toggleBulkUpload()" title="Add multiple domains">
+              <i class="fa-solid fa-layer-group"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- Bulk Upload -->
+        <section id="bulkContainer" class="bulk-container" style="display: none;">
+          <textarea id="bulkInput" placeholder="Enter domains separated by commas or new lines:&#10;example.com&#10;anotherdomain.net&#10;mysite.org"></textarea>
+          <div class="bulk-actions">
+            <button class="btn btn-add" onclick="addBulkDomains()">
+              <i class="fa-solid fa-plus"></i> Add Domains
+            </button>
+            <button class="btn" onclick="toggleBulkUpload()">Cancel</button>
+          </div>
+        </section>
+
+        <!-- Filter Controls -->
+        <section class="filter-controls">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="searchInput"><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+              <input id="searchInput" type="text" placeholder="Search domains, registrars, nameservers..." autocomplete="off">
+            </div>
+            <div class="filter-group">
+              <label for="filterStatus"><i class="fa-solid fa-filter"></i> Status</label>
+              <select id="filterStatus">
+                <option value="all">All Statuses</option>
+                <option value="expired">Expired</option>
+                <option value="expiring30">Expiring in 30 days</option>
+                <option value="expiring90">Expiring in 90 days</option>
+                <option value="expiring180">Expiring in 180 days</option>
+                <option value="safe">Safe (&gt;180 days)</option>
+                <option value="error">Has Errors</option>
+                <option value="unchecked">Never Checked</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterRegistrar"><i class="fa-solid fa-building"></i> Registrar</label>
+              <select id="filterRegistrar">
+                <option value="all">All Registrars</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterGroup"><i class="fa-solid fa-folder"></i> Group</label>
+              <select id="filterGroup">
+                <option value="all">All Groups</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sortBy"><i class="fa-solid fa-arrow-down-a-z"></i> Sort By</label>
+              <select id="sortBy">
+                <option value="expiry">Expiry Date</option>
+                <option value="domain">Domain Name</option>
+                <option value="registrar">Registrar</option>
+                <option value="age">Domain Age</option>
+                <option value="lastChecked">Last Checked</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sortOrder"><i class="fa-solid fa-sort"></i> Order</label>
+              <select id="sortOrder">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+            <div class="filter-group filter-actions">
+              <button class="btn btn-clear" onclick="clearFilters()">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bulk Actions Bar -->
+        <section id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
+          <div class="bulk-actions-left">
+            <span id="selectedCount">0 selected</span>
+          </div>
+          <div class="bulk-actions-right">
+            <button class="btn btn-primary" onclick="openBulkOpsModal()">
+              <i class="fa-solid fa-layer-group"></i> Bulk Operations
+            </button>
+            <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button class="btn btn-bulk-delete" onclick="deleteSelected()">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+            <button class="btn btn-clear-selection" onclick="clearSelection()">
+              <i class="fa-solid fa-xmark"></i> Clear
+            </button>
+          </div>
+        </section>
+
+        <!-- Domain Table -->
+        <section class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
+                <th class="sortable-header" data-sort="domain">Domain</th>
+                <th class="uptime-col">Uptime</th>
+                <th>Health</th>
+                <th class="sortable-header" data-sort="registrar">Registrar</th>
+                <th class="sortable-header" data-sort="expiry">Expires</th>
+                <th>Days Left</th>
+                <th>Name Servers</th>
+                <th class="ns-status-col">NS Status</th>
+                <th class="sortable-header" data-sort="lastChecked">Last Check</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table"></tbody>
+          </table>
+        </section>
+
+        <!-- Pagination Controls -->
+        <section class="pagination-controls" id="paginationControls" style="display: none;">
+          <div class="pagination-info">
+            <span id="paginationInfo">Showing 0 of 0 domains</span>
+          </div>
+          <div class="pagination-nav">
+            <button class="btn btn-pagination" id="paginationFirst" onclick="goToPage(1)" title="First page">
+              <i class="fa-solid fa-angles-left"></i>
+            </button>
+            <button class="btn btn-pagination" id="paginationPrev" onclick="goToPage(state.pagination.page - 1)" title="Previous page">
+              <i class="fa-solid fa-angle-left"></i>
+            </button>
+            <div class="pagination-pages" id="paginationPages"></div>
+            <button class="btn btn-pagination" id="paginationNext" onclick="goToPage(state.pagination.page + 1)" title="Next page">
+              <i class="fa-solid fa-angle-right"></i>
+            </button>
+            <button class="btn btn-pagination" id="paginationLast" onclick="goToPage(state.pagination.totalPages)" title="Last page">
+              <i class="fa-solid fa-angles-right"></i>
+            </button>
+          </div>
+          <div class="pagination-jump">
+            <label for="pageJumpInput">Go to:</label>
+            <input type="number" id="pageJumpInput" min="1" placeholder="#" style="width:54px;padding:4px 6px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;" onkeydown="if(event.key==='Enter'){jumpToPage(this.value);}">
+            <button class="btn btn-pagination" onclick="jumpToPage(document.getElementById('pageJumpInput').value)">Go</button>
+          </div>
+          <div class="pagination-size">
+            <label for="pageSize">Per page:</label>
+            <select id="pageSize" onchange="changePageSize(this.value)">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </div>
+        </section>
+      </section>
+
+      <!-- ════════════════════════════
+           PAGE: UPTIME
+           ════════════════════════════ -->
+      <section id="page-uptime" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-signal"></i> Uptime Monitoring</h1>
+          <div class="page-actions">
+            <button class="btn" onclick="runUptimeCheckAll()">
+              <i class="fa-solid fa-play"></i> Run Check Now
+            </button>
+            <button class="btn" onclick="restartUptimeService()">
+              <i class="fa-solid fa-rotate"></i> Restart Service
+            </button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-signal"></i> Site Status Overview</h2>
+          </div>
+          <div class="uptime-status-widget" style="padding:16px 0 8px;">
             <div class="status-big-number up">
-              <span class="status-count" id="sitesUpCount">0</span>
+              <span class="status-count" id="uptimeSitesUp">—</span>
               <span class="status-label">Sites Up</span>
             </div>
             <div class="status-big-number down">
-              <span class="status-count" id="sitesDownCount">0</span>
+              <span class="status-count" id="uptimeSitesDown">—</span>
               <span class="status-label">Sites Down</span>
             </div>
             <div class="status-big-number unknown">
-              <span class="status-count" id="sitesUnknownCount">0</span>
+              <span class="status-count" id="uptimeSitesUnknown">—</span>
               <span class="status-label">Unknown</span>
             </div>
           </div>
+          <p class="info-text" style="margin-top:12px;">
+            For per-domain uptime details, response time charts, and heartbeat history, click any domain row in the <a href="#domains" onclick="navigateTo('domains')">Domains</a> page.
+          </p>
         </div>
-        <div class="chart-card chart-card-alerts" data-widget-id="alerts" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-triangle-exclamation"></i> Critical Alerts</h3>
-          <div id="criticalAlerts" class="alerts-list">
-            <div class="no-alerts"><i class="fa-solid fa-check-circle"></i> No critical alerts</div>
+      </section>
+
+      <!-- ════════════════════════════
+           PAGE: NOTIFICATIONS
+           ════════════════════════════ -->
+      <section id="page-notifications" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-bell"></i> Notifications</h1>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="saveSettings()">
+              <i class="fa-solid fa-save"></i> Save All
+            </button>
           </div>
         </div>
-        <div class="chart-card" data-widget-id="health" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-heart-pulse"></i> Health Status</h3>
-          <canvas id="healthChart"></canvas>
+
+        <!-- Email Alerts -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-envelope"></i> Email Alerts</h2>
+          </div>
+          <div class="form-group">
+            <label for="settingEmailEnabled">
+              <input type="checkbox" id="settingEmailEnabled"> Enable Email Alerts
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingEmailRecipients">Alert Recipients</label>
+            <input type="text" id="settingEmailRecipients" placeholder="admin@example.com, team@example.com">
+            <small>Comma-separated email addresses to receive expiration alerts</small>
+          </div>
+          <div class="form-group">
+            <label for="settingAlertDaysEmail">Alert Before Expiration (days)</label>
+            <input type="text" id="settingAlertDaysEmail" placeholder="7, 14, 30">
+            <small>Send alerts this many days before domains expire (comma-separated)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingEmailAlertCron">Alert Schedule (Cron)</label>
+            <input type="text" id="settingEmailAlertCron" placeholder="0 9 * * *">
+            <small>When to run expiration alert checks (default: daily at 9 AM)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingTestEmail">Send Test Email</label>
+            <div class="input-group">
+              <input type="email" id="settingTestEmail" placeholder="your@email.com">
+              <button class="btn" onclick="testEmailSettings()">
+                <i class="fa-solid fa-paper-plane"></i> Send Test
+              </button>
+            </div>
+          </div>
         </div>
-        <!-- Row 2: Timeline + Activity Log -->
-        <div class="chart-card chart-timeline" data-widget-id="timeline" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-chart-bar"></i> Expiry Timeline</h3>
-          <canvas id="timelineChart"></canvas>
+
+        <!-- SMTP Configuration -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-server"></i> SMTP Configuration</h2>
+          </div>
+          <p class="info-text" id="smtpStatusBanner" style="display:none;"></p>
+          <p class="info-text">These settings override environment variables (<code>SMTP_HOST</code>, etc.). Leave blank to use env vars.</p>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:2">
+              <label for="settingSmtpHost">SMTP Host</label>
+              <input type="text" id="settingSmtpHost" placeholder="smtp.example.com">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label for="settingSmtpPort">Port</label>
+              <input type="number" id="settingSmtpPort" placeholder="587" min="1" max="65535">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpSecure">
+              <input type="checkbox" id="settingSmtpSecure"> Use TLS/SSL (port 465)
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpUser">SMTP Username</label>
+            <input type="text" id="settingSmtpUser" placeholder="user@example.com">
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpPass">SMTP Password</label>
+            <input type="password" id="settingSmtpPass" placeholder="Leave blank to keep current password">
+            <small>Leave blank to keep the current stored password unchanged</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpFrom">From Address</label>
+            <input type="email" id="settingSmtpFrom" placeholder="Domain Monitor &lt;noreply@example.com&gt;">
+            <small>The sender address shown in alert emails</small>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="reinitSmtp()" id="btnReinitSmtp">
+              <i class="fa-solid fa-rotate"></i> Re-initialize SMTP
+            </button>
+            <small style="margin-left:8px">Apply new SMTP settings without restarting the server</small>
+          </div>
         </div>
-        <div class="chart-card chart-card-activity" data-widget-id="activity" draggable="true">
-          <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-          <h3><i class="fa-solid fa-clock-rotate-left"></i> Activity Log</h3>
-          <div id="activityLog" class="activity-log-list"></div>
+
+        <!-- Slack -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-brands fa-slack"></i> Slack</h2>
+          </div>
+          <p class="info-text">Send alerts to a Slack channel via an Incoming Webhook URL. Create one at <strong>api.slack.com/apps</strong> → Incoming Webhooks.</p>
+          <div class="form-group">
+            <label for="settingSlackEnabled">
+              <input type="checkbox" id="settingSlackEnabled"> Enable Slack Notifications
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSlackWebhookUrl">Incoming Webhook URL</label>
+            <input type="url" id="settingSlackWebhookUrl" placeholder="https://hooks.slack.com/services/T.../B.../...">
+            <small>Paste your Slack Incoming Webhook URL here</small>
+          </div>
+          <div class="form-group">
+            <label>Events to Send</label>
+            <div class="events-checkboxes" id="slackEventsCheckboxes"></div>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="testSlackNotification()">
+              <i class="fa-solid fa-paper-plane"></i> Send Test Message
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Quick Actions Bar -->
-    <section class="quick-actions">
-      <div class="add-domain-inline">
-        <input id="domainInput" placeholder="Enter domain name (e.g., example.com)" autocomplete="off">
-        <select id="addDomainGroup" class="add-domain-select" title="Assign to group (optional)">
-          <option value="">No Group</option>
-        </select>
-        <select id="addDomainTag" class="add-domain-select" title="Add tag (optional)">
-          <option value="">No Tag</option>
-        </select>
-        <button class="btn btn-add" onclick="addDomain()">
-          <i class="fa-solid fa-plus"></i> Add
-        </button>
-        <button class="btn btn-toggle" onclick="toggleBulkUpload()" title="Add multiple domains">
-          <i class="fa-solid fa-layer-group"></i>
-        </button>
-      </div>
-    </section>
-
-    <!-- Bulk Upload (hidden by default) -->
-    <section id="bulkContainer" class="bulk-container" style="display: none;">
-      <textarea id="bulkInput" placeholder="Enter domains separated by commas or new lines:&#10;example.com&#10;anotherdomain.net&#10;mysite.org"></textarea>
-      <div class="bulk-actions">
-        <button class="btn btn-add" onclick="addBulkDomains()">
-          <i class="fa-solid fa-plus"></i> Add Domains
-        </button>
-        <button class="btn" onclick="toggleBulkUpload()">Cancel</button>
-      </div>
-    </section>
-
-
-<!-- Filter Controls -->
-<section class="filter-controls">
-  <div class="filter-row">
-    <!-- Search -->
-    <div class="filter-group">
-      <label for="searchInput">
-        <i class="fa-solid fa-magnifying-glass"></i> Search
-      </label>
-      <input
-        id="searchInput"
-        type="text"
-        placeholder="Search domains, registrars, nameservers..."
-        autocomplete="off"
-      >
-    </div>
-
-    <!-- Status Filter -->
-    <div class="filter-group">
-      <label for="filterStatus">
-        <i class="fa-solid fa-filter"></i> Status
-      </label>
-      <select id="filterStatus">
-        <option value="all">All Statuses</option>
-        <option value="expired">Expired</option>
-        <option value="expiring30">Expiring in 30 days</option>
-        <option value="expiring90">Expiring in 90 days</option>
-        <option value="expiring180">Expiring in 180 days</option>
-        <option value="safe">Safe (>180 days)</option>
-        <option value="error">Has Errors</option>
-        <option value="unchecked">Never Checked</option>
-      </select>
-    </div>
-
-    <!-- Registrar Filter -->
-    <div class="filter-group">
-      <label for="filterRegistrar">
-        <i class="fa-solid fa-building"></i> Registrar
-      </label>
-      <select id="filterRegistrar">
-        <option value="all">All Registrars</option>
-        <!-- Populated dynamically -->
-      </select>
-    </div>
-
-    <!-- Group Filter -->
-    <div class="filter-group">
-      <label for="filterGroup">
-        <i class="fa-solid fa-folder"></i> Group
-      </label>
-      <select id="filterGroup">
-        <option value="all">All Groups</option>
-        <!-- Populated dynamically -->
-      </select>
-    </div>
-
-<!-- Sort By -->
-    <div class="filter-group">
-      <label for="sortBy">
-        <i class="fa-solid fa-arrow-down-a-z"></i> Sort By
-      </label>
-      <select id="sortBy">
-        <option value="expiry">Expiry Date</option>
-        <option value="domain">Domain Name</option>
-        <option value="registrar">Registrar</option>
-        <option value="age">Domain Age</option>
-        <option value="lastChecked">Last Checked</option>
-      </select>
-    </div>
-
-    <!-- Sort Order -->
-    <div class="filter-group">
-      <label for="sortOrder">
-        <i class="fa-solid fa-sort"></i> Order
-      </label>
-      <select id="sortOrder">
-        <option value="asc">Ascending</option>
-        <option value="desc">Descending</option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <button class="btn btn-sm" onclick="openTimelineChart()" title="View expiration timeline" id="timelineBtn">
-        <i class="fa-solid fa-timeline"></i> Timeline
-      </button>
-    </div>
-
-        <!-- Clear Filters -->
-    <div class="filter-group filter-actions">
-      <button class="btn btn-clear" onclick="clearFilters()">
-        <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
-      </button>
-    </div>
-  </div>
-
-</section>
-
-    <!-- Bulk Actions Bar (hidden by default) -->
-    <section id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
-      <div class="bulk-actions-left">
-        <span id="selectedCount">0 selected</span>
-      </div>
-      <div class="bulk-actions-right">
-        <button class="btn btn-primary" onclick="openBulkOpsModal()">
-          <i class="fa-solid fa-layer-group"></i> Bulk Operations
-        </button>
-        <button class="btn btn-bulk-refresh" onclick="refreshSelected()">
-          <i class="fa-solid fa-arrows-rotate"></i> Refresh
-        </button>
-        <button class="btn btn-bulk-delete" onclick="deleteSelected()">
-          <i class="fa-solid fa-trash"></i> Delete
-        </button>
-        <button class="btn btn-clear-selection" onclick="clearSelection()">
-          <i class="fa-solid fa-xmark"></i> Clear
-        </button>
-      </div>
-    </section>
-
-    <!-- Domain Table -->
-    <section class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="checkbox-col"><input type="checkbox" id="selectAll" title="Select all"></th>
-            <th class="sortable-header" data-sort="domain">Domain</th>
-            <th class="uptime-col">Uptime</th>
-            <th>Health</th>
-            <th class="sortable-header" data-sort="registrar">Registrar</th>
-            <th class="sortable-header" data-sort="expiry">Expires</th>
-            <th>Days Left</th>
-            <th>Name Servers</th>
-            <th class="ns-status-col">NS Status</th>
-            <th class="sortable-header" data-sort="lastChecked">Last Check</th>
-            <th class="actions-col">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="table"></tbody>
-      </table>
-    </section>
-
-    <!-- Pagination Controls -->
-    <section class="pagination-controls" id="paginationControls" style="display: none;">
-      <div class="pagination-info">
-        <span id="paginationInfo">Showing 0 of 0 domains</span>
-      </div>
-      <div class="pagination-nav">
-        <button class="btn btn-pagination" id="paginationFirst" onclick="goToPage(1)" title="First page">
-          <i class="fa-solid fa-angles-left"></i>
-        </button>
-        <button class="btn btn-pagination" id="paginationPrev" onclick="goToPage(state.pagination.page - 1)" title="Previous page">
-          <i class="fa-solid fa-angle-left"></i>
-        </button>
-        <div class="pagination-pages" id="paginationPages">
-          <!-- Page numbers generated dynamically -->
+        <!-- Signal -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-comment-dots"></i> Signal</h2>
+          </div>
+          <p class="info-text">Send alerts via Signal using <strong>signal-cli REST API</strong>. You must have a self-hosted <code>signal-cli-rest-api</code> instance running.</p>
+          <div class="form-group">
+            <label for="settingSignalEnabled">
+              <input type="checkbox" id="settingSignalEnabled"> Enable Signal Notifications
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalApiUrl">signal-cli REST API URL</label>
+            <input type="url" id="settingSignalApiUrl" placeholder="http://localhost:8080">
+            <small>Base URL of your signal-cli REST API instance</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalSender">Sender Phone Number</label>
+            <input type="text" id="settingSignalSender" placeholder="+12345678900">
+            <small>The registered Signal number that sends the messages</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalRecipients">Recipients</label>
+            <input type="text" id="settingSignalRecipients" placeholder="+12345678900, +19876543210">
+            <small>Comma-separated phone numbers or Signal group IDs</small>
+          </div>
+          <div class="form-group">
+            <label>Events to Send</label>
+            <div class="events-checkboxes" id="signalEventsCheckboxes"></div>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="testSignalNotification()">
+              <i class="fa-solid fa-paper-plane"></i> Send Test Message
+            </button>
+          </div>
         </div>
-        <button class="btn btn-pagination" id="paginationNext" onclick="goToPage(state.pagination.page + 1)" title="Next page">
-          <i class="fa-solid fa-angle-right"></i>
-        </button>
-        <button class="btn btn-pagination" id="paginationLast" onclick="goToPage(state.pagination.totalPages)" title="Last page">
-          <i class="fa-solid fa-angles-right"></i>
-        </button>
-      </div>
-      <div class="pagination-jump">
-        <label for="pageJumpInput">Go to:</label>
-        <input type="number" id="pageJumpInput" min="1" placeholder="#" style="width:54px;padding:4px 6px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;" onkeydown="if(event.key==='Enter'){jumpToPage(this.value);}">
-        <button class="btn btn-pagination" onclick="jumpToPage(document.getElementById('pageJumpInput').value)" title="Go to page">Go</button>
-      </div>
-      <div class="pagination-size">
-        <label for="pageSize">Per page:</label>
-        <select id="pageSize" onchange="changePageSize(this.value)">
-          <option value="25">25</option>
-          <option value="50" selected>50</option>
-          <option value="100">100</option>
-          <option value="200">200</option>
-        </select>
-      </div>
-    </section>
 
-  </div>
+        <!-- Webhooks -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-webhook"></i> Outgoing Webhooks</h2>
+          </div>
+          <p class="info-text">POST a JSON payload to any URL when events occur. Each webhook can subscribe to specific events and optionally use an HMAC secret for verification.</p>
+          <div id="webhooksList" class="webhooks-list"></div>
+          <hr style="border-color:var(--border);margin:16px 0;">
+          <h4>Add Webhook</h4>
+          <div class="form-group">
+            <label for="newWebhookName">Name</label>
+            <input type="text" id="newWebhookName" placeholder="My Webhook">
+          </div>
+          <div class="form-group">
+            <label for="newWebhookUrl">URL</label>
+            <input type="url" id="newWebhookUrl" placeholder="https://example.com/hook">
+          </div>
+          <div class="form-group">
+            <label for="newWebhookSecret">Secret (optional)</label>
+            <input type="password" id="newWebhookSecret" placeholder="Leave blank to auto-generate">
+            <small>Used to sign payloads with HMAC-SHA256 (X-Hub-Signature-256 header)</small>
+          </div>
+          <div class="form-group">
+            <label>Events</label>
+            <div class="events-checkboxes" id="newWebhookEventsCheckboxes"></div>
+          </div>
+          <button class="btn btn-add" onclick="addWebhook()">
+            <i class="fa-solid fa-plus"></i> Add Webhook
+          </button>
+        </div>
 
- <!-- Footer -->
-  <footer class="footer">
-    &copy; <span id="copyrightYear"></span> Domain Monitor. <span id="appVersion"></span>
-  </footer>
+        <!-- API Keys -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-key"></i> API Keys</h2>
+          </div>
+          <p class="info-text">Manage multiple WHOIS lookup API keys for load balancing and rotation.</p>
+          <div id="apiKeysList" class="api-keys-list"></div>
+          <div class="form-group" style="margin-top:16px">
+            <label for="newApiKeyName">Add New API Key</label>
+            <div class="input-group">
+              <input type="text" id="newApiKeyName" placeholder="Key name (e.g., Primary)">
+              <input type="password" id="newApiKeyValue" placeholder="API key value">
+              <button class="btn btn-add" onclick="addApiKey()">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
 
-  <!-- Notification container will be created by JavaScript -->
+      <!-- ════════════════════════════
+           PAGE: AUDIT LOG
+           ════════════════════════════ -->
+      <section id="page-audit" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-clipboard-list"></i> Audit Log</h1>
+          <div class="page-actions">
+            <button class="btn" onclick="loadAuditLog()">
+              <i class="fa-solid fa-sync"></i> Refresh
+            </button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="audit-filters" style="margin-bottom:16px;">
+            <select id="auditEntityFilter" onchange="loadAuditLog()">
+              <option value="">All Entities</option>
+              <option value="domain">Domains</option>
+              <option value="group">Groups</option>
+              <option value="tag">Tags</option>
+              <option value="settings">Settings</option>
+              <option value="user">Users</option>
+              <option value="apikey">API Keys</option>
+              <option value="system">System</option>
+            </select>
+            <select id="auditActionFilter" onchange="loadAuditLog()">
+              <option value="">All Actions</option>
+              <option value="create">Created</option>
+              <option value="update">Updated</option>
+              <option value="delete">Deleted</option>
+              <option value="refresh">Refreshed</option>
+              <option value="health_check">Health Check</option>
+              <option value="login">Login</option>
+              <option value="logout">Logout</option>
+            </select>
+            <button class="btn" onclick="loadAuditLog()">
+              <i class="fa-solid fa-filter"></i> Filter
+            </button>
+          </div>
+          <div id="auditLogList" class="audit-log-list audit-log-page"></div>
+        </div>
+      </section>
 
+      <!-- ════════════════════════════
+           PAGE: SETTINGS
+           ════════════════════════════ -->
+      <section id="page-settings" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-gear"></i> Settings</h1>
+        </div>
+
+        <!-- General -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-sliders"></i> General</h2>
+          </div>
+          <div class="form-group">
+            <label for="settingAlertDays">Expiration Alert Days</label>
+            <input type="number" id="settingAlertDays" min="1" max="365" value="30">
+            <small>Days before expiration to show warnings in the dashboard</small>
+          </div>
+          <div class="form-group">
+            <label for="settingTimezone">Display Timezone</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="settingTimezone" style="flex:1;"></select>
+              <button type="button" class="btn btn-sm" onclick="detectTimezone()" title="Auto-detect from browser">&#x1F310; Detect</button>
+            </div>
+            <small>All dates and times in the UI, logs, and alerts will use this timezone</small>
+          </div>
+        </div>
+
+        <!-- Domain Refresh Schedule -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-clock-rotate-left"></i> Domain Refresh Schedule</h2>
+          </div>
+          <div class="form-group">
+            <label for="settingCron">Cron Expression</label>
+            <input type="text" id="settingCron" placeholder="0 0 * * *">
+            <small>Default: 0 0 * * * (daily at midnight UTC)</small>
+          </div>
+          <div class="schedule-presets">
+            <button class="preset-btn" onclick="setCronPreset('0 0 * * *')">Daily</button>
+            <button class="preset-btn" onclick="setCronPreset('0 0 * * 0')">Weekly</button>
+            <button class="preset-btn" onclick="setCronPreset('0 */6 * * *')">Every 6 hours</button>
+            <button class="preset-btn" onclick="setCronPreset('0 */12 * * *')">Every 12 hours</button>
+          </div>
+        </div>
+
+        <!-- Health Checks -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-heart-pulse"></i> Health Checks</h2>
+          </div>
+          <p class="info-text">Periodic DNS, HTTP, and SSL checks run on a separate schedule from uptime monitoring.</p>
+          <div class="form-group">
+            <label for="settingHealthCheckEnabled">
+              <input type="checkbox" id="settingHealthCheckEnabled" checked> Enable Health Checks
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingHealthCheckInterval">Health Check Interval (hours)</label>
+            <input type="number" id="settingHealthCheckInterval" min="1" max="168" value="24">
+            <small>How often to run DNS/HTTP/SSL checks (1–168 hours)</small>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="runHealthChecks()">
+              <i class="fa-solid fa-heart-pulse"></i> Run Health Checks Now
+            </button>
+          </div>
+        </div>
+
+        <!-- Uptime Monitoring -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-signal"></i> Uptime Monitoring</h2>
+          </div>
+          <p class="info-text">Monitor domain availability with periodic HTTP checks and track response times.</p>
+          <div class="form-group">
+            <label for="settingUptimeEnabled">
+              <input type="checkbox" id="settingUptimeEnabled"> Enable Uptime Monitoring
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingUptimeInterval">Check Interval (minutes)</label>
+            <input type="number" id="settingUptimeInterval" min="1" max="60" value="5">
+            <small>How often to check domain availability (1–60 minutes)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingUptimeThreshold">Alert Threshold (consecutive failures)</label>
+            <input type="number" id="settingUptimeThreshold" min="1" max="10" value="3">
+            <small>Number of consecutive failures before sending an alert</small>
+          </div>
+          <div class="form-group">
+            <label for="settingUptimeTimeout">Check Timeout (seconds)</label>
+            <input type="number" id="settingUptimeTimeout" min="5" max="60" placeholder="10">
+            <small>How long to wait for a response before marking a check as failed</small>
+          </div>
+        </div>
+
+        <!-- Log Retention -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-database"></i> Log Retention</h2>
+          </div>
+          <p class="info-text">Configure automatic cleanup of old log entries to manage database size.</p>
+          <div class="form-group">
+            <label for="settingAutoCleanup">
+              <input type="checkbox" id="settingAutoCleanup" checked> Enable Auto Cleanup
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingAuditRetention">Audit Log Retention (days)</label>
+            <input type="number" id="settingAuditRetention" min="7" max="365" value="90">
+            <small>Delete audit log entries older than this many days</small>
+          </div>
+          <div class="form-group">
+            <label for="settingHealthRetention">Health Log Retention (days)</label>
+            <input type="number" id="settingHealthRetention" min="1" max="90" value="30">
+            <small>Delete health check records older than this many days</small>
+          </div>
+          <div class="retention-stats" id="retentionStats">
+            <h4>Current Usage</h4>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-label">Audit Log Entries</span>
+                <span class="stat-value" id="auditLogCount">-</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Health Log Entries</span>
+                <span class="stat-value" id="healthLogCount">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="retention-actions">
+            <button class="btn" onclick="loadRetentionStats()">
+              <i class="fa-solid fa-sync"></i> Refresh Stats
+            </button>
+            <button class="btn btn-danger" onclick="runManualCleanup()">
+              <i class="fa-solid fa-trash"></i> Run Cleanup Now
+            </button>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-shield-halved"></i> Security</h2>
+          </div>
+          <div class="form-group">
+            <label for="settingSessionMaxAge">Session Max Age (days)</label>
+            <input type="number" id="settingSessionMaxAge" min="1" max="365" placeholder="7">
+            <small>How long login sessions remain valid before requiring re-authentication (1–365 days)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingRateLimitMax">Rate Limit (requests per 15 min)</label>
+            <input type="number" id="settingRateLimitMax" min="100" max="10000" placeholder="2000">
+            <small>Maximum API requests per IP per 15-minute window. Changes take effect after server restart.</small>
+          </div>
+          <div class="form-group">
+            <p class="info-text">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <strong>Auth &amp; Encryption:</strong> <code>AUTH_ENABLED</code>, <code>SESSION_SECRET</code>, and <code>ENCRYPTION_KEY</code> must be set in your <code>.env</code> file — these cannot be changed at runtime.
+            </p>
+          </div>
+        </div>
+
+        <!-- Advanced / WHOIS -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-wrench"></i> Advanced / WHOIS</h2>
+          </div>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="settingWhoisTimeout">WHOIS Timeout (seconds)</label>
+              <input type="number" id="settingWhoisTimeout" min="5" max="120" placeholder="30">
+              <small>Max wait for a WHOIS response</small>
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="settingWhoisDelay">Delay Between Lookups (ms)</label>
+              <input type="number" id="settingWhoisDelay" min="500" max="10000" placeholder="2000">
+              <small>Throttle to avoid rate limiting</small>
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label for="settingWhoisRetries">Max Retries</label>
+              <input type="number" id="settingWhoisRetries" min="0" max="10" placeholder="3">
+              <small>Retry attempts on failure</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sticky Save -->
+        <div class="settings-sticky-save">
+          <button class="btn btn-primary" onclick="saveSettings()">
+            <i class="fa-solid fa-save"></i> Save Settings
+          </button>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════
+           PAGE: USERS
+           ════════════════════════════ -->
+      <section id="page-users" class="page">
+        <div class="page-header">
+          <h1 class="page-title"><i class="fa-solid fa-users"></i> Users</h1>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-user-shield"></i> User Management</h2>
+          </div>
+          <p class="info-text">Manage users who can access Domain Monitor. Only admins can manage users.</p>
+          <div id="usersList" class="users-list"></div>
+
+          <hr style="border-color:var(--border);margin:20px 0;">
+          <h4>Add New User</h4>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:2;min-width:160px">
+              <label for="newUserUsername">Username</label>
+              <input type="text" id="newUserUsername" placeholder="username">
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label for="newUserRole">Role</label>
+              <select id="newUserRole">
+                <option value="viewer">Viewer</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newUserPassword">Password</label>
+              <input type="password" id="newUserPassword" placeholder="Password (min 8 characters)">
+            </div>
+            <div class="form-group">
+              <label for="newUserPasswordConfirm">Confirm Password</label>
+              <input type="password" id="newUserPasswordConfirm" placeholder="Confirm password">
+            </div>
+          </div>
+          <button class="btn btn-add" onclick="createUser()">
+            <i class="fa-solid fa-user-plus"></i> Create User
+          </button>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        &copy; <span id="copyrightYear"></span> Domain Monitor. <span id="appVersion"></span>
+      </footer>
+
+    </main><!-- #app-main -->
+  </div><!-- .app-layout -->
 
   <!-- Notification Sidebar -->
   <div id="notifSidebar" class="notif-sidebar">

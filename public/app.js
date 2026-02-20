@@ -301,6 +301,7 @@ let state = {
     health: null,
     tags: null
   },
+  chartsInitialized: false,
   importFile: null,
   pagination: {
     enabled: true,
@@ -319,6 +320,98 @@ const FILTERS = {
   sortBy: 'expiry',
   sortOrder: 'asc'
 };
+
+/* ======================================================
+   Page Router (SPA)
+====================================================== */
+const PAGES = ['dashboard', 'domains', 'uptime', 'notifications', 'audit', 'settings', 'users'];
+
+function navigateTo(page) {
+  if (!PAGES.includes(page)) page = 'dashboard';
+  PAGES.forEach(p => {
+    const el = document.getElementById(`page-${p}`);
+    if (el) el.classList.toggle('active', p === page);
+  });
+  document.querySelectorAll('.sidebar-nav-item[data-page]').forEach(a =>
+    a.classList.toggle('active', a.dataset.page === page)
+  );
+  try { localStorage.setItem('currentPage', page); } catch {}
+  history.replaceState(null, '', `#${page}`);
+  onPageEnter(page);
+}
+
+function onPageEnter(page) {
+  switch (page) {
+    case 'dashboard':
+      if (!state.chartsInitialized) { initCharts(); state.chartsInitialized = true; }
+      load();
+      loadActivityLog();
+      break;
+    case 'domains':
+      load();
+      break;
+    case 'audit':
+      loadAuditLog();
+      break;
+    case 'settings':
+      loadSettings();
+      break;
+    case 'notifications':
+      loadSettings();
+      break;
+    case 'users':
+      loadUsers();
+      break;
+    case 'uptime':
+      loadUptimePage();
+      break;
+  }
+}
+
+function initRouter() {
+  const hash = window.location.hash.replace('#', '');
+  const saved = (() => { try { return localStorage.getItem('currentPage'); } catch { return null; } })();
+  navigateTo(PAGES.includes(hash) ? hash : (PAGES.includes(saved) ? saved : 'dashboard'));
+  window.addEventListener('hashchange', () => {
+    const h = window.location.hash.replace('#', '');
+    if (PAGES.includes(h)) navigateTo(h);
+  });
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  if (!sidebar) return;
+  const collapsed = sidebar.classList.toggle('collapsed');
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch {}
+}
+
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar) sidebar.classList.toggle('mobile-open');
+  if (overlay) overlay.classList.toggle('active');
+}
+
+function initSidebar() {
+  try {
+    if (localStorage.getItem('sidebarCollapsed') === '1') {
+      document.getElementById('app-sidebar')?.classList.add('collapsed');
+      document.body.classList.add('sidebar-collapsed');
+    }
+  } catch {}
+  document.getElementById('app-sidebar')?.addEventListener('click', e => {
+    const item = e.target.closest('.sidebar-nav-item[data-page]');
+    if (item) { e.preventDefault(); navigateTo(item.dataset.page); }
+  });
+  // Mobile overlay click closes sidebar
+  document.getElementById('sidebarOverlay')?.addEventListener('click', toggleMobileSidebar);
+}
+
+function loadUptimePage() {
+  // Placeholder — uptime page loads its own data
+  // Full implementation: load uptime summary stats here
+}
 
 /* ======================================================
    Filter Persistence (localStorage)
@@ -474,10 +567,14 @@ function handleWebSocketMessage(message) {
 
 function updateConnectionStatus(connected) {
   const statusEl = document.getElementById('connectionStatus');
-  if (statusEl) {
-    statusEl.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
-    statusEl.title = connected ? 'Connected' : 'Disconnected';
-  }
+  if (!statusEl) return;
+  // Preserve sidebar-specific classes so the element keeps its nav item styling
+  const sidebarClasses = ['sidebar-nav-item', 'sidebar-connection'].filter(c => statusEl.classList.contains(c));
+  statusEl.className = ['connection-status', ...sidebarClasses, connected ? 'connected' : 'disconnected'].join(' ');
+  statusEl.title = connected ? 'Connected' : 'Disconnected';
+  // Update the label text inside the element
+  const label = statusEl.querySelector('.sidebar-nav-label');
+  if (label) label.textContent = connected ? 'Connected' : 'Disconnected';
 }
 
 function updateDomainInTable(domain) {
@@ -2347,17 +2444,18 @@ async function loadSettings() {
     document.getElementById('settingWhoisRetries').value = settings.whois_max_retries || 3;
     document.getElementById('settingUptimeTimeout').value = settings.uptime_check_timeout_seconds || 10;
 
-    // Load API keys
-    loadApiKeys();
-
-    // Load webhooks
-    loadWebhooks();
-
-    // Load users
-    loadUsers();
-
-    // Load retention stats
-    loadRetentionStats();
+    // Load sub-data only for the relevant page to avoid unnecessary API calls
+    const currentPage = (() => { try { return localStorage.getItem('currentPage') || 'dashboard'; } catch { return 'dashboard'; } })();
+    if (currentPage === 'notifications') {
+      loadWebhooks();
+      loadApiKeys();
+    }
+    if (currentPage === 'settings') {
+      loadRetentionStats();
+    }
+    if (currentPage === 'users') {
+      loadUsers();
+    }
 
   } catch (err) {
     console.error('Error loading settings:', err);
@@ -3603,8 +3701,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize WebSocket
   initWebSocket();
 
-  // Initialize Charts
-  initCharts();
+  // Charts are deferred — initCharts() is called by onPageEnter('dashboard') on first visit
+
+  // Initialize sidebar state (collapse, click delegation) and page router
+  initSidebar();
+  initRouter();
 
   // Check auth status
   checkAuthStatus();
@@ -3706,8 +3807,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFiltersFromStorage();
   restoreFilterUI();
 
-  // Initial load
-  load();
+  // Initial data load is handled by initRouter() → onPageEnter() for the active page
 });
 
 /* ======================================================
