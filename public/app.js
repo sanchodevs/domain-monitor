@@ -2336,8 +2336,17 @@ async function saveSettings() {
 
     showNotification('Settings saved successfully', 'success');
 
+    // Track if timezone changed before reloading settings
+    const prevTimezone = appTimezone;
+
     // Reload settings to reflect saved values (don't close modal)
     await loadSettings();
+
+    // If the timezone changed, re-render all date-bearing UI so changes are visible immediately
+    if (appTimezone !== prevTimezone) {
+      load();           // re-renders domain table (expiry dates, last-checked)
+      loadActivityLog();// re-renders activity feed timestamps
+    }
 
     // Restart uptime monitoring if settings changed
     if (settings.uptime_monitoring_enabled) {
@@ -4172,7 +4181,12 @@ function populateTimezoneSelect(selected) {
     sel.insertBefore(opt, sel.firstChild);
   }
   // Update appTimezone whenever the user changes the select (live preview)
-  sel.onchange = () => { appTimezone = sel.value; };
+  sel.onchange = () => {
+    appTimezone = sel.value;
+    // Live preview: re-render the domain table and activity log so dates update as the user browses
+    load();
+    loadActivityLog();
+  };
 }
 
 function detectTimezone() {
