@@ -5,6 +5,7 @@ import { getSettingsData } from '../database/settings.js';
 import { wsService } from './websocket.js';
 import { sleep } from '../utils/helpers.js';
 import { sendUptimeAlert } from './email.js';
+import { fireWebhookEvent } from './webhooks.js';
 import https from 'https';
 import http from 'http';
 import type { Statement } from 'better-sqlite3';
@@ -262,6 +263,14 @@ export async function checkAllDomainsUptime(forceRun = false): Promise<{ checked
 
       if (check.status === 'up') {
         up++;
+        // If this domain was previously alerted as down, fire a recovery webhook
+        if (alertedDomainIds.has(domain.id)) {
+          fireWebhookEvent('uptime.recovered', {
+            domain: domain.domain,
+            response_time_ms: check.response_time_ms,
+            status_code: check.status_code,
+          }).catch(() => { /* fire-and-forget */ });
+        }
         // Clear alert state when domain recovers so next outage triggers a fresh alert
         alertedDomainIds.delete(domain.id);
       } else {

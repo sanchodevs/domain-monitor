@@ -28,9 +28,14 @@ export interface WHOISResult {
   name_servers?: string[];
 }
 
+export type UserRole = 'admin' | 'manager' | 'viewer';
+
 export interface AuthenticatedRequest extends Request {
   isAuthenticated?: boolean;
   sessionId?: string;
+  requestId?: string;
+  userRole?: UserRole;
+  username?: string;
 }
 
 export interface CSVImportResult {
@@ -60,6 +65,16 @@ export interface SettingsData {
   audit_log_retention_days: number;
   health_log_retention_days: number;
   auto_cleanup_enabled: boolean;
+  // Slack integration
+  slack_webhook_url?: string;
+  slack_enabled?: boolean;
+  slack_events?: string[]; // which events to send to Slack
+  // Signal integration
+  signal_api_url?: string;
+  signal_sender?: string;
+  signal_recipients?: string[];
+  signal_enabled?: boolean;
+  signal_events?: string[]; // which events to send to Signal
 }
 
 export interface UptimeStats {

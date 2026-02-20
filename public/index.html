@@ -304,6 +304,13 @@
           <div id="domainHealthHistory" class="health-history"></div>
         </div>
         <div class="detail-section">
+          <h4>Response Time Trend</h4>
+          <div style="position:relative;height:200px;">
+            <canvas id="responseTimeChart"></canvas>
+          </div>
+          <p id="responseTimeEmpty" style="color:var(--text-muted);font-size:13px;display:none;">No uptime data available for this domain.</p>
+        </div>
+                <div class="detail-section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <h4 style="margin:0;">Change History</h4>
             <button class="btn btn-sm" id="loadHistoryBtn" onclick="loadDomainHistory()" style="font-size:12px;padding:4px 10px;">
@@ -461,6 +468,32 @@
     </div>
   </div>
 
+
+  <!-- Timeline Chart Modal -->
+  <div id="timelineModal" class="modal" style="display: none;">
+    <div class="modal-content modal-xl">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-timeline"></i> Domain Expiration Timeline</h2>
+        <button class="modal-close" onclick="closeModal('timelineModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="chart-controls" style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:13px;color:var(--text-muted);">Show:</label>
+          <select id="timelineFilter" onchange="renderTimelineChart()" style="font-size:13px;padding:4px 8px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;">
+            <option value="all">All Domains</option>
+            <option value="expiring90">Expiring within 90 days</option>
+            <option value="expiring365">Expiring within 1 year</option>
+            <option value="errors">Errors only</option>
+          </select>
+          <span id="timelineCount" style="font-size:13px;color:var(--text-muted);margin-left:auto;"></span>
+        </div>
+        <div style="position:relative;overflow-x:auto;overflow-y:auto;max-height:60vh;">
+          <canvas id="domainTimelineChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
 
     <!-- Header -->
@@ -470,7 +503,11 @@
         <span id="connectionStatus" class="connection-status" title="WebSocket Status">
           <i class="fa-solid fa-circle"></i>
         </span>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+<button class="btn-icon notification-bell" onclick="toggleNotificationSidebar()" title="Notifications" id="notifBellBtn">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+        </button>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
           <i class="fa-solid fa-sun"></i>
           <i class="fa-solid fa-moon"></i>
         </button>
@@ -721,7 +758,13 @@
       </select>
     </div>
 
-    <!-- Clear Filters -->
+    <div class="filter-group">
+      <button class="btn btn-sm" onclick="openTimelineChart()" title="View expiration timeline" id="timelineBtn">
+        <i class="fa-solid fa-timeline"></i> Timeline
+      </button>
+    </div>
+
+        <!-- Clear Filters -->
     <div class="filter-group filter-actions">
       <button class="btn btn-clear" onclick="clearFilters()">
         <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
@@ -820,6 +863,22 @@
   </footer>
 
   <!-- Notification container will be created by JavaScript -->
+
+
+  <!-- Notification Sidebar -->
+  <div id="notifSidebar" class="notif-sidebar">
+    <div class="notif-sidebar-header">
+      <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" onclick="markAllNotifsRead()" style="font-size:12px;padding:4px 8px;">Mark all read</button>
+        <button class="notif-close" onclick="toggleNotificationSidebar()">&times;</button>
+      </div>
+    </div>
+    <div class="notif-sidebar-body" id="notifList">
+      <p class="notif-empty">No notifications yet.</p>
+    </div>
+  </div>
+  <div id="notifOverlay" class="notif-overlay" onclick="toggleNotificationSidebar()"></div>
 
   <!-- Scripts -->
   <script src="app.js"></script>

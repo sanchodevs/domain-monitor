@@ -78,13 +78,16 @@ router.get(
       return res.json({
         authenticated: true,
         authEnabled: false,
+        username: config.adminUsername,
+        role: 'admin',
       });
     }
 
     res.json({
       authenticated: authReq.isAuthenticated || false,
       authEnabled: true,
-      username: authReq.isAuthenticated ? config.adminUsername : undefined,
+      username: authReq.isAuthenticated ? authReq.username : undefined,
+      role: authReq.isAuthenticated ? authReq.userRole : undefined,
     });
   })
 );

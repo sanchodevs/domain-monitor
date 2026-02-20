@@ -52,6 +52,16 @@ export const settingsSchema = z.object({
   audit_log_retention_days: z.number().int().min(7).max(365).optional(),
   health_log_retention_days: z.number().int().min(1).max(90).optional(),
   auto_cleanup_enabled: z.boolean().optional(),
+  // Slack integration
+  slack_webhook_url: z.string().url().optional().or(z.literal('')),
+  slack_enabled: z.boolean().optional(),
+  slack_events: z.array(z.string()).optional(),
+  // Signal integration
+  signal_api_url: z.string().url().optional().or(z.literal('')),
+  signal_sender: z.string().optional(),
+  signal_recipients: z.array(z.string()).optional(),
+  signal_enabled: z.boolean().optional(),
+  signal_events: z.array(z.string()).optional(),
 });
 
 // Login validation

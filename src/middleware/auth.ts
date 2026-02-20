@@ -4,7 +4,7 @@ import { config } from '../config/index.js';
 import { createSession, getSession, deleteSession } from '../database/sessions.js';
 import { logAudit } from '../database/audit.js';
 import { createLogger } from '../utils/logger.js';
-import type { AuthenticatedRequest } from '../types/api.js';
+import type { AuthenticatedRequest, UserRole } from '../types/api.js';
 
 const logger = createLogger('auth');
 const SALT_ROUNDS = 12;
@@ -28,6 +28,8 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   // Skip auth if disabled
   if (!config.authEnabled) {
     req.isAuthenticated = true;
+    req.userRole = 'admin';
+    req.username = config.adminUsername;
     next();
     return;
   }
@@ -49,6 +51,8 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 
   req.isAuthenticated = true;
   req.sessionId = sessionId;
+  req.userRole = session.role;
+  req.username = session.username;
   next();
 }
 
@@ -56,6 +60,8 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   if (!config.authEnabled) {
     req.isAuthenticated = true;
+    req.userRole = 'admin';
+    req.username = config.adminUsername;
     return next();
   }
 
@@ -64,6 +70,8 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response
     const session = getSession(sessionId);
     req.isAuthenticated = !!session;
     req.sessionId = session ? sessionId : undefined;
+    req.userRole = session ? session.role : undefined;
+    req.username = session ? session.username : undefined;
   } else {
     req.isAuthenticated = false;
   }
@@ -71,40 +79,66 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response
   next();
 }
 
+export function requireRole(...roles: UserRole[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!config.authEnabled) { next(); return; }
+    const role = req.userRole || 'viewer';
+    if (!roles.includes(role)) {
+      res.status(403).json({ success: false, message: 'Insufficient permissions' });
+      return;
+    }
+    next();
+  };
+}
+
 export async function login(
   username: string,
   password: string,
   req: Request
 ): Promise<{ success: boolean; sessionId?: string; error?: string }> {
-  // Check username
-  if (username !== config.adminUsername) {
-    logger.warn('Login failed - invalid username', { username, ip: req.ip });
-    return { success: false, error: 'Invalid credentials' };
+  // Check if it's the env-configured admin
+  if (username === config.adminUsername) {
+    const valid = await verifyPassword(password);
+    if (valid) {
+      const expiresAt = new Date(Date.now() + config.sessionMaxAge);
+      const sessionId = createSession(expiresAt, 'admin', config.adminUsername);
+
+      logAudit({
+        entity_type: 'settings',
+        entity_id: 'auth',
+        action: 'login',
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent'),
+      });
+
+      logger.info('Login successful', { username, ip: req.ip });
+      return { success: true, sessionId };
+    }
   }
 
-  // Check password
-  const valid = await verifyPassword(password);
-  if (!valid) {
-    logger.warn('Login failed - invalid password', { username, ip: req.ip });
-    return { success: false, error: 'Invalid credentials' };
+  // Fallback: try user table
+  const { verifyUserPassword, updateLastLogin } = await import('../database/users.js');
+  const user = await verifyUserPassword(username, password);
+  if (user) {
+    const expiresAt = new Date(Date.now() + config.sessionMaxAge);
+    const sessionId = createSession(expiresAt, user.role, user.username);
+
+    updateLastLogin(username);
+
+    logAudit({
+      entity_type: 'settings',
+      entity_id: 'auth',
+      action: 'login',
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+    });
+
+    logger.info('Login successful (db user)', { username, role: user.role, ip: req.ip });
+    return { success: true, sessionId };
   }
 
-  // Create session
-  const expiresAt = new Date(Date.now() + config.sessionMaxAge);
-  const sessionId = createSession(expiresAt);
-
-  // Audit log
-  logAudit({
-    entity_type: 'settings',
-    entity_id: 'auth',
-    action: 'login',
-    ip_address: req.ip,
-    user_agent: req.get('User-Agent'),
-  });
-
-  logger.info('Login successful', { username, ip: req.ip });
-
-  return { success: true, sessionId };
+  logger.warn('Login failed - invalid credentials', { username, ip: req.ip });
+  return { success: false, error: 'Invalid credentials' };
 }
 
 export function logout(sessionId: string, req: Request): boolean {

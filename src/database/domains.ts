@@ -29,10 +29,10 @@ let _statements: {
 function getStatements() {
   if (!_statements) {
     _statements = {
-      getAll: db.prepare('SELECT * FROM domains ORDER BY domain'),
+      getAll: db.prepare('SELECT * FROM domains WHERE deleted_at IS NULL ORDER BY domain'),
       getById: db.prepare('SELECT * FROM domains WHERE id = ?'),
-      getByDomain: db.prepare('SELECT * FROM domains WHERE LOWER(domain) = LOWER(?)'),
-      getByGroup: db.prepare('SELECT * FROM domains WHERE group_id = ? ORDER BY domain'),
+      getByDomain: db.prepare('SELECT * FROM domains WHERE LOWER(domain) = LOWER(?) AND deleted_at IS NULL'),
+      getByGroup: db.prepare('SELECT * FROM domains WHERE group_id = ? AND deleted_at IS NULL ORDER BY domain'),
       insert: db.prepare(`
         INSERT INTO domains (domain, registrar, created_date, expiry_date, name_servers, name_servers_prev, last_checked, error, group_id)
         VALUES (@domain, @registrar, @created_date, @expiry_date, @name_servers, @name_servers_prev, @last_checked, @error, @group_id)
@@ -65,7 +65,7 @@ function getStatements() {
       `),
       delete: db.prepare('DELETE FROM domains WHERE LOWER(domain) = LOWER(?)'),
       deleteById: db.prepare('DELETE FROM domains WHERE id = ?'),
-      count: db.prepare('SELECT COUNT(*) as count FROM domains'),
+      count: db.prepare('SELECT COUNT(*) as count FROM domains WHERE deleted_at IS NULL'),
       setGroup: db.prepare('UPDATE domains SET group_id = ?, updated_at = datetime(\'now\') WHERE id = ?'),
     };
   }
@@ -88,6 +88,7 @@ function rowToDomain(row: DomainRow | undefined): Domain | null {
     group_id: row.group_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
   };
 }
 
@@ -133,8 +134,8 @@ export function getDomainsPaginated(
   const sortColumn = allowedSortColumns[sortBy] || 'domain';
   const order = sortOrder === 'desc' ? 'DESC' : 'ASC';
 
-  // Build WHERE clauses
-  const conditions: string[] = [];
+  // Build WHERE clauses - always filter soft-deleted rows
+  const conditions: string[] = ['deleted_at IS NULL'];
   const params: unknown[] = [];
 
   // Search filter
@@ -191,7 +192,7 @@ export function getDomainsPaginated(
     }
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   // Get total count
   const countSql = `SELECT COUNT(*) as count FROM domains ${whereClause}`;
@@ -252,6 +253,31 @@ export function deleteDomain(domainName: string): boolean {
 
 export function deleteDomainById(id: number): boolean {
   const result = getStatements().deleteById.run(id);
+  return result.changes > 0;
+}
+
+export function softDeleteDomain(domainName: string): boolean {
+  const result = db.prepare("UPDATE domains SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE LOWER(domain) = LOWER(?) AND deleted_at IS NULL").run(domainName);
+  return result.changes > 0;
+}
+
+export function softDeleteDomainById(id: number): boolean {
+  const result = db.prepare("UPDATE domains SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(id);
+  return result.changes > 0;
+}
+
+export function restoreDomain(id: number): boolean {
+  const result = db.prepare("UPDATE domains SET deleted_at = NULL, updated_at = datetime('now') WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function getTrashedDomains(): Domain[] {
+  const rows = db.prepare("SELECT * FROM domains WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC").all() as DomainRow[];
+  return rows.map(row => rowToDomain(row)!);
+}
+
+export function permanentDeleteDomain(id: number): boolean {
+  const result = db.prepare("DELETE FROM domains WHERE id = ?").run(id);
   return result.changes > 0;
 }
 
@@ -339,7 +365,7 @@ export function deleteDomainsByIds(ids: number[]): number {
 
   const deleteMany = db.transaction((ids: number[]) => {
     for (const id of ids) {
-      if (deleteDomainById(id)) deleted++;
+      if (softDeleteDomainById(id)) deleted++;
     }
   });
 

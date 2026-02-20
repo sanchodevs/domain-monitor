@@ -12,6 +12,9 @@ import healthRouter from './health.js';
 import auditRouter from './audit.js';
 import uptimeRouter from './uptime.js';
 import metricsRouter from './metrics.js';
+import rssRouter from './rss.js';
+import webhooksRouter from './webhooks.js';
+import usersRouter from './users.js';
 
 const router = Router();
 
@@ -29,5 +32,8 @@ router.use('/health', healthRouter);
 router.use('/audit', auditRouter);
 router.use('/uptime', uptimeRouter);
 router.use('/metrics', metricsRouter);
+router.use('/feed.rss', rssRouter);
+router.use('/webhooks', webhooksRouter);
+router.use('/users', usersRouter);
 
 export default router;

@@ -4,13 +4,16 @@ import {
   getDomain,
   getDomainById,
   addDomain,
-  deleteDomain,
-  deleteDomainById,
   deleteDomainsByIds,
   domainExists,
   setDomainGroup,
   setDomainsGroup,
   validateNsChange,
+  softDeleteDomain,
+  softDeleteDomainById,
+  restoreDomain,
+  getTrashedDomains,
+  permanentDeleteDomain,
 } from '../database/domains.js';
 import { getTagsForDomain, getTagsForDomainsBatch, setDomainTags, addTagToDomain, removeTagFromDomain, setDomainTagsBatch } from '../database/tags.js';
 import { getLatestHealthBatch } from '../database/health.js';
@@ -24,6 +27,7 @@ import { normalizeDomain } from '../utils/helpers.js';
 import { refreshDomain } from '../services/whois.js';
 import { performUptimeCheck } from '../services/uptime.js';
 import { wsService } from '../services/websocket.js';
+import { fireWebhookEvent } from '../services/webhooks.js';
 import { createLogger } from '../utils/logger.js';
 import type { DomainWithRelations } from '../types/domain.js';
 
@@ -97,6 +101,15 @@ router.get(
   })
 );
 
+// Get trashed (soft-deleted) domains
+router.get(
+  '/trash',
+  asyncHandler(async (_req, res) => {
+    const domains = getTrashedDomains();
+    res.json({ success: true, data: domains });
+  })
+);
+
 // Get single domain by name
 router.get(
   '/:domain',
@@ -141,6 +154,9 @@ router.post(
     // Immediately return success, then run checks in background
     res.json({ success: true, id });
 
+    // Fire webhook event for domain creation
+    fireWebhookEvent('domain.created', { domain, id, group_id: group_id || null }).catch(() => { /* fire-and-forget */ });
+
     // Notify clients that a new domain was added
     wsService.sendDomainAdded(id, domain);
 
@@ -173,7 +189,25 @@ router.post(
   })
 );
 
-// Delete domain by name
+// Restore a soft-deleted domain
+router.post(
+  '/:id/restore',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
+    const success = restoreDomain(id);
+    if (!success) {
+      return res.status(404).json({ success: false, message: 'Domain not found or not in trash' });
+    }
+
+    res.json({ success: true });
+  })
+);
+
+// Delete domain by name (soft delete)
 router.delete(
   '/:domain',
   deleteOpLimiter,
@@ -185,14 +219,14 @@ router.delete(
       return res.status(404).json({ success: false, message: 'Domain not found' });
     }
 
-    deleteDomain(domainName);
+    softDeleteDomain(domainName);
     auditDomainDelete(domainName, existing, req.ip, req.get('User-Agent'));
 
     res.json({ success: true });
   })
 );
 
-// Delete domain by ID
+// Delete domain by ID (soft delete)
 router.delete(
   '/id/:id',
   deleteOpLimiter,
@@ -207,8 +241,27 @@ router.delete(
       return res.status(404).json({ success: false, message: 'Domain not found' });
     }
 
-    deleteDomainById(id);
+    softDeleteDomainById(id);
     auditDomainDelete(existing.domain, existing, req.ip, req.get('User-Agent'));
+
+    res.json({ success: true });
+  })
+);
+
+// Permanently delete a domain (hard delete from trash)
+router.delete(
+  '/:id/permanent',
+  deleteOpLimiter,
+  asyncHandler(async (req, res) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid domain ID' });
+    }
+
+    const success = permanentDeleteDomain(id);
+    if (!success) {
+      return res.status(404).json({ success: false, message: 'Domain not found' });
+    }
 
     res.json({ success: true });
   })

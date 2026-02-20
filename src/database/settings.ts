@@ -105,6 +105,16 @@ export function getSettingsData(): SettingsData {
     audit_log_retention_days: parseInt(getSetting('audit_log_retention_days') || '90', 10),
     health_log_retention_days: parseInt(getSetting('health_log_retention_days') || '30', 10),
     auto_cleanup_enabled: getSetting('auto_cleanup_enabled') !== 'false',
+    // Slack integration
+    slack_webhook_url: getSetting('slack_webhook_url') || undefined,
+    slack_enabled: getSetting('slack_enabled') === 'true',
+    slack_events: JSON.parse(getSetting('slack_events') || '[]'),
+    // Signal integration
+    signal_api_url: getSetting('signal_api_url') || undefined,
+    signal_sender: getSetting('signal_sender') || undefined,
+    signal_recipients: JSON.parse(getSetting('signal_recipients') || '[]'),
+    signal_enabled: getSetting('signal_enabled') === 'true',
+    signal_events: JSON.parse(getSetting('signal_events') || '[]'),
   };
 
   // Cache the result
@@ -153,6 +163,32 @@ export function updateSettings(data: Partial<SettingsData>): void {
     }
     if (data.auto_cleanup_enabled !== undefined) {
       setSetting('auto_cleanup_enabled', String(data.auto_cleanup_enabled));
+    }
+    // Slack integration settings
+    if (data.slack_webhook_url !== undefined) {
+      setSetting('slack_webhook_url', data.slack_webhook_url);
+    }
+    if (data.slack_enabled !== undefined) {
+      setSetting('slack_enabled', String(data.slack_enabled));
+    }
+    if (data.slack_events !== undefined) {
+      setSetting('slack_events', JSON.stringify(data.slack_events));
+    }
+    // Signal integration settings
+    if (data.signal_api_url !== undefined) {
+      setSetting('signal_api_url', data.signal_api_url);
+    }
+    if (data.signal_sender !== undefined) {
+      setSetting('signal_sender', data.signal_sender);
+    }
+    if (data.signal_recipients !== undefined) {
+      setSetting('signal_recipients', JSON.stringify(data.signal_recipients));
+    }
+    if (data.signal_enabled !== undefined) {
+      setSetting('signal_enabled', String(data.signal_enabled));
+    }
+    if (data.signal_events !== undefined) {
+      setSetting('signal_events', JSON.stringify(data.signal_events));
     }
   })();
 

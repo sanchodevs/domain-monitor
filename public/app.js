@@ -286,6 +286,52 @@ const FILTERS = {
 };
 
 /* ======================================================
+   Filter Persistence (localStorage)
+====================================================== */
+function saveFiltersToStorage() {
+  const filters = {
+    search: FILTERS.search || '',
+    status: FILTERS.status || 'all',
+    group: FILTERS.group || 'all',
+    registrar: FILTERS.registrar || 'all',
+    sortBy: FILTERS.sortBy || 'expiry',
+    sortOrder: FILTERS.sortOrder || 'asc',
+  };
+  try {
+    localStorage.setItem('domainFilters', JSON.stringify(filters));
+  } catch {}
+}
+
+function loadFiltersFromStorage() {
+  try {
+    const saved = localStorage.getItem('domainFilters');
+    if (!saved) return;
+    const filters = JSON.parse(saved);
+    if (filters.search) FILTERS.search = filters.search;
+    if (filters.status) FILTERS.status = filters.status;
+    if (filters.group) FILTERS.group = filters.group;
+    if (filters.registrar) FILTERS.registrar = filters.registrar;
+    if (filters.sortBy) FILTERS.sortBy = filters.sortBy;
+    if (filters.sortOrder) FILTERS.sortOrder = filters.sortOrder;
+  } catch {}
+}
+
+function restoreFilterUI() {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = FILTERS.search || '';
+  const filterStatus = document.getElementById('filterStatus');
+  if (filterStatus) filterStatus.value = FILTERS.status || 'all';
+  const filterRegistrar = document.getElementById('filterRegistrar');
+  if (filterRegistrar) filterRegistrar.value = FILTERS.registrar || 'all';
+  const filterGroup = document.getElementById('filterGroup');
+  if (filterGroup) filterGroup.value = FILTERS.group || 'all';
+  const sortBy = document.getElementById('sortBy');
+  if (sortBy) sortBy.value = FILTERS.sortBy || 'expiry';
+  const sortOrder = document.getElementById('sortOrder');
+  if (sortOrder) sortOrder.value = FILTERS.sortOrder || 'asc';
+}
+
+/* ======================================================
    WebSocket Connection
 ====================================================== */
 function initWebSocket() {
@@ -1502,6 +1548,7 @@ function applyFilters() {
   // Reset to first page when filters change
   state.pagination.page = 1;
 
+  saveFiltersToStorage();
   load();
 }
 
@@ -1523,6 +1570,7 @@ function clearFilters() {
   // Reset to first page
   state.pagination.page = 1;
 
+  try { localStorage.removeItem('domainFilters'); } catch {}
   load();
 }
 
@@ -2667,6 +2715,9 @@ async function openDomainDetails(domainId) {
     '<p style="color:var(--text-muted);font-size:13px;">Click "Load History" to view audit log for this domain.</p>';
 
   openModal('domainModal');
+
+  // Load response time chart
+  loadResponseTimeChart(domainId);
 }
 
 async function loadDomainHistory() {
@@ -3089,6 +3140,10 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(`bulk-tab-${tabId}`)?.classList.add('active');
     });
   });
+
+  // Restore saved filters and update UI inputs
+  loadFiltersFromStorage();
+  restoreFilterUI();
 
   // Initial load
   load();
@@ -3669,3 +3724,348 @@ document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('copyrightYear');
   if (el) el.textContent = new Date().getFullYear();
 });
+
+/* ======================================================
+   Task #13: Expiration Timeline Chart Modal
+====================================================== */
+let domainTimelineChartInstance = null;
+
+async function openTimelineChart() {
+  openModal('timelineModal');
+  await renderTimelineChart();
+}
+
+async function renderTimelineChart() {
+  try {
+    const res = await apiFetch('/api/domains?limit=500');
+    const json = await res.json();
+    const domains = Array.isArray(json.data) ? json.data : [];
+
+    const filter = document.getElementById('timelineFilter')?.value || 'all';
+    const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
+
+    let filtered = domains.filter(d => {
+      if (filter === 'errors') return d.error;
+      if (!d.expiry_date) return filter === 'all';
+      const expiry = new Date(d.expiry_date);
+      const daysLeft = (expiry - now) / day;
+      if (filter === 'expiring90') return daysLeft <= 90;
+      if (filter === 'expiring365') return daysLeft <= 365;
+      return true;
+    });
+
+    // Sort by expiry date (soonest first, no-expiry at end)
+    filtered.sort((a, b) => {
+      if (!a.expiry_date && !b.expiry_date) return 0;
+      if (!a.expiry_date) return 1;
+      if (!b.expiry_date) return -1;
+      return new Date(a.expiry_date) - new Date(b.expiry_date);
+    });
+
+    // Limit to 50 for readability
+    if (filtered.length > 50) filtered = filtered.slice(0, 50);
+
+    const countEl = document.getElementById('timelineCount');
+    if (countEl) countEl.textContent = 'Showing ' + filtered.length + ' domains';
+
+    const labels = filtered.map(d => d.domain.length > 30 ? d.domain.slice(0, 27) + '...' : d.domain);
+    const today = now.getTime();
+    const maxDate = new Date(now.getTime() + 365 * day).getTime();
+
+    const barData = filtered.map(d => {
+      if (!d.expiry_date) return [today, today + 30 * day];
+      const expiry = new Date(d.expiry_date).getTime();
+      if (expiry < today) return [expiry - 30 * day, expiry];
+      return [today, expiry];
+    });
+
+    const colors = filtered.map(d => {
+      if (d.error) return 'rgba(239, 68, 68, 0.8)';
+      if (!d.expiry_date) return 'rgba(100, 116, 139, 0.6)';
+      const expiry = new Date(d.expiry_date);
+      const daysLeft = (expiry - now) / day;
+      if (daysLeft < 0) return 'rgba(239, 68, 68, 0.9)';
+      if (daysLeft < 7) return 'rgba(239, 68, 68, 0.8)';
+      if (daysLeft < 30) return 'rgba(245, 158, 11, 0.8)';
+      return 'rgba(34, 197, 94, 0.7)';
+    });
+
+    const canvas = document.getElementById('domainTimelineChart');
+    if (!canvas) return;
+
+    if (domainTimelineChartInstance) {
+      domainTimelineChartInstance.destroy();
+      domainTimelineChartInstance = null;
+    }
+
+    const barHeight = 28;
+    canvas.height = Math.max(300, filtered.length * barHeight + 60);
+
+    const ctx = canvas.getContext('2d');
+    domainTimelineChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Expiration Window',
+          data: barData,
+          backgroundColor: colors,
+          borderColor: colors.map(c => c.replace(/0\.[678]9?\)/, '1)')),
+          borderWidth: 1,
+          borderRadius: 4,
+          barThickness: 20,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const d = filtered[ctx.dataIndex];
+                if (!d.expiry_date) return d.error ? 'Error: ' + d.error.slice(0, 60) : 'No expiry date';
+                const expiry = new Date(d.expiry_date);
+                const daysLeft = Math.round((expiry - now) / day);
+                if (daysLeft < 0) return 'Expired ' + Math.abs(daysLeft) + ' days ago (' + d.expiry_date + ')';
+                return 'Expires in ' + daysLeft + ' days (' + d.expiry_date + ')';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: today - 30 * day,
+            max: maxDate,
+            ticks: {
+              callback: function(val) {
+                return new Date(val).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+              },
+              maxTicksLimit: 8,
+              color: '#8892a4',
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          y: {
+            ticks: { color: '#e2e8f0', font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Timeline chart error:', err);
+  }
+}
+
+/* ======================================================
+   Task #14: Response Time Trend Chart
+====================================================== */
+let responseTimeChartInstance = null;
+
+async function loadResponseTimeChart(domainId) {
+  try {
+    const res = await fetch('/api/uptime/domain/' + domainId + '?limit=100');
+    if (!res.ok) return;
+    const checks = await res.json();
+
+    const canvas = document.getElementById('responseTimeChart');
+    const emptyMsg = document.getElementById('responseTimeEmpty');
+    if (!canvas) return;
+
+    if (responseTimeChartInstance) {
+      responseTimeChartInstance.destroy();
+      responseTimeChartInstance = null;
+    }
+
+    const validChecks = (checks || []).filter(c => c.is_up && c.response_time_ms > 0).slice(0, 100).reverse();
+
+    if (validChecks.length === 0) {
+      if (emptyMsg) emptyMsg.style.display = '';
+      canvas.style.display = 'none';
+      return;
+    }
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    canvas.style.display = '';
+
+    const labels = validChecks.map(c => {
+      const d = new Date(c.checked_at);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+        d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    });
+    const data = validChecks.map(c => c.response_time_ms);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+    const ctx = canvas.getContext('2d');
+    responseTimeChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Response Time (ms)',
+          data,
+          borderColor: 'rgba(99, 102, 241, 0.8)',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.3,
+        }, {
+          label: 'Avg: ' + Math.round(avg) + 'ms',
+          data: data.map(() => Math.round(avg)),
+          borderColor: 'rgba(245, 158, 11, 0.6)',
+          borderDash: [5, 5],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#8892a4', font: { size: 11 } } },
+          tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + 'ms'; } } }
+        },
+        scales: {
+          x: { display: false },
+          y: {
+            ticks: { color: '#8892a4', font: { size: 11 }, callback: function(v) { return v + 'ms'; } },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            beginAtZero: true,
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Response time chart error:', err);
+  }
+}
+
+/* ======================================================
+   Task #15: Notification History Sidebar
+====================================================== */
+let notifOpen = false;
+let notifLastRead = parseInt(localStorage.getItem('notifLastRead') || '0', 10);
+
+function toggleNotificationSidebar() {
+  notifOpen = !notifOpen;
+  const sidebar = document.getElementById('notifSidebar');
+  const overlay = document.getElementById('notifOverlay');
+  if (!sidebar || !overlay) return;
+
+  if (notifOpen) {
+    overlay.style.display = '';
+    requestAnimationFrame(() => sidebar.classList.add('open'));
+    loadNotifications();
+    notifLastRead = Date.now();
+    localStorage.setItem('notifLastRead', String(notifLastRead));
+    updateNotifBadge(0);
+  } else {
+    sidebar.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+}
+
+function markAllNotifsRead() {
+  notifLastRead = Date.now();
+  localStorage.setItem('notifLastRead', String(notifLastRead));
+  updateNotifBadge(0);
+  document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+}
+
+function updateNotifBadge(count) {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function notifCapitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
+async function loadNotifications() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
+
+  try {
+    const res = await fetch('/api/audit?limit=30');
+    const data = await res.json();
+    const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+
+    if (events.length === 0) {
+      list.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
+      return;
+    }
+
+    const itemsHtml = events.map(evt => {
+      const evtTime = new Date(evt.created_at).getTime();
+      const isUnread = evtTime > notifLastRead;
+      const timeAgo = notifFormatTimeAgo(evtTime);
+
+      let iconClass = 'fa-circle-info';
+      let color = 'blue';
+      let title = notifCapitalize(evt.action) + ' ' + notifCapitalize(evt.entity_type);
+
+      if (evt.action === 'create') { iconClass = 'fa-plus-circle'; color = 'green'; title = notifCapitalize(evt.entity_type) + ' created'; }
+      else if (evt.action === 'delete') { iconClass = 'fa-trash'; color = 'red'; title = notifCapitalize(evt.entity_type) + ' deleted'; }
+      else if (evt.action === 'update') { iconClass = 'fa-pen-to-square'; color = 'blue'; title = notifCapitalize(evt.entity_type) + ' updated'; }
+      else if (evt.action === 'login') { iconClass = 'fa-right-to-bracket'; color = 'blue'; title = 'User logged in'; }
+      else if (evt.action === 'logout') { iconClass = 'fa-right-from-bracket'; color = 'blue'; title = 'User logged out'; }
+      else if (evt.action === 'email_sent') { iconClass = 'fa-envelope'; color = 'yellow'; title = 'Alert email sent'; }
+
+      const body = (evt.entity_id && evt.entity_id !== 'auth') ? escapeHTML(String(evt.entity_id)) : '';
+
+      return '<div class="notif-item' + (isUnread ? ' unread' : '') + '">' +
+        '<div class="notif-item-header">' +
+        '<span class="notif-item-icon ' + color + '"><i class="fa-solid ' + iconClass + '"></i></span>' +
+        '<span class="notif-item-title">' + escapeHTML(title) + '</span>' +
+        '<span class="notif-item-time">' + timeAgo + '</span>' +
+        '</div>' +
+        (body ? '<div class="notif-item-body">' + body + '</div>' : '') +
+        '</div>';
+    }).join('');
+
+    list.innerHTML = itemsHtml;
+  } catch (err) {
+    console.error('Notification load error:', err);
+    list.innerHTML = '<p class="notif-empty">Failed to load notifications.</p>';
+  }
+}
+
+function notifFormatTimeAgo(timestamp) {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+async function checkNotifications() {
+  try {
+    const res = await fetch('/api/audit?limit=5');
+    const data = await res.json();
+    const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+    const unread = events.filter(e => new Date(e.created_at).getTime() > notifLastRead).length;
+    if (!notifOpen) updateNotifBadge(unread);
+  } catch (_) { /* silent */ }
+}
+
+// Poll for new notifications every 60 seconds
+setInterval(checkNotifications, 60000);
+// Check on page load after a small delay
+setTimeout(checkNotifications, 3000);

@@ -7,6 +7,7 @@ import { createLogger } from '../utils/logger.js';
 import { getSettingsData } from '../database/settings.js';
 import { getAllDomains } from '../database/domains.js';
 import { getExpiryDays } from '../utils/helpers.js';
+import { fireWebhookEvent } from './webhooks.js';
 
 const logger = createLogger('email');
 const dnsLookup = promisify(dns.lookup);
@@ -246,6 +247,17 @@ export async function sendExpirationAlert(domains: ExpiringDomain[]): Promise<bo
       domainCount: domains.length,
       recipients: settings.email_recipients,
     });
+
+    // Fire webhook events for each expiring domain
+    for (const domain of domains) {
+      fireWebhookEvent('domain.expiring', {
+        domain: domain.domain,
+        expiry_date: domain.expiry_date,
+        days: domain.days,
+        registrar: domain.registrar,
+      }).catch(() => { /* fire-and-forget */ });
+    }
+
     return true;
   } catch (err) {
     logger.error('Failed to send expiration alert', { error: err });
@@ -353,6 +365,15 @@ export async function sendUptimeAlert(domain: string, failures: number, threshol
     });
 
     logger.info('Uptime alert sent', { domain, failures, recipients: settings.email_recipients });
+
+    // Fire webhook event for domain down alert
+    fireWebhookEvent('uptime.down', {
+      domain,
+      failures,
+      threshold,
+      error: error ?? '',
+    }).catch(() => { /* fire-and-forget */ });
+
     return true;
   } catch (err) {
     logger.error('Failed to send uptime alert', { domain, error: err });
