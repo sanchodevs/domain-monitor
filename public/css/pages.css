@@ -1,0 +1,225 @@
+/* ==========================
+   IMPORT
+========================== */
+.import-dropzone {
+  border: 2px dashed var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.import-dropzone:hover,
+.import-dropzone.dragover {
+  border-color: var(--primary);
+  background: rgba(94, 92, 230, 0.05);
+}
+
+.import-dropzone i {
+  font-size: 3rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.import-dropzone p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.import-dropzone input[type="file"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.import-format-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+}
+
+.import-format-info h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-format-info code {
+  display: block;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.import-preview {
+  margin-top: 1.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.import-preview-table {
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+/* ==========================
+   AUDIT LOG
+========================== */
+.audit-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.audit-filters select {
+  width: auto;
+  min-width: 150px;
+}
+
+.audit-log-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.audit-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.audit-log-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+}
+
+.audit-log-icon.create { background: rgba(0, 144, 91, 0.2); color: var(--success); }
+.audit-log-icon.update { background: rgba(168, 165, 3, 0.2); color: var(--mild-warning); }
+.audit-log-icon.delete { background: rgba(133, 17, 48, 0.2); color: var(--danger); }
+
+.audit-log-content {
+  flex: 1;
+}
+
+.audit-log-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.audit-log-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ==========================
+   DOMAIN DETAILS
+========================== */
+.domain-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.detail-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.domain-organization {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.tags-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tag-checkbox input {
+  width: auto;
+  height: auto;
+}
+
+.tag-checkbox.selected {
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.5);
+}
+
+.health-history {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.health-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.health-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.health-status-badge.healthy {
+  background: rgba(0, 144, 91, 0.2);
+  color: var(--success);
+}
+
+.health-status-badge.warning {
+  background: rgba(168, 133, 3, 0.2);
+  color: var(--mild-warning);
+}
+
+.health-status-badge.unhealthy {
+  background: rgba(133, 17, 48, 0.2);
+  color: var(--danger);
+}
+

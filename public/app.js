@@ -324,7 +324,7 @@ const FILTERS = {
 /* ======================================================
    Page Router (SPA)
 ====================================================== */
-const PAGES = ['dashboard', 'domains', 'uptime', 'notifications', 'audit', 'settings', 'users'];
+const PAGES = ['dashboard', 'domains', 'notifications', 'audit', 'settings', 'users'];
 
 function navigateTo(page) {
   if (!PAGES.includes(page)) page = 'dashboard';
@@ -355,15 +355,13 @@ function onPageEnter(page) {
       break;
     case 'settings':
       loadSettings();
+      loadApiKeys(); // API Keys section now lives on Settings page
       break;
     case 'notifications':
       loadSettings();
       break;
     case 'users':
       loadUsers();
-      break;
-    case 'uptime':
-      loadUptimePage();
       break;
   }
 }
@@ -409,8 +407,7 @@ function initSidebar() {
 }
 
 function loadUptimePage() {
-  // Placeholder — uptime page loads its own data
-  // Full implementation: load uptime summary stats here
+  // Uptime page removed — status is shown via the Dashboard Site Status widget
 }
 
 /* ======================================================
@@ -2447,11 +2444,11 @@ async function loadSettings() {
     // Load sub-data only for the relevant page to avoid unnecessary API calls
     const currentPage = (() => { try { return localStorage.getItem('currentPage') || 'dashboard'; } catch { return 'dashboard'; } })();
     if (currentPage === 'notifications') {
-      loadWebhooks();
-      loadApiKeys();
+      loadWebhooks(); // API Keys moved to Settings page
     }
     if (currentPage === 'settings') {
       loadRetentionStats();
+      // loadApiKeys() is called directly by onPageEnter('settings')
     }
     if (currentPage === 'users') {
       loadUsers();

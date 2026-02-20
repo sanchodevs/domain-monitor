@@ -8,7 +8,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/forms.css">
+  <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/table.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/uptime.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/webhooks.css">
 </head>
 <body>
 
@@ -329,12 +340,6 @@
             </a>
           </li>
           <li>
-            <a class="sidebar-nav-item" data-page="uptime" data-tooltip="Uptime" href="#uptime">
-              <i class="fa-solid fa-signal"></i>
-              <span class="sidebar-nav-label">Uptime</span>
-            </a>
-          </li>
-          <li>
             <a class="sidebar-nav-item" data-page="notifications" data-tooltip="Notifications" href="#notifications">
               <i class="fa-solid fa-bell"></i>
               <span class="sidebar-nav-label">Notifications</span>
@@ -371,6 +376,11 @@
           <i class="fa-solid fa-circle"></i>
           <span class="sidebar-nav-label">Connected</span>
         </span>
+        <button class="sidebar-footer-btn notification-bell" onclick="toggleNotificationSidebar()" title="Notifications" id="notifBellBtn" style="position:relative;">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+          <span class="sidebar-nav-label">Notifications</span>
+        </button>
         <button class="sidebar-footer-btn" onclick="toggleTheme()" title="Toggle Theme">
           <i class="fa-solid fa-sun theme-icon-light"></i>
           <i class="fa-solid fa-moon theme-icon-dark"></i>
@@ -393,10 +403,6 @@
         <div class="page-header">
           <h1 class="page-title"><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
           <div class="page-actions">
-            <button class="btn-icon notification-bell" onclick="toggleNotificationSidebar()" title="Notifications" id="notifBellBtn">
-              <i class="fa-solid fa-bell"></i>
-              <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
-            </button>
             <button class="btn" onclick="openWidgetCustomizer()" title="Customize dashboard">
               <i class="fa-solid fa-grip"></i> Customize
             </button>
@@ -696,45 +702,6 @@
       </section>
 
       <!-- ════════════════════════════
-           PAGE: UPTIME
-           ════════════════════════════ -->
-      <section id="page-uptime" class="page">
-        <div class="page-header">
-          <h1 class="page-title"><i class="fa-solid fa-signal"></i> Uptime Monitoring</h1>
-          <div class="page-actions">
-            <button class="btn" onclick="runUptimeCheckAll()">
-              <i class="fa-solid fa-play"></i> Run Check Now
-            </button>
-            <button class="btn" onclick="restartUptimeService()">
-              <i class="fa-solid fa-rotate"></i> Restart Service
-            </button>
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2><i class="fa-solid fa-signal"></i> Site Status Overview</h2>
-          </div>
-          <div class="uptime-status-widget" style="padding:16px 0 8px;">
-            <div class="status-big-number up">
-              <span class="status-count" id="uptimeSitesUp">—</span>
-              <span class="status-label">Sites Up</span>
-            </div>
-            <div class="status-big-number down">
-              <span class="status-count" id="uptimeSitesDown">—</span>
-              <span class="status-label">Sites Down</span>
-            </div>
-            <div class="status-big-number unknown">
-              <span class="status-count" id="uptimeSitesUnknown">—</span>
-              <span class="status-label">Unknown</span>
-            </div>
-          </div>
-          <p class="info-text" style="margin-top:12px;">
-            For per-domain uptime details, response time charts, and heartbeat history, click any domain row in the <a href="#domains" onclick="navigateTo('domains')">Domains</a> page.
-          </p>
-        </div>
-      </section>
-
-      <!-- ════════════════════════════
            PAGE: NOTIFICATIONS
            ════════════════════════════ -->
       <section id="page-notifications" class="page">
@@ -922,24 +889,6 @@
           </button>
         </div>
 
-        <!-- API Keys -->
-        <div class="settings-section">
-          <div class="settings-section-header">
-            <h2><i class="fa-solid fa-key"></i> API Keys</h2>
-          </div>
-          <p class="info-text">Manage multiple WHOIS lookup API keys for load balancing and rotation.</p>
-          <div id="apiKeysList" class="api-keys-list"></div>
-          <div class="form-group" style="margin-top:16px">
-            <label for="newApiKeyName">Add New API Key</label>
-            <div class="input-group">
-              <input type="text" id="newApiKeyName" placeholder="Key name (e.g., Primary)">
-              <input type="password" id="newApiKeyValue" placeholder="API key value">
-              <button class="btn btn-add" onclick="addApiKey()">
-                <i class="fa-solid fa-plus"></i> Add
-              </button>
-            </div>
-          </div>
-        </div>
       </section>
 
       <!-- ════════════════════════════
@@ -1168,6 +1117,25 @@
               <label for="settingWhoisRetries">Max Retries</label>
               <input type="number" id="settingWhoisRetries" min="0" max="10" placeholder="3">
               <small>Retry attempts on failure</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Keys (WHOIS) -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h2><i class="fa-solid fa-key"></i> API Keys</h2>
+          </div>
+          <p class="info-text">Manage multiple WHOIS lookup API keys for load balancing and rotation.</p>
+          <div id="apiKeysList" class="api-keys-list"></div>
+          <div class="form-group" style="margin-top:16px">
+            <label for="newApiKeyName">Add New API Key</label>
+            <div class="input-group">
+              <input type="text" id="newApiKeyName" placeholder="Key name (e.g., Primary)">
+              <input type="password" id="newApiKeyValue" placeholder="API key value">
+              <button class="btn btn-add" onclick="addApiKey()">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
             </div>
           </div>
         </div>

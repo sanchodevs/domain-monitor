@@ -1,0 +1,239 @@
+/* ==========================
+   FORMS
+========================== */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-group small {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.form-error {
+  background: rgba(133, 17, 48, 0.15);
+  border: 1px solid rgba(133, 17, 48, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group input {
+  flex: 1;
+}
+
+.color-picker {
+  width: 45px !important;
+  padding: 4px !important;
+  cursor: pointer;
+}
+
+/* ==========================
+   INPUTS
+========================== */
+input, textarea, select {
+  width: 100%;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: all var(--transition);
+  height: 44px;
+  margin: 0;
+}
+
+textarea {
+  margin-bottom: var(--space-2);
+  height: auto;
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+input:hover, textarea:hover, select:hover {
+  border-color: var(--border-strong);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+/* Override browser autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--autofill-bg) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 18px;
+  padding-right: var(--space-9);
+}
+
+select:focus {
+  background-image: var(--select-arrow);
+}
+
+/* ==========================
+   SCHEDULE PRESETS
+========================== */
+.schedule-presets {
+  display: flex;
+  gap: 8px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ==========================
+   API KEYS LIST
+========================== */
+.api-keys-list {
+  margin-bottom: 1.5rem;
+}
+
+.api-key-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.api-key-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.api-key-name {
+  font-weight: 600;
+}
+
+.api-key-stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.api-key-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.api-key-toggle {
+  width: 40px;
+  height: 22px;
+  background: var(--bg-input);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+}
+
+.api-key-toggle.enabled {
+  background: var(--success);
+}
+
+.api-key-toggle::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.api-key-toggle.enabled::after {
+  transform: translateX(18px);
+}
+
+/* ==========================
+   GROUPS & TAGS LISTS
+========================== */
+.groups-list, .tags-list {
+  margin-bottom: 1.5rem;
+}
+
+.group-item, .tag-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.group-info, .tag-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-color, .tag-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.group-name, .tag-name {
+  font-weight: 600;
+}
+
+.group-count, .tag-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.group-actions, .tag-actions {
+  display: flex;
+  gap: 8px;
+}
+
