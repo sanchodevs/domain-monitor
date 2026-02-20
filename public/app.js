@@ -126,22 +126,44 @@ const DAY_MS = 86400000;
 // Active display timezone (IANA string). Updated when settings load.
 let appTimezone = "UTC";
 
+// All timestamps from SQLite come as either:
+//   '2026-02-20 03:50:11'  (datetime('now') — UTC, no suffix, space separator)
+//   '2026-02-20T03:41:20.115Z' (JS Date.toISOString() — already UTC with Z)
+//   '2027-06-17T04:00:00'  (WHOIS date — UTC, no Z suffix)
+// new Date() treats strings without a timezone as LOCAL time, which is wrong.
+// parseUTC() normalises all formats to a proper UTC Date object.
+function parseUTC(v) {
+  if (!v) return null;
+  let s = String(v).trim();
+  // Already has timezone info — parse as-is
+  if (s.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+  // Replace space separator with T, then append Z to mark as UTC
+  s = s.replace(' ', 'T');
+  if (!s.includes('T')) s += 'T00:00:00'; // date-only: treat as midnight UTC
+  return new Date(s + 'Z');
+}
+
 const formatDate = v => {
   if (!v) return "-";
   try {
-    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: appTimezone }).format(new Date(v));
-  } catch { return new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }); }
+    const d = parseUTC(v);
+    if (!d || isNaN(d)) return "-";
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: appTimezone }).format(d);
+  } catch { return String(v); }
 };
 const formatDateTime = v => {
   if (!v) return "-";
   try {
-    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: appTimezone }).format(new Date(v));
-  } catch { return new Date(v).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+    const d = parseUTC(v);
+    if (!d || isNaN(d)) return "-";
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: appTimezone }).format(d);
+  } catch { return String(v); }
 };
 
 const getDomainAge = created => {
   if (!created) return "—";
-  const c = new Date(created), n = new Date();
+  const c = parseUTC(created), n = new Date();
+  if (!c || isNaN(c)) return "—";
   let years = n.getFullYear() - c.getFullYear(), months = n.getMonth() - c.getMonth();
   if (months < 0) { years--; months += 12; }
   const parts = [];
@@ -150,7 +172,7 @@ const getDomainAge = created => {
   return parts.join(" ") || "—";
 };
 
-const getExpiryDays = expiry => expiry ? Math.ceil((new Date(expiry) - new Date()) / DAY_MS) : null;
+const getExpiryDays = expiry => expiry ? Math.ceil((parseUTC(expiry) - new Date()) / DAY_MS) : null;
 
 const getStatusClass = days => days === null ? "" : days <= 0 ? "status-bad" : days <= 14 ? "status-warn" : "status-ok";
 
@@ -657,7 +679,8 @@ function updateCharts(domains) {
 
   domains.forEach(d => {
     if (!d.expiry_date) return;
-    const expiry = new Date(d.expiry_date);
+    const expiry = parseUTC(d.expiry_date);
+    if (!expiry || isNaN(expiry)) return;
     const key = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: appTimezone }).format(expiry);
     if (monthCounts.hasOwnProperty(key)) {
       monthCounts[key]++;
@@ -862,7 +885,7 @@ function formatAuditLog(log) {
 
 // Helper function for relative time
 function getTimeAgo(dateStr) {
-  const date = new Date(dateStr);
+  const date = parseUTC(dateStr);
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);
@@ -1040,18 +1063,18 @@ function sortDomains(domains, sortBy, sortOrder) {
         comparison = (a.registrar || '').localeCompare(b.registrar || '');
         break;
       case 'expiry':
-        const aExpiry = a.expiry_date ? new Date(a.expiry_date) : new Date(8640000000000000);
-        const bExpiry = b.expiry_date ? new Date(b.expiry_date) : new Date(8640000000000000);
+        const aExpiry = a.expiry_date ? parseUTC(a.expiry_date) : new Date(8640000000000000);
+        const bExpiry = b.expiry_date ? parseUTC(b.expiry_date) : new Date(8640000000000000);
         comparison = aExpiry - bExpiry;
         break;
       case 'age':
-        const aCreated = a.created_date ? new Date(a.created_date) : new Date();
-        const bCreated = b.created_date ? new Date(b.created_date) : new Date();
+        const aCreated = a.created_date ? parseUTC(a.created_date) : new Date();
+        const bCreated = b.created_date ? parseUTC(b.created_date) : new Date();
         comparison = aCreated - bCreated;
         break;
       case 'lastChecked':
-        const aChecked = a.last_checked ? new Date(a.last_checked) : new Date(0);
-        const bChecked = b.last_checked ? new Date(b.last_checked) : new Date(0);
+        const aChecked = a.last_checked ? parseUTC(a.last_checked) : new Date(0);
+        const bChecked = b.last_checked ? parseUTC(b.last_checked) : new Date(0);
         comparison = aChecked - bChecked;
         break;
     }
@@ -1243,7 +1266,8 @@ function renderNsStatus(domainId, currentNs, prevNs, updatedAt, createdAt) {
   // Format date for tooltip
   const formatStatusDate = (dateStr) => {
     if (!dateStr) return 'Unknown';
-    const date = new Date(dateStr);
+    const date = parseUTC(dateStr);
+    if (!date || isNaN(date)) return 'Unknown';
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit', timeZone: appTimezone
@@ -3800,7 +3824,7 @@ async function renderTimelineChart() {
       if (!a.expiry_date && !b.expiry_date) return 0;
       if (!a.expiry_date) return 1;
       if (!b.expiry_date) return -1;
-      return new Date(a.expiry_date) - new Date(b.expiry_date);
+      return parseUTC(a.expiry_date) - parseUTC(b.expiry_date);
     });
 
     // Limit to 50 for readability
@@ -3815,7 +3839,7 @@ async function renderTimelineChart() {
 
     const barData = filtered.map(d => {
       if (!d.expiry_date) return [today, today + 30 * day];
-      const expiry = new Date(d.expiry_date).getTime();
+      const expiry = parseUTC(d.expiry_date).getTime();
       if (expiry < today) return [expiry - 30 * day, expiry];
       return [today, expiry];
     });
@@ -3823,7 +3847,7 @@ async function renderTimelineChart() {
     const colors = filtered.map(d => {
       if (d.error) return 'rgba(239, 68, 68, 0.8)';
       if (!d.expiry_date) return 'rgba(100, 116, 139, 0.6)';
-      const expiry = new Date(d.expiry_date);
+      const expiry = parseUTC(d.expiry_date);
       const daysLeft = (expiry - now) / day;
       if (daysLeft < 0) return 'rgba(239, 68, 68, 0.9)';
       if (daysLeft < 7) return 'rgba(239, 68, 68, 0.8)';
@@ -3868,10 +3892,10 @@ async function renderTimelineChart() {
               label: function(ctx) {
                 const d = filtered[ctx.dataIndex];
                 if (!d.expiry_date) return d.error ? 'Error: ' + d.error.slice(0, 60) : 'No expiry date';
-                const expiry = new Date(d.expiry_date);
+                const expiry = parseUTC(d.expiry_date);
                 const daysLeft = Math.round((expiry - now) / day);
-                if (daysLeft < 0) return 'Expired ' + Math.abs(daysLeft) + ' days ago (' + d.expiry_date + ')';
-                return 'Expires in ' + daysLeft + ' days (' + d.expiry_date + ')';
+                if (daysLeft < 0) return 'Expired ' + Math.abs(daysLeft) + ' days ago (' + formatDate(d.expiry_date) + ')';
+                return 'Expires in ' + daysLeft + ' days (' + formatDate(d.expiry_date) + ')';
               }
             }
           }
@@ -3934,7 +3958,7 @@ async function loadResponseTimeChart(domainId) {
     canvas.style.display = '';
 
     const labels = validChecks.map(c => {
-      const d = new Date(c.checked_at);
+      const d = parseUTC(c.checked_at);
       return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: appTimezone }).format(d);
     });
     const data = validChecks.map(c => c.response_time_ms);
@@ -4049,7 +4073,7 @@ async function loadNotifications() {
     }
 
     const itemsHtml = events.map(evt => {
-      const evtTime = new Date(evt.created_at).getTime();
+      const evtTime = parseUTC(evt.created_at).getTime();
       const isUnread = evtTime > notifLastRead;
       const timeAgo = notifFormatTimeAgo(evtTime);
 
@@ -4099,7 +4123,7 @@ async function checkNotifications() {
     const res = await fetch('/api/audit?limit=5', { credentials: 'same-origin' });
     const data = await res.json();
     const events = Array.isArray(data.entries) ? data.entries : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
-    const unread = events.filter(e => new Date(e.created_at).getTime() > notifLastRead).length;
+    const unread = events.filter(e => parseUTC(e.created_at).getTime() > notifLastRead).length;
     if (!notifOpen) updateNotifBadge(unread);
   } catch (_) { /* silent */ }
 }
