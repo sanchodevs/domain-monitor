@@ -65,13 +65,16 @@ class WebSocketService {
   }
 
   private send(ws: WebSocket, message: WSMessage): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(JSON.stringify(message));
-      } catch (err) {
-        logger.error('Failed to send WebSocket message', { error: err instanceof Error ? err.message : String(err) });
-        this.clients.delete(ws);
-      }
+    if (ws.readyState !== WebSocket.OPEN) {
+      this.clients.delete(ws);
+      return;
+    }
+    try {
+      ws.send(JSON.stringify(message));
+    } catch (err) {
+      logger.error('Failed to send WebSocket message', { error: err instanceof Error ? err.message : String(err) });
+      this.clients.delete(ws);
+      ws.close();
     }
   }
 
@@ -84,13 +87,16 @@ class WebSocketService {
       return;
     }
     for (const client of this.clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(data);
-        } catch (err) {
-          logger.error('Failed to broadcast WebSocket message', { error: err instanceof Error ? err.message : String(err) });
-          this.clients.delete(client);
-        }
+      if (client.readyState !== WebSocket.OPEN) {
+        this.clients.delete(client);
+        continue;
+      }
+      try {
+        client.send(data);
+      } catch (err) {
+        logger.error('Failed to broadcast WebSocket message', { error: err instanceof Error ? err.message : String(err) });
+        this.clients.delete(client);
+        client.close();
       }
     }
   }

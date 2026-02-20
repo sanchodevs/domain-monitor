@@ -4017,3 +4017,79 @@ select,
   background: #b71c1c;
   border-color: #b71c1c;
 }
+
+/* ── Responsive Table (mobile) ──────────────────────────── */
+@media (max-width: 768px) {
+  /* Hide secondary columns on small screens */
+  .domains-table th:nth-child(n+4),
+  .domains-table td:nth-child(n+4) {
+    display: none;
+  }
+
+  /* Tighten padding */
+  .domains-table th,
+  .domains-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  /* Make action buttons smaller */
+  .action-buttons .btn,
+  .action-buttons button {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  /* Stack pagination controls */
+  .pagination-controls {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  /* Hide pagination jump on very small screens */
+  .pagination-jump {
+    display: none;
+  }
+
+  /* Full-width modals */
+  .modal-content {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 20px auto;
+  }
+
+  /* Shrink header */
+  .header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Hide even more columns on phones */
+  .domains-table th:nth-child(n+3),
+  .domains-table td:nth-child(n+3) {
+    display: none;
+  }
+}
+
+/* Button loading state */
+.btn.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Pagination jump input */
+.pagination-jump {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}

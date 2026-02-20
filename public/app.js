@@ -341,6 +341,7 @@ function handleWebSocketMessage(message) {
       if (payload.completed === payload.total) {
         showRefreshProgress(false);
         state.isRefreshing = false;
+        setRefreshButtonsDisabled(false);
         showNotification('Refresh complete!', 'success');
         load();
       }
@@ -349,6 +350,7 @@ function handleWebSocketMessage(message) {
     case 'refresh_complete':
       showRefreshProgress(false);
       state.isRefreshing = false;
+      setRefreshButtonsDisabled(false);
       showNotification(`Refresh complete! ${payload.total} domains processed.`, 'success');
       load();
       break;
@@ -1655,6 +1657,15 @@ function changePageSize(size) {
   load();
 }
 
+function jumpToPage(value) {
+  const page = parseInt(value, 10);
+  if (isNaN(page)) return;
+  const clamped = Math.min(Math.max(1, page), state.pagination.totalPages || 1);
+  const input = document.getElementById('pageJumpInput');
+  if (input) input.value = '';
+  goToPage(clamped);
+}
+
 /* ======================================================
    CRUD Actions
 ====================================================== */
@@ -2001,6 +2012,7 @@ async function refreshAll() {
     if (!confirm(`Refresh ${domains.length} domain(s)?\n\nThis will query WHOIS data and run health checks for all domains.`)) return;
 
     state.isRefreshing = true;
+    setRefreshButtonsDisabled(true);
     showLoading(true);
     showRefreshProgress(true, 0, domains.length);
 
@@ -2014,15 +2026,27 @@ async function refreshAll() {
 
     showNotification(data.message || "Refresh started", 'info');
 
-    // WebSocket will handle progress updates
+    // WebSocket will handle progress updates; re-enable buttons on complete event
 
   } catch (err) {
     console.error("Error refreshing:", err);
     showNotification(err.message, 'error');
     state.isRefreshing = false;
+    setRefreshButtonsDisabled(false);
     showRefreshProgress(false);
     showLoading(false);
   }
+}
+
+function setRefreshButtonsDisabled(disabled) {
+  const selectors = ['#refreshAllBtn', '#refreshSelectedBtn', '.refresh-btn', '[data-action="refresh"]'];
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(btn => {
+      btn.disabled = disabled;
+      if (disabled) btn.classList.add('loading');
+      else btn.classList.remove('loading');
+    });
+  });
 }
 
 async function refreshOne(domain) {
@@ -2114,6 +2138,18 @@ function closeModal(modalId) {
 document.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal')) {
     e.target.style.display = 'none';
+  }
+});
+
+// Close topmost visible modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const visibleModals = Array.from(document.querySelectorAll('.modal'))
+      .filter(m => m.style.display !== 'none' && m.style.display !== '');
+    if (visibleModals.length > 0) {
+      visibleModals[visibleModals.length - 1].style.display = 'none';
+      e.preventDefault();
+    }
   }
 });
 
@@ -2626,7 +2662,62 @@ async function openDomainDetails(domainId) {
     console.error('Error loading health history:', err);
   }
 
+  // Reset history panel
+  document.getElementById('domainChangeHistory').innerHTML =
+    '<p style="color:var(--text-muted);font-size:13px;">Click "Load History" to view audit log for this domain.</p>';
+
   openModal('domainModal');
+}
+
+async function loadDomainHistory() {
+  const domainId = state.currentDomainId;
+  if (!domainId) return;
+
+  const domain = state.allDomains.find(d => d.id === domainId);
+  if (!domain) return;
+
+  const container = document.getElementById('domainChangeHistory');
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Loading...</p>';
+
+  try {
+    const res = await apiFetch(`/api/audit?entity_type=domain&entity_id=${encodeURIComponent(domain.domain)}&limit=25`);
+    if (!res.ok) throw new Error('Failed to load history');
+    const data = await res.json();
+    const entries = data.entries || [];
+
+    if (entries.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No history found for this domain.</p>';
+      return;
+    }
+
+    container.innerHTML = entries.map(e => {
+      const actionBadge = {
+        create: '<span style="color:#22c55e;">created</span>',
+        delete: '<span style="color:#ef4444;">deleted</span>',
+        refresh: '<span style="color:#6366f1;">refreshed</span>',
+        update: '<span style="color:#f59e0b;">updated</span>',
+        health_check: '<span style="color:#3b82f6;">health check</span>',
+      }[e.action] || `<span>${escapeHTML(e.action)}</span>`;
+
+      let detail = '';
+      if (e.action === 'refresh' && e.new_value) {
+        const nv = e.new_value;
+        const parts = [];
+        if (nv.registrar) parts.push(`Registrar: ${escapeHTML(nv.registrar)}`);
+        if (nv.expiry_date) parts.push(`Expires: ${escapeHTML(nv.expiry_date)}`);
+        if (parts.length) detail = `<span style="color:var(--text-muted);font-size:11px;"> — ${parts.join(', ')}</span>`;
+      }
+
+      return `
+        <div class="health-history-item" style="font-size:13px;">
+          <span style="color:var(--text-muted);">${formatDateTime(e.created_at)}</span>
+          <span>${actionBadge}${detail}</span>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = '<p style="color:var(--danger);font-size:13px;">Failed to load history.</p>';
+  }
 }
 
 async function saveDomainDetails() {

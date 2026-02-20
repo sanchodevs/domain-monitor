@@ -303,6 +303,17 @@
           <h4>Health Check History</h4>
           <div id="domainHealthHistory" class="health-history"></div>
         </div>
+        <div class="detail-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h4 style="margin:0;">Change History</h4>
+            <button class="btn btn-sm" id="loadHistoryBtn" onclick="loadDomainHistory()" style="font-size:12px;padding:4px 10px;">
+              <i class="fa-solid fa-clock-rotate-left"></i> Load History
+            </button>
+          </div>
+          <div id="domainChangeHistory" class="health-history" style="max-height:220px;overflow-y:auto;">
+            <p style="color:var(--text-muted);font-size:13px;">Click "Load History" to view audit log for this domain.</p>
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal('domainModal')">Close</button>
@@ -784,6 +795,11 @@
         <button class="btn btn-pagination" id="paginationLast" onclick="goToPage(state.pagination.totalPages)" title="Last page">
           <i class="fa-solid fa-angles-right"></i>
         </button>
+      </div>
+      <div class="pagination-jump">
+        <label for="pageJumpInput">Go to:</label>
+        <input type="number" id="pageJumpInput" min="1" placeholder="#" style="width:54px;padding:4px 6px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;" onkeydown="if(event.key==='Enter'){jumpToPage(this.value);}">
+        <button class="btn btn-pagination" onclick="jumpToPage(document.getElementById('pageJumpInput').value)" title="Go to page">Go</button>
       </div>
       <div class="pagination-size">
         <label for="pageSize">Per page:</label>

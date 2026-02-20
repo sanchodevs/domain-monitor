@@ -27,3 +27,12 @@ export const loginLimiter = rateLimit({
   message: { success: false, message: 'Too many login attempts, please try again later.' },
   skipSuccessfulRequests: true,
 });
+
+// Delete operation limiter: max 20 destructive deletes per hour
+export const deleteOpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many delete requests, please try again later.' },
+});

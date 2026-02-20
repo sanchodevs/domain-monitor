@@ -61,7 +61,24 @@ export async function initializeEmail(): Promise<boolean> {
       },
     });
 
-    logger.info('Email service initialized', { host: smtpHost, port: config.smtp.port });
+    // Verify connection is actually reachable before declaring success
+    try {
+      await Promise.race([
+        transporter.verify(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP verify timeout')), 15000)
+        ),
+      ]);
+      logger.info('Email service initialized and verified', { host: smtpHost, port: config.smtp.port });
+    } catch (verifyErr) {
+      const msg = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
+      logger.warn('Email transporter created but SMTP verification failed — alerts may not send', {
+        host: smtpHost,
+        port: config.smtp.port,
+        error: msg,
+      });
+    }
+
     return true;
   } catch (err) {
     logger.error('Failed to initialize email service', { error: err });

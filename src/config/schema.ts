@@ -85,6 +85,21 @@ export const assignTagsSchema = z.object({
   tag_ids: z.array(z.number().int().positive()),
 });
 
+// Bulk operations
+export const bulkIdsSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+});
+
+export const bulkAssignGroupSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+  group_id: z.number().int().positive().nullable(),
+});
+
+export const bulkAssignTagsSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+  tag_ids: z.array(z.number().int().positive()).min(1).max(50),
+});
+
 // Query params validation
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

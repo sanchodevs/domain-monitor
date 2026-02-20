@@ -11,6 +11,7 @@ import apikeysRouter from './apikeys.js';
 import healthRouter from './health.js';
 import auditRouter from './audit.js';
 import uptimeRouter from './uptime.js';
+import metricsRouter from './metrics.js';
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use('/apikeys', apikeysRouter);
 router.use('/health', healthRouter);
 router.use('/audit', auditRouter);
 router.use('/uptime', uptimeRouter);
+router.use('/metrics', metricsRouter);
 
 export default router;

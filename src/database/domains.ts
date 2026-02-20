@@ -333,3 +333,29 @@ export function deleteDomains(domainNames: string[]): number {
   deleteMany(domainNames);
   return deleted;
 }
+
+export function deleteDomainsByIds(ids: number[]): number {
+  let deleted = 0;
+
+  const deleteMany = db.transaction((ids: number[]) => {
+    for (const id of ids) {
+      if (deleteDomainById(id)) deleted++;
+    }
+  });
+
+  deleteMany(ids);
+  return deleted;
+}
+
+export function setDomainsGroup(domainIds: number[], groupId: number | null): number {
+  let updated = 0;
+
+  const updateMany = db.transaction((ids: number[]) => {
+    for (const id of ids) {
+      if (setDomainGroup(id, groupId)) updated++;
+    }
+  });
+
+  updateMany(domainIds);
+  return updated;
+}
