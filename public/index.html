@@ -68,6 +68,9 @@
           <button class="tab-btn" data-tab="signal">Signal</button>
           <button class="tab-btn" data-tab="webhooks">Webhooks</button>
           <button class="tab-btn" data-tab="apikeys">API Keys</button>
+          <button class="tab-btn" data-tab="security">Security</button>
+          <button class="tab-btn" data-tab="advanced">Advanced</button>
+          <button class="tab-btn" data-tab="users">Users</button>
         </div>
 
         <!-- General Tab -->
@@ -192,7 +195,6 @@
         <!-- Email Tab -->
         <div class="tab-content" id="tab-email">
           <h3>Email Alert Settings</h3>
-          <p class="info-text">SMTP settings must be configured via environment variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE). See <code>.env.example</code> for details.</p>
           <div class="form-group">
             <label for="settingEmailEnabled">
               <input type="checkbox" id="settingEmailEnabled"> Enable Email Alerts
@@ -209,7 +211,54 @@
             <small>Send alerts this many days before domains expire (comma-separated)</small>
           </div>
           <div class="form-group">
-            <label for="settingTestEmail">Test Email Address</label>
+            <label for="settingEmailAlertCron">Alert Schedule (Cron)</label>
+            <input type="text" id="settingEmailAlertCron" placeholder="0 9 * * *">
+            <small>When to run expiration alert checks (default: daily at 9 AM). DB settings override env vars.</small>
+          </div>
+
+          <hr style="border-color:var(--border);margin:16px 0;">
+          <h4>SMTP Configuration</h4>
+          <p class="info-text" id="smtpStatusBanner" style="display:none;"></p>
+          <p class="info-text">These settings override the environment variables (<code>SMTP_HOST</code>, etc.). Leave blank to use env vars.</p>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:2">
+              <label for="settingSmtpHost">SMTP Host</label>
+              <input type="text" id="settingSmtpHost" placeholder="smtp.example.com (or leave blank for env)">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label for="settingSmtpPort">Port</label>
+              <input type="number" id="settingSmtpPort" placeholder="587" min="1" max="65535">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpSecure">
+              <input type="checkbox" id="settingSmtpSecure"> Use TLS/SSL (port 465)
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpUser">SMTP Username</label>
+            <input type="text" id="settingSmtpUser" placeholder="user@example.com">
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpPass">SMTP Password</label>
+            <input type="password" id="settingSmtpPass" placeholder="Leave blank to keep current password">
+            <small>Leave blank to keep the current stored password unchanged</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSmtpFrom">From Address</label>
+            <input type="email" id="settingSmtpFrom" placeholder="Domain Monitor &lt;noreply@example.com&gt;">
+            <small>The sender address shown in alert emails</small>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="reinitSmtp()" id="btnReinitSmtp">
+              <i class="fa-solid fa-rotate"></i> Re-initialize SMTP
+            </button>
+            <small style="margin-left:8px">Apply new SMTP settings without restarting the server</small>
+          </div>
+
+          <hr style="border-color:var(--border);margin:16px 0;">
+          <div class="form-group">
+            <label for="settingTestEmail">Send Test Email</label>
             <div class="input-group">
               <input type="email" id="settingTestEmail" placeholder="your@email.com">
               <button class="btn" onclick="testEmailSettings()">
@@ -323,6 +372,94 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div class="tab-content" id="tab-security">
+          <h3>Security Settings</h3>
+          <div class="form-group">
+            <label for="settingSessionMaxAge">Session Max Age (days)</label>
+            <input type="number" id="settingSessionMaxAge" min="1" max="365" placeholder="7">
+            <small>How long login sessions remain valid before requiring re-authentication (1–365 days)</small>
+          </div>
+          <div class="form-group">
+            <label for="settingRateLimitMax">Rate Limit (requests per 15 min)</label>
+            <input type="number" id="settingRateLimitMax" min="100" max="10000" placeholder="2000">
+            <small>Maximum API requests per IP per 15-minute window. Changes take effect after server restart.</small>
+          </div>
+          <div class="form-group">
+            <p class="info-text">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <strong>Auth &amp; Encryption:</strong> <code>AUTH_ENABLED</code>, <code>SESSION_SECRET</code>, and <code>ENCRYPTION_KEY</code> must be set in your <code>.env</code> file — these cannot be changed at runtime.
+            </p>
+          </div>
+        </div>
+
+        <!-- Advanced Tab -->
+        <div class="tab-content" id="tab-advanced">
+          <h3>Advanced Settings</h3>
+          <h4>WHOIS / Domain Refresh</h4>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="settingWhoisTimeout">WHOIS Timeout (seconds)</label>
+              <input type="number" id="settingWhoisTimeout" min="5" max="120" placeholder="30">
+              <small>Max wait for a WHOIS response</small>
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="settingWhoisDelay">Delay Between Lookups (ms)</label>
+              <input type="number" id="settingWhoisDelay" min="500" max="10000" placeholder="2000">
+              <small>Throttle to avoid rate limiting</small>
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label for="settingWhoisRetries">Max Retries</label>
+              <input type="number" id="settingWhoisRetries" min="0" max="10" placeholder="3">
+              <small>Retry attempts on failure</small>
+            </div>
+          </div>
+
+          <h4 style="margin-top:16px">Uptime Monitoring</h4>
+          <div class="form-group">
+            <label for="settingUptimeTimeout">Uptime Check Timeout (seconds)</label>
+            <input type="number" id="settingUptimeTimeout" min="5" max="60" placeholder="10">
+            <small>How long to wait for a response before marking a check as failed</small>
+          </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div class="tab-content" id="tab-users">
+          <h3>User Management</h3>
+          <p class="info-text">Manage users who can access Domain Monitor. Only admins can manage users.</p>
+          <div id="usersList" class="users-list"></div>
+
+          <hr style="border-color:var(--border);margin:16px 0;">
+          <h4>Add New User</h4>
+          <div class="form-row-flex">
+            <div class="form-group" style="flex:2;min-width:160px">
+              <label for="newUserUsername">Username</label>
+              <input type="text" id="newUserUsername" placeholder="username">
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label for="newUserRole">Role</label>
+              <select id="newUserRole">
+                <option value="viewer">Viewer</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newUserPassword">Password</label>
+              <input type="password" id="newUserPassword" placeholder="Password">
+            </div>
+            <div class="form-group">
+              <label for="newUserPasswordConfirm">Confirm Password</label>
+              <input type="password" id="newUserPasswordConfirm" placeholder="Confirm password">
+            </div>
+          </div>
+          <button class="btn btn-add" onclick="createUser()">
+            <i class="fa-solid fa-user-plus"></i> Create User
+          </button>
         </div>
       </div>
       <div class="modal-actions">

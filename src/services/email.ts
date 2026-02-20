@@ -48,34 +48,51 @@ async function resolveHostToIP(hostname: string): Promise<string> {
   }
 }
 
+// Resolve effective SMTP config: DB settings override env vars
+function getSmtpConfig(): { host: string; port: number; secure: boolean; user: string; pass: string; from: string } {
+  try {
+    const s = getSettingsData();
+    return {
+      host: s.smtp_host || config.smtp.host,
+      port: s.smtp_port ?? config.smtp.port,
+      secure: s.smtp_secure ?? config.smtp.secure,
+      user: s.smtp_user || config.smtp.user,
+      pass: s.smtp_pass || config.smtp.pass,
+      from: s.smtp_from || config.smtp.from,
+    };
+  } catch {
+    // DB not ready yet — fall back to env
+    return { host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, user: config.smtp.user, pass: config.smtp.pass, from: config.smtp.from };
+  }
+}
+
 export async function initializeEmail(): Promise<boolean> {
-  if (!config.smtp.host || !config.smtp.user) {
+  const smtp = getSmtpConfig();
+  if (!smtp.host || !smtp.user) {
     logger.warn('Email service not configured - missing SMTP settings');
     return false;
   }
 
   try {
-    // Resolve hostname to IP to avoid Node.js DNS resolver issues
-    const smtpHost = await resolveHostToIP(config.smtp.host);
+    const smtpHost = await resolveHostToIP(smtp.host);
 
     transporter = nodemailer.createTransport({
       host: smtpHost,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
+      port: smtp.port,
+      secure: smtp.secure,
       auth: {
-        user: config.smtp.user,
-        pass: config.smtp.pass,
+        user: smtp.user,
+        pass: smtp.pass,
       },
-      connectionTimeout: 10000, // 10 seconds to establish connection
-      greetingTimeout: 10000, // 10 seconds for SMTP greeting
-      socketTimeout: 15000, // 15 seconds for socket inactivity
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       tls: {
-        rejectUnauthorized: false, // Allow self-signed certificates
-        servername: config.smtp.host, // Use original hostname for TLS
+        rejectUnauthorized: false,
+        servername: smtp.host,
       },
     });
 
-    // Verify connection is actually reachable before declaring success
     try {
       await Promise.race([
         transporter.verify(),
@@ -83,13 +100,11 @@ export async function initializeEmail(): Promise<boolean> {
           setTimeout(() => reject(new Error('SMTP verify timeout')), 15000)
         ),
       ]);
-      logger.info('Email service initialized and verified', { host: smtpHost, port: config.smtp.port });
+      logger.info('Email service initialized and verified', { host: smtpHost, port: smtp.port });
     } catch (verifyErr) {
       const msg = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
       logger.warn('Email transporter created but SMTP verification failed — alerts may not send', {
-        host: smtpHost,
-        port: config.smtp.port,
-        error: msg,
+        host: smtpHost, port: smtp.port, error: msg,
       });
     }
 
@@ -111,15 +126,16 @@ export interface EmailStatus {
 }
 
 export function getEmailStatus(): EmailStatus {
-  const configured = !!(config.smtp.host && config.smtp.user);
+  const smtp = getSmtpConfig();
+  const configured = !!(smtp.host && smtp.user);
 
   let reason: string | undefined;
-  if (!config.smtp.host) {
-    reason = 'SMTP_HOST not set';
-  } else if (!config.smtp.user) {
-    reason = 'SMTP_USER not set';
-  } else if (!config.smtp.pass) {
-    reason = 'SMTP_PASS not set';
+  if (!smtp.host) {
+    reason = 'SMTP host not configured';
+  } else if (!smtp.user) {
+    reason = 'SMTP username not configured';
+  } else if (!smtp.pass) {
+    reason = 'SMTP password not configured';
   } else if (!transporter) {
     reason = 'Transporter not created';
   }
@@ -127,12 +143,21 @@ export function getEmailStatus(): EmailStatus {
   return {
     initialized: !!transporter,
     configured,
-    host: config.smtp.host || '(not set)',
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    user: config.smtp.user || '(not set)',
+    host: smtp.host || '(not set)',
+    port: smtp.port,
+    secure: smtp.secure,
+    user: smtp.user || '(not set)',
     reason,
   };
+}
+
+// Re-initialize SMTP with current settings (called after settings are saved)
+export async function reinitializeEmail(): Promise<boolean> {
+  if (transporter) {
+    try { transporter.close(); } catch { /* ignore */ }
+    transporter = null;
+  }
+  return initializeEmail();
 }
 
 let lastVerifyError: string | null = null;

@@ -2298,6 +2298,18 @@ async function loadSettings() {
     document.getElementById('settingEmailEnabled').checked = settings.email_enabled || false;
     document.getElementById('settingEmailRecipients').value = (settings.email_recipients || []).join(', ');
     document.getElementById('settingAlertDaysEmail').value = (settings.alert_days || [7, 14, 30]).join(', ');
+    document.getElementById('settingEmailAlertCron').value = settings.email_alert_cron || '0 9 * * *';
+
+    // SMTP settings (leave password blank — never pre-fill)
+    document.getElementById('settingSmtpHost').value = settings.smtp_host || '';
+    document.getElementById('settingSmtpPort').value = settings.smtp_port || '';
+    document.getElementById('settingSmtpSecure').checked = settings.smtp_secure || false;
+    document.getElementById('settingSmtpUser').value = settings.smtp_user || '';
+    document.getElementById('settingSmtpPass').value = ''; // never pre-fill password
+    document.getElementById('settingSmtpFrom').value = settings.smtp_from || '';
+
+    // Show SMTP status banner
+    updateSmtpStatusBanner(settings);
 
     // Uptime settings
     document.getElementById('settingUptimeEnabled').checked = settings.uptime_monitoring_enabled || false;
@@ -2325,11 +2337,24 @@ async function loadSettings() {
     document.getElementById('settingSignalSender').value = settings.signal_sender || '';
     document.getElementById('settingSignalRecipients').value = (settings.signal_recipients || []).join(', ');
 
+    // Security settings
+    document.getElementById('settingSessionMaxAge').value = settings.session_max_age_days || 7;
+    document.getElementById('settingRateLimitMax').value = settings.rate_limit_max || 2000;
+
+    // Advanced settings
+    document.getElementById('settingWhoisTimeout').value = settings.whois_timeout_seconds || 30;
+    document.getElementById('settingWhoisDelay').value = settings.whois_delay_ms || 2000;
+    document.getElementById('settingWhoisRetries').value = settings.whois_max_retries || 3;
+    document.getElementById('settingUptimeTimeout').value = settings.uptime_check_timeout_seconds || 10;
+
     // Load API keys
     loadApiKeys();
 
     // Load webhooks
     loadWebhooks();
+
+    // Load users
+    loadUsers();
 
     // Load retention stats
     loadRetentionStats();
@@ -2349,6 +2374,13 @@ async function saveSettings() {
     const recipientsStr = document.getElementById('settingEmailRecipients').value;
     const emailRecipients = recipientsStr.split(',').map(e => e.trim()).filter(Boolean);
 
+    // SMTP fields — only include password if user typed something
+    const smtpPass = document.getElementById('settingSmtpPass').value;
+    const smtpHost = document.getElementById('settingSmtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('settingSmtpPort').value, 10);
+    const smtpUser = document.getElementById('settingSmtpUser').value.trim();
+    const smtpFrom = document.getElementById('settingSmtpFrom').value.trim();
+
     const settings = {
       // Timezone
       timezone: document.getElementById('settingTimezone').value || 'UTC',
@@ -2358,10 +2390,19 @@ async function saveSettings() {
       email_enabled: document.getElementById('settingEmailEnabled').checked,
       email_recipients: emailRecipients,
       alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30],
+      email_alert_cron: document.getElementById('settingEmailAlertCron').value.trim() || '0 9 * * *',
+      // SMTP (only send password if user typed one)
+      smtp_host: smtpHost || undefined,
+      smtp_port: smtpPort > 0 ? smtpPort : undefined,
+      smtp_secure: document.getElementById('settingSmtpSecure').checked,
+      smtp_user: smtpUser || undefined,
+      smtp_from: smtpFrom || undefined,
+      ...(smtpPass ? { smtp_pass: smtpPass } : {}),
       // Uptime
       uptime_monitoring_enabled: document.getElementById('settingUptimeEnabled').checked,
       uptime_check_interval_minutes: parseInt(document.getElementById('settingUptimeInterval').value, 10) || 5,
       uptime_alert_threshold: parseInt(document.getElementById('settingUptimeThreshold').value, 10) || 3,
+      uptime_check_timeout_seconds: parseInt(document.getElementById('settingUptimeTimeout').value, 10) || 10,
       // Health checks
       health_check_enabled: document.getElementById('settingHealthCheckEnabled').checked,
       health_check_interval_hours: parseInt(document.getElementById('settingHealthCheckInterval').value, 10) || 24,
@@ -2379,6 +2420,13 @@ async function saveSettings() {
       signal_sender: document.getElementById('settingSignalSender').value.trim(),
       signal_recipients: document.getElementById('settingSignalRecipients').value.split(',').map(s => s.trim()).filter(Boolean),
       signal_events: getCheckedEvents('signalEventsCheckboxes'),
+      // Security
+      session_max_age_days: parseInt(document.getElementById('settingSessionMaxAge').value, 10) || 7,
+      rate_limit_max: parseInt(document.getElementById('settingRateLimitMax').value, 10) || 2000,
+      // Advanced / WHOIS
+      whois_timeout_seconds: parseInt(document.getElementById('settingWhoisTimeout').value, 10) || 30,
+      whois_delay_ms: parseInt(document.getElementById('settingWhoisDelay').value, 10) || 2000,
+      whois_max_retries: parseInt(document.getElementById('settingWhoisRetries').value, 10) || 3,
     };
 
     const res = await apiFetch('/api/settings', {
@@ -2419,6 +2467,214 @@ async function saveSettings() {
 
 function setCronPreset(cron) {
   document.getElementById('settingCron').value = cron;
+}
+
+/* ======================================================
+   SMTP helpers
+====================================================== */
+function updateSmtpStatusBanner(settings) {
+  const banner = document.getElementById('smtpStatusBanner');
+  if (!banner) return;
+  const hasHost = !!(settings.smtp_host || '').trim() || true; // env fallback may have host
+  const emailEnabled = settings.email_enabled;
+  if (!emailEnabled) {
+    banner.style.display = 'none';
+    return;
+  }
+  // Request live SMTP status from backend
+  apiFetch('/api/settings/email/status').then(async r => {
+    if (!r.ok) { banner.style.display = 'none'; return; }
+    const d = await r.json();
+    banner.style.display = '';
+    if (d.initialized) {
+      banner.className = 'smtp-status-ok';
+      banner.textContent = `✓ SMTP connected — ${d.host}:${d.port} (${d.user || 'anonymous'})`;
+    } else if (d.configured) {
+      banner.className = 'smtp-status-warn';
+      banner.textContent = `⚠ SMTP configured but not verified — ${d.reason || 'unknown error'}`;
+    } else {
+      banner.className = 'smtp-status-err';
+      banner.textContent = `✗ SMTP not configured — ${d.reason || 'missing host or username'}`;
+    }
+  }).catch(() => { banner.style.display = 'none'; });
+}
+
+async function reinitSmtp() {
+  const btn = document.getElementById('btnReinitSmtp');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reinitializing…'; }
+  try {
+    const res = await apiFetch('/api/settings/email/reinit', { method: 'POST' });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok && d.success) {
+      showNotification('SMTP reinitialized successfully', 'success');
+    } else {
+      showNotification(d.message || 'SMTP reinit failed', 'error');
+    }
+    // Refresh the status banner
+    const settings = await apiFetch('/api/settings').then(r => r.json()).catch(() => ({}));
+    updateSmtpStatusBanner(settings);
+  } catch (err) {
+    showNotification('SMTP reinit error: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Re-initialize SMTP'; }
+  }
+}
+
+/* ======================================================
+   User Management
+====================================================== */
+async function loadUsers() {
+  const container = document.getElementById('usersList');
+  if (!container) return;
+  try {
+    const res = await apiFetch('/api/users');
+    if (!res.ok) {
+      if (res.status === 403) {
+        container.innerHTML = '<p class="info-text">User management requires admin role.</p>';
+      }
+      return;
+    }
+    const data = await res.json();
+    const users = data.data || data || [];
+    if (users.length === 0) {
+      container.innerHTML = '<p class="info-text">No users found.</p>';
+      return;
+    }
+    container.innerHTML = users.map(u => {
+      const roleBadge = `<span class="user-badge user-badge-${u.role}">${u.role}</span>`;
+      const disabledBadge = u.enabled === false ? '<span class="user-badge user-badge-disabled">Disabled</span>' : '';
+      const lastLogin = u.last_login ? `Last login: ${formatDateTime(u.last_login)}` : 'Never logged in';
+      const toggleLabel = u.enabled === false ? 'Enable' : 'Disable';
+      const toggleIcon = u.enabled === false ? 'fa-toggle-off' : 'fa-toggle-on';
+      return `
+        <div class="user-item" id="user-item-${u.id}">
+          <div class="user-item-info">
+            <span class="user-item-name">${escapeHtml(u.username)}</span>
+            ${roleBadge}
+            ${disabledBadge}
+            <span class="user-item-meta">${lastLogin}</span>
+          </div>
+          <div class="user-item-actions">
+            <select class="btn btn-sm" onchange="changeUserRole(${u.id}, this.value)" title="Change role">
+              ${['admin','manager','viewer'].map(r => `<option value="${r}"${u.role===r?' selected':''}>${r}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm" onclick="toggleUser(${u.id}, ${u.enabled !== false})" title="${toggleLabel}">
+              <i class="fa-solid ${toggleIcon}"></i>
+            </button>
+            <button class="btn btn-sm" onclick="resetUserPassword(${u.id}, '${escapeHtml(u.username)}')" title="Reset password">
+              <i class="fa-solid fa-key"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')" title="Delete user">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error loading users:', err);
+    container.innerHTML = '<p class="info-text">Error loading users.</p>';
+  }
+}
+
+async function createUser() {
+  const username = document.getElementById('newUserUsername').value.trim();
+  const role = document.getElementById('newUserRole').value;
+  const password = document.getElementById('newUserPassword').value;
+  const confirm = document.getElementById('newUserPasswordConfirm').value;
+
+  if (!username) { showNotification('Username is required', 'error'); return; }
+  if (!password) { showNotification('Password is required', 'error'); return; }
+  if (password !== confirm) { showNotification('Passwords do not match', 'error'); return; }
+
+  try {
+    const res = await apiFetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to create user');
+    showNotification(`User "${username}" created`, 'success');
+    document.getElementById('newUserUsername').value = '';
+    document.getElementById('newUserPassword').value = '';
+    document.getElementById('newUserPasswordConfirm').value = '';
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function changeUserRole(id, role) {
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to update role');
+    showNotification('Role updated', 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function toggleUser(id, currentlyEnabled) {
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !currentlyEnabled }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to update user');
+    showNotification(currentlyEnabled ? 'User disabled' : 'User enabled', 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function resetUserPassword(id, username) {
+  const newPass = prompt(`Enter new password for "${username}":`);
+  if (!newPass) return;
+  if (newPass.length < 6) { showNotification('Password must be at least 6 characters', 'error'); return; }
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPass }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to reset password');
+    showNotification(`Password updated for "${username}"`, 'success');
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  try {
+    const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to delete user');
+    showNotification(`User "${username}" deleted`, 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 /* ======================================================

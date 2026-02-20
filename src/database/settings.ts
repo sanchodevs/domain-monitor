@@ -115,8 +115,27 @@ export function getSettingsData(): SettingsData {
     signal_recipients: JSON.parse(getSetting('signal_recipients') || '[]'),
     signal_enabled: getSetting('signal_enabled') === 'true',
     signal_events: JSON.parse(getSetting('signal_events') || '[]'),
+    // SMTP configuration (DB overrides env vars)
+    smtp_host: getSetting('smtp_host') || undefined,
+    smtp_port: getSetting('smtp_port') ? parseInt(getSetting('smtp_port')!, 10) : undefined,
+    smtp_secure: getSetting('smtp_secure') === 'true' ? true : getSetting('smtp_secure') === 'false' ? false : undefined,
+    smtp_user: getSetting('smtp_user') || undefined,
+    smtp_pass: getSetting('smtp_pass') || undefined,
+    smtp_from: getSetting('smtp_from') || undefined,
     // Display preferences
     timezone: getSetting('timezone') || 'UTC',
+    // Security
+    session_max_age_days: getSetting('session_max_age_days') ? parseInt(getSetting('session_max_age_days')!, 10) : 7,
+    // Advanced / WHOIS
+    whois_timeout_seconds: getSetting('whois_timeout_seconds') ? parseInt(getSetting('whois_timeout_seconds')!, 10) : 30,
+    whois_delay_ms: getSetting('whois_delay_ms') ? parseInt(getSetting('whois_delay_ms')!, 10) : 2000,
+    whois_max_retries: getSetting('whois_max_retries') ? parseInt(getSetting('whois_max_retries')!, 10) : 3,
+    // Email alert schedule
+    email_alert_cron: getSetting('email_alert_cron') || '0 9 * * *',
+    // Rate limiting
+    rate_limit_max: getSetting('rate_limit_max') ? parseInt(getSetting('rate_limit_max')!, 10) : 2000,
+    // Uptime check timeout
+    uptime_check_timeout_seconds: getSetting('uptime_check_timeout_seconds') ? parseInt(getSetting('uptime_check_timeout_seconds')!, 10) : 10,
   };
 
   // Cache the result
@@ -192,10 +211,27 @@ export function updateSettings(data: Partial<SettingsData>): void {
     if (data.signal_events !== undefined) {
       setSetting('signal_events', JSON.stringify(data.signal_events));
     }
+    // SMTP settings
+    if (data.smtp_host !== undefined) setSetting('smtp_host', data.smtp_host);
+    if (data.smtp_port !== undefined) setSetting('smtp_port', String(data.smtp_port));
+    if (data.smtp_secure !== undefined) setSetting('smtp_secure', String(data.smtp_secure));
+    if (data.smtp_user !== undefined) setSetting('smtp_user', data.smtp_user);
+    if (data.smtp_pass !== undefined) setSetting('smtp_pass', data.smtp_pass);
+    if (data.smtp_from !== undefined) setSetting('smtp_from', data.smtp_from);
     // Display preferences
-    if (data.timezone !== undefined) {
-      setSetting('timezone', data.timezone);
-    }
+    if (data.timezone !== undefined) setSetting('timezone', data.timezone);
+    // Security
+    if (data.session_max_age_days !== undefined) setSetting('session_max_age_days', String(data.session_max_age_days));
+    // Advanced / WHOIS
+    if (data.whois_timeout_seconds !== undefined) setSetting('whois_timeout_seconds', String(data.whois_timeout_seconds));
+    if (data.whois_delay_ms !== undefined) setSetting('whois_delay_ms', String(data.whois_delay_ms));
+    if (data.whois_max_retries !== undefined) setSetting('whois_max_retries', String(data.whois_max_retries));
+    // Email alert schedule
+    if (data.email_alert_cron !== undefined) setSetting('email_alert_cron', data.email_alert_cron);
+    // Rate limiting
+    if (data.rate_limit_max !== undefined) setSetting('rate_limit_max', String(data.rate_limit_max));
+    // Uptime check timeout
+    if (data.uptime_check_timeout_seconds !== undefined) setSetting('uptime_check_timeout_seconds', String(data.uptime_check_timeout_seconds));
   })();
 
   // Invalidate caches

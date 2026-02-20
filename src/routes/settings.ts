@@ -5,7 +5,7 @@ import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler.js';
-import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError } from '../services/email.js';
+import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError, reinitializeEmail } from '../services/email.js';
 import { restartUptimeMonitoring } from '../services/uptime.js';
 import { logAudit } from '../database/audit.js';
 import { sendSlackNotification } from '../services/slack.js';
@@ -140,6 +140,21 @@ router.get(
   asyncHandler(async (_req, res) => {
     const status = getSchedulerStatus();
     res.json(status);
+  })
+);
+
+// Re-initialize SMTP transporter with current settings (hot-reload)
+router.post(
+  '/email/reinit',
+  heavyOpLimiter,
+  asyncHandler(async (_req, res) => {
+    const success = await reinitializeEmail();
+    const status = getEmailStatus();
+    if (success) {
+      res.json({ success: true, message: 'SMTP reinitialized successfully', status });
+    } else {
+      res.status(500).json({ success: false, message: `SMTP reinit failed: ${status.reason || 'check settings'}`, status });
+    }
   })
 );
 
