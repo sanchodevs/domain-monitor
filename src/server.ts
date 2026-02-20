@@ -55,6 +55,9 @@ app.use(helmet({
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'", 'ws:', 'wss:'],
+      // Disable upgrade-insecure-requests in dev — it breaks http://localhost
+      // by forcing browsers (especially Safari) to upgrade cookies/requests to HTTPS
+      ...(config.isProduction ? {} : { upgradeInsecureRequests: null }),
     },
   },
   // HSTS only in production (dev uses http)
