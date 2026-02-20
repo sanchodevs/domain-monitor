@@ -106,7 +106,7 @@ function showErrorBoundary(message) {
    API Fetch Wrapper (handles 401 globally)
 ====================================================== */
 async function apiFetch(url, options = {}) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, { credentials: 'same-origin', ...options });
 
   if (res.status === 401) {
     state.authRequired = true;
@@ -2992,6 +2992,7 @@ async function handleLogin(event) {
     // Use regular fetch for login - don't trigger the 401 handler
     const res = await fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
@@ -3037,7 +3038,7 @@ async function handleLogout() {
 async function checkAuthStatus() {
   try {
     // Use regular fetch - we handle auth status ourselves here
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {

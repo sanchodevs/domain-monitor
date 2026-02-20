@@ -18,10 +18,10 @@ export const heavyOpLimiter = rateLimit({
   message: { success: false, message: 'Too many requests for this operation, please try again later.' },
 });
 
-// Login limiter: 10 attempts per 15 minutes per IP (brute-force protection)
+// Login limiter: 50 attempts per 15 minutes per IP (brute-force protection)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts, please try again later.' },
