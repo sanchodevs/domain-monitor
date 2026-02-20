@@ -128,6 +128,20 @@
               <i class="fa-solid fa-rotate"></i> Restart Service
             </button>
           </div>
+
+          <hr style="border-color:var(--border);margin:20px 0;">
+          <h3>Health Checks</h3>
+          <p class="info-text">Periodic DNS, HTTP, and SSL checks run on a separate schedule from uptime monitoring.</p>
+          <div class="form-group">
+            <label for="settingHealthCheckEnabled">
+              <input type="checkbox" id="settingHealthCheckEnabled" checked> Enable Health Checks
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingHealthCheckInterval">Health Check Interval (hours)</label>
+            <input type="number" id="settingHealthCheckInterval" min="1" max="168" value="24">
+            <small>How often to run DNS/HTTP/SSL checks (1-168 hours)</small>
+          </div>
         </div>
 
         <!-- Retention Settings Tab -->

@@ -1337,9 +1337,9 @@ async function load() {
 
     // Load domains, groups, and tags in parallel
     const [domainsRes, groupsRes, tagsRes] = await Promise.all([
-      fetch(`/api/domains?${params.toString()}`),
-      fetch("/api/groups"),
-      fetch("/api/tags")
+      fetch(`/api/domains?${params.toString()}`, { credentials: 'same-origin' }),
+      fetch("/api/groups", { credentials: 'same-origin' }),
+      fetch("/api/tags", { credentials: 'same-origin' })
     ]);
 
     if (!domainsRes.ok) {
@@ -2280,6 +2280,10 @@ async function loadSettings() {
     document.getElementById('settingUptimeInterval').value = settings.uptime_check_interval_minutes || 5;
     document.getElementById('settingUptimeThreshold').value = settings.uptime_alert_threshold || 3;
 
+    // Health check settings
+    document.getElementById('settingHealthCheckEnabled').checked = settings.health_check_enabled !== false;
+    document.getElementById('settingHealthCheckInterval').value = settings.health_check_interval_hours || 24;
+
     // Retention settings
     document.getElementById('settingAutoCleanup').checked = settings.auto_cleanup_enabled !== false;
     document.getElementById('settingAuditRetention').value = settings.audit_log_retention_days || 90;
@@ -2319,6 +2323,9 @@ async function saveSettings() {
       uptime_monitoring_enabled: document.getElementById('settingUptimeEnabled').checked,
       uptime_check_interval_minutes: parseInt(document.getElementById('settingUptimeInterval').value, 10) || 5,
       uptime_alert_threshold: parseInt(document.getElementById('settingUptimeThreshold').value, 10) || 3,
+      // Health checks
+      health_check_enabled: document.getElementById('settingHealthCheckEnabled').checked,
+      health_check_interval_hours: parseInt(document.getElementById('settingHealthCheckInterval').value, 10) || 24,
       // Retention
       auto_cleanup_enabled: document.getElementById('settingAutoCleanup').checked,
       audit_log_retention_days: parseInt(document.getElementById('settingAuditRetention').value, 10) || 90,
@@ -2956,7 +2963,8 @@ async function loadAuditLog() {
     const res = await fetch(url, { credentials: 'same-origin' });
     if (!res.ok) return;
 
-    const logs = await res.json();
+    const data = await res.json();
+    const logs = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : []);
     const container = document.getElementById('auditLogList');
 
     if (logs.length === 0) {
@@ -2964,14 +2972,16 @@ async function loadAuditLog() {
       return;
     }
 
+    const actionIcon = a => a === 'create' ? 'plus' : a === 'update' ? 'pen' : a === 'delete' ? 'trash' : a === 'login' ? 'right-to-bracket' : a === 'logout' ? 'right-from-bracket' : a === 'refresh' ? 'rotate' : a === 'health_check' ? 'heart-pulse' : 'circle-info';
+
     container.innerHTML = logs.map(log => `
       <div class="audit-log-item">
         <div class="audit-log-icon ${log.action}">
-          <i class="fa-solid fa-${log.action === 'create' ? 'plus' : log.action === 'update' ? 'pen' : 'trash'}"></i>
+          <i class="fa-solid fa-${actionIcon(log.action)}"></i>
         </div>
         <div class="audit-log-content">
-          <div class="audit-log-title">${escapeHTML(log.entity_type)}: ${escapeHTML(log.entity_id)}</div>
-          <div class="audit-log-meta">${formatDateTime(log.created_at)} - ${log.action}</div>
+          <div class="audit-log-title">${escapeHTML(log.entity_type)}: ${escapeHTML(String(log.entity_id || ''))}</div>
+          <div class="audit-log-meta">${formatDateTime(log.created_at)} &mdash; ${escapeHTML(log.action)}</div>
         </div>
       </div>
     `).join('');
