@@ -11,6 +11,7 @@ import { apiKeySchema } from '../config/schema.js';
 import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { logAudit } from '../database/audit.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.post(
       new_value: { name, provider, priority },
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: (req as AuthenticatedRequest).username,
     });
 
     res.json({ success: true, id });
@@ -72,6 +74,7 @@ router.put(
       new_value: { name, priority, enabled },
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: (req as AuthenticatedRequest).username,
     });
 
     res.json({ success: true });
@@ -122,6 +125,7 @@ router.delete(
       action: 'delete',
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: (req as AuthenticatedRequest).username,
     });
 
     res.json({ success: true });

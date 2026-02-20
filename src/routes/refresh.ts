@@ -6,6 +6,7 @@ import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { normalizeDomain } from '../utils/helpers.js';
 import { createLogger } from '../utils/logger.js';
 import { auditBulkRefresh } from '../database/audit.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 
 const router = Router();
 const logger = createLogger('refresh');
@@ -43,10 +44,11 @@ router.post(
     const domainNames = allDomains.map(d => d.domain);
 
     // Start refresh in background
+    const refreshedBy = (req as AuthenticatedRequest).username;
     refreshAllDomains(undefined, { withHealthCheck })
       .then(() => {
         logger.info('Refresh completed', { withHealthCheck });
-        auditBulkRefresh(domainNames.length, domainNames);
+        auditBulkRefresh(domainNames.length, domainNames, refreshedBy);
       })
       .catch((err) => {
         logger.error('Refresh failed', { error: err.message });

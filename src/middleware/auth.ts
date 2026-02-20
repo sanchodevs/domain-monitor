@@ -109,6 +109,7 @@ export async function login(
         action: 'login',
         ip_address: req.ip,
         user_agent: req.get('User-Agent'),
+        performed_by: username,
       });
 
       logger.info('Login successful', { username, ip: req.ip });
@@ -131,6 +132,7 @@ export async function login(
       action: 'login',
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: username,
     });
 
     logger.info('Login successful (db user)', { username, role: user.role, ip: req.ip });
@@ -142,6 +144,8 @@ export async function login(
 }
 
 export function logout(sessionId: string, req: Request): boolean {
+  // Get username before deleting session
+  const session = getSession(sessionId);
   const deleted = deleteSession(sessionId);
 
   if (deleted) {
@@ -151,6 +155,7 @@ export function logout(sessionId: string, req: Request): boolean {
       action: 'logout',
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: session?.username,
     });
 
     logger.info('Logout successful', { ip: req.ip });

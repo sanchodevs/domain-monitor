@@ -8,6 +8,7 @@ import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler
 import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError, reinitializeEmail } from '../services/email.js';
 import { restartUptimeMonitoring } from '../services/uptime.js';
 import { logAudit } from '../database/audit.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 import { sendSlackNotification } from '../services/slack.js';
 import { sendSignalNotification } from '../services/signal.js';
 import cron from 'node-cron';
@@ -73,6 +74,7 @@ router.put(
       new_value: req.body,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: (req as AuthenticatedRequest).username,
     });
 
     res.json({ success: true });

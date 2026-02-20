@@ -12,6 +12,7 @@ import { getEmailStatus } from '../services/email.js';
 import { createLogger } from '../utils/logger.js';
 import { auditHealthCheck, auditBulkHealthCheck } from '../database/audit.js';
 import { config } from '../config/index.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 
 const router = Router();
 const logger = createLogger('health-routes');
@@ -134,16 +135,17 @@ router.post(
 router.post(
   '/check-all',
   heavyOpLimiter,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     // Get domain names for audit
     const allDomains = getAllDomains();
     const domainNames = allDomains.map(d => d.domain);
+    const checkedBy = (req as AuthenticatedRequest).username;
 
     // Run in background
     checkAllDomainsHealth()
       .then((results) => {
         logger.info('All domain health checks completed', { count: results.size });
-        auditBulkHealthCheck(results.size, domainNames);
+        auditBulkHealthCheck(results.size, domainNames, checkedBy);
       })
       .catch((err) => {
         logger.error('Health check failed', { error: err.message });

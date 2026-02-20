@@ -18,8 +18,8 @@ function getStatements() {
   if (!_statements) {
     _statements = {
       insert: db.prepare(`
-        INSERT INTO audit_log (entity_type, entity_id, action, old_value, new_value, ip_address, user_agent)
-        VALUES (@entity_type, @entity_id, @action, @old_value, @new_value, @ip_address, @user_agent)
+        INSERT INTO audit_log (entity_type, entity_id, action, old_value, new_value, ip_address, user_agent, performed_by)
+        VALUES (@entity_type, @entity_id, @action, @old_value, @new_value, @ip_address, @user_agent, @performed_by)
       `),
       getAll: db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ? OFFSET ?'),
       getByEntity: db.prepare('SELECT * FROM audit_log WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'),
@@ -41,6 +41,7 @@ function rowToAuditEntry(row: AuditRow): AuditEntry {
     new_value: row.new_value ? JSON.parse(row.new_value) : undefined,
     ip_address: row.ip_address || undefined,
     user_agent: row.user_agent || undefined,
+    performed_by: row.performed_by || undefined,
     created_at: row.created_at,
   };
 }
@@ -55,6 +56,7 @@ export function logAudit(entry: Omit<AuditEntry, 'id' | 'created_at'>): number {
       new_value: entry.new_value ? JSON.stringify(entry.new_value) : null,
       ip_address: entry.ip_address || null,
       user_agent: entry.user_agent || null,
+      performed_by: entry.performed_by || null,
     });
     return result.lastInsertRowid as number;
   } catch (err) {
@@ -150,7 +152,7 @@ export function cleanupAuditLog(daysToKeep: number): number {
 }
 
 // Helper to create audit entries for common operations
-export function auditDomainCreate(domain: string, data: unknown, ip?: string, userAgent?: string): void {
+export function auditDomainCreate(domain: string, data: unknown, ip?: string, userAgent?: string, performedBy?: string): void {
   logAudit({
     entity_type: 'domain',
     entity_id: domain,
@@ -158,10 +160,11 @@ export function auditDomainCreate(domain: string, data: unknown, ip?: string, us
     new_value: data,
     ip_address: ip,
     user_agent: userAgent,
+    performed_by: performedBy,
   });
 }
 
-export function auditDomainUpdate(domain: string, oldData: unknown, newData: unknown, ip?: string, userAgent?: string): void {
+export function auditDomainUpdate(domain: string, oldData: unknown, newData: unknown, ip?: string, userAgent?: string, performedBy?: string): void {
   logAudit({
     entity_type: 'domain',
     entity_id: domain,
@@ -170,10 +173,11 @@ export function auditDomainUpdate(domain: string, oldData: unknown, newData: unk
     new_value: newData,
     ip_address: ip,
     user_agent: userAgent,
+    performed_by: performedBy,
   });
 }
 
-export function auditDomainDelete(domain: string, oldData: unknown, ip?: string, userAgent?: string): void {
+export function auditDomainDelete(domain: string, oldData: unknown, ip?: string, userAgent?: string, performedBy?: string): void {
   logAudit({
     entity_type: 'domain',
     entity_id: domain,
@@ -181,6 +185,7 @@ export function auditDomainDelete(domain: string, oldData: unknown, ip?: string,
     old_value: oldData,
     ip_address: ip,
     user_agent: userAgent,
+    performed_by: performedBy,
   });
 }
 
@@ -203,21 +208,23 @@ export function auditHealthCheck(domain: string, healthData: unknown): void {
   });
 }
 
-export function auditBulkRefresh(count: number, domains: string[]): void {
+export function auditBulkRefresh(count: number, domains: string[], performedBy?: string): void {
   logAudit({
     entity_type: 'bulk',
     entity_id: `Refreshed ${count} domains`,
     action: 'bulk_refresh',
     new_value: { count, domains: domains.slice(0, 10) },
+    performed_by: performedBy,
   });
 }
 
-export function auditBulkHealthCheck(count: number, domains: string[]): void {
+export function auditBulkHealthCheck(count: number, domains: string[], performedBy?: string): void {
   logAudit({
     entity_type: 'bulk',
     entity_id: `Health checked ${count} domains`,
     action: 'bulk_health',
     new_value: { count, domains: domains.slice(0, 10) },
+    performed_by: performedBy,
   });
 }
 
@@ -265,7 +272,7 @@ export function auditTagDelete(name: string, oldData: unknown, ip?: string, user
   });
 }
 
-export function auditImport(count: number, skipped: number, ip?: string, userAgent?: string): void {
+export function auditImport(count: number, skipped: number, ip?: string, userAgent?: string, performedBy?: string): void {
   logAudit({
     entity_type: 'bulk',
     entity_id: `Imported ${count} domains (${skipped} skipped)`,
@@ -273,6 +280,7 @@ export function auditImport(count: number, skipped: number, ip?: string, userAge
     new_value: { added: count, skipped },
     ip_address: ip,
     user_agent: userAgent,
+    performed_by: performedBy,
   });
 }
 

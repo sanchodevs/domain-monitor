@@ -20,6 +20,7 @@ import { logAudit } from '../database/audit.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { createLogger } from '../utils/logger.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 
 const router = Router();
 const logger = createLogger('uptime-routes');
@@ -105,6 +106,7 @@ router.post('/retention/cleanup', asyncHandler(async (req, res) => {
     new_value: JSON.stringify(stats),
     ip_address: req.ip || undefined,
     user_agent: req.get('User-Agent') || undefined,
+    performed_by: (req as AuthenticatedRequest).username,
   });
 
   res.json({ success: true, message: 'Cleanup completed', ...stats });
@@ -122,6 +124,7 @@ router.delete('/retention/audit', asyncHandler(async (req, res) => {
     new_value: JSON.stringify({ deleted, olderThanDays: days }),
     ip_address: req.ip || undefined,
     user_agent: req.get('User-Agent') || undefined,
+    performed_by: (req as AuthenticatedRequest).username,
   });
 
   res.json({ success: true, message: `Deleted ${deleted} audit log entries older than ${days} days` });
@@ -139,6 +142,7 @@ router.delete('/retention/health', asyncHandler(async (req, res) => {
     new_value: JSON.stringify({ deleted, olderThanDays: days }),
     ip_address: req.ip || undefined,
     user_agent: req.get('User-Agent') || undefined,
+    performed_by: (req as AuthenticatedRequest).username,
   });
 
   res.json({ success: true, message: `Deleted ${deleted} health log entries older than ${days} days` });
@@ -156,6 +160,7 @@ router.delete('/retention/uptime', asyncHandler(async (req, res) => {
     new_value: JSON.stringify({ deleted, olderThanDays: days }),
     ip_address: req.ip || undefined,
     user_agent: req.get('User-Agent') || undefined,
+    performed_by: (req as AuthenticatedRequest).username,
   });
 
   res.json({ success: true, message: `Deleted ${deleted} uptime log entries older than ${days} days` });

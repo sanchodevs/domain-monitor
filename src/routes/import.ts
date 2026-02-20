@@ -9,7 +9,7 @@ import { logAudit, auditImport } from '../database/audit.js';
 import { db } from '../database/db.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { createLogger } from '../utils/logger.js';
-import type { CSVImportResult } from '../types/api.js';
+import type { CSVImportResult, AuthenticatedRequest } from '../types/api.js';
 
 const router = Router();
 const logger = createLogger('import');
@@ -142,6 +142,7 @@ router.post(
           new_value: { domain, groupId, source: 'csv' },
           ip_address: req.ip,
           user_agent: req.get('User-Agent'),
+          performed_by: (req as AuthenticatedRequest).username,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -154,7 +155,7 @@ router.post(
 
     // Log bulk import to audit
     if (result.imported > 0) {
-      auditImport(result.imported, result.skipped, req.ip, req.get('User-Agent'));
+      auditImport(result.imported, result.skipped, req.ip, req.get('User-Agent'), (req as AuthenticatedRequest).username);
     }
 
     res.json({ success: true, ...result });

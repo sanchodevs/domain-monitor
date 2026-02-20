@@ -11,50 +11,143 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0f1117; --surface: #1a1d2e; --border: #2a2d3e;
-      --text: #e2e8f0; --text-muted: #8892a4; --accent: #6366f1;
-      --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --accent: #6366f1;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
     }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    .container { max-width: 860px; margin: 0 auto; padding: 40px 20px; }
-    header { text-align: center; margin-bottom: 48px; }
-    header h1 { font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 12px; }
-    header img { width: 36px; height: 36px; }
-    header p { color: var(--text-muted); margin-top: 8px; font-size: 14px; }
-    .status-banner { border-radius: 12px; padding: 24px 32px; margin-bottom: 32px; display: flex; align-items: center; gap: 20px; }
-    .status-banner.operational { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); }
-    .status-banner.warning { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .status-banner.degraded { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .status-icon { font-size: 36px; }
-    .status-banner.operational .status-icon { color: var(--green); }
-    .status-banner.warning .status-icon { color: var(--yellow); }
-    .status-banner.degraded .status-icon { color: var(--red); }
-    .status-text h2 { font-size: 22px; font-weight: 600; }
-    .status-text p { color: var(--text-muted); margin-top: 4px; font-size: 14px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; }
-    .stat-value { font-size: 32px; font-weight: 700; }
-    .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-    .stat-value.green { color: var(--green); }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 920px; margin: 0 auto; padding: 40px 20px; }
+
+    /* Header */
+    header { text-align: center; margin-bottom: 40px; }
+    header h1 {
+      font-size: 26px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+    }
+    header img { width: 34px; height: 34px; }
+    header p { color: var(--text-muted); margin-top: 6px; font-size: 14px; }
+
+    /* Status banner */
+    .status-banner {
+      border-radius: 12px; padding: 20px 28px; margin-bottom: 28px;
+      display: flex; align-items: center; gap: 18px;
+    }
+    .status-banner.operational { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); }
+    .status-banner.warning     { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); }
+    .status-banner.degraded    { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.25); }
+    .banner-icon { font-size: 32px; }
+    .status-banner.operational .banner-icon { color: var(--green); }
+    .status-banner.warning     .banner-icon { color: var(--yellow); }
+    .status-banner.degraded    .banner-icon { color: var(--red); }
+    .banner-text h2 { font-size: 20px; font-weight: 600; }
+    .banner-text p  { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 16px; text-align: center;
+    }
+    .stat-value { font-size: 30px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value.green  { color: var(--green); }
     .stat-value.yellow { color: var(--yellow); }
-    .stat-value.red { color: var(--red); }
+    .stat-value.red    { color: var(--red); }
+
+    /* Section */
     .section { margin-bottom: 32px; }
-    .section h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .group-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .group-info { display: flex; align-items: center; gap: 12px; }
+    .section-title {
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px;
+    }
+
+    /* Uptime card */
+    .uptime-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px 24px; display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+    }
+    .uptime-pct { font-size: 40px; font-weight: 700; }
+    .uptime-detail-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .uptime-meta-item { font-size: 13px; color: var(--text-muted); }
+    .uptime-meta-item strong { color: var(--text); }
+
+    /* Group cards */
+    .group-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;
+    }
+    .group-card-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 10px;
+    }
+    .group-card-left { display: flex; align-items: center; gap: 10px; }
     .group-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .group-name { font-weight: 500; }
-    .group-count { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-    .group-status { font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
-    .group-status.operational { background: rgba(34,197,94,0.15); color: var(--green); }
-    .group-status.warning { background: rgba(245,158,11,0.15); color: var(--yellow); }
-    .group-status.degraded { background: rgba(239,68,68,0.15); color: var(--red); }
-    .footer { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
+    .group-name { font-weight: 600; font-size: 15px; }
+    .group-count { font-size: 13px; color: var(--text-muted); }
+    .status-pill {
+      font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+    }
+    .status-pill.operational { background: rgba(34,197,94,0.15);  color: var(--green); }
+    .status-pill.warning     { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .status-pill.degraded    { background: rgba(239,68,68,0.15);  color: var(--red); }
+
+    /* Chips */
+    .group-card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .chip {
+      font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .chip.ok    { background: rgba(34,197,94,0.12);   color: var(--green); }
+    .chip.warn  { background: rgba(245,158,11,0.12);  color: var(--yellow); }
+    .chip.fail  { background: rgba(239,68,68,0.12);   color: var(--red); }
+    .chip.muted { background: rgba(136,146,164,0.12); color: var(--text-muted); }
+
+    /* Expiry row */
+    .group-expiry { font-size: 12px; color: var(--text-muted); display: flex; gap: 16px; flex-wrap: wrap; }
+    .group-expiry .expiry-warn { color: var(--yellow); font-weight: 600; }
+    .group-expiry .expiry-err  { color: var(--red);    font-weight: 600; }
+
+    /* App links */
+    .app-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .app-link {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 8px; color: var(--text);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .app-link:hover {
+      border-color: var(--accent); background: rgba(99,102,241,0.08);
+      text-decoration: none; color: var(--accent);
+    }
+    .app-link i { color: var(--accent); }
+
+    /* Footer */
+    footer {
+      text-align: center; color: var(--text-muted); font-size: 12px;
+      margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);
+    }
+
+    /* Loading */
     .loading { text-align: center; padding: 80px; color: var(--text-muted); }
-    .uptime-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 32px; }
-    .uptime-pct { font-size: 36px; font-weight: 700; color: var(--green); }
-    .uptime-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-    .uptime-meta { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+    .loading i { font-size: 28px; margin-bottom: 12px; display: block; }
   </style>
 </head>
 <body>
@@ -65,92 +158,195 @@
     </header>
 
     <div id="statusContent" class="loading">
-      <i class="fa-solid fa-circle-notch fa-spin" style="font-size:32px;"></i>
-      <p style="margin-top:16px;">Loading status...</p>
+      <i class="fa-solid fa-circle-notch fa-spin"></i>
+      Loading status...
     </div>
   </div>
 
   <script>
+    function escHtml(str) {
+      var d = document.createElement('div');
+      d.textContent = String(str == null ? '' : str);
+      return d.innerHTML;
+    }
+
+    function healthChips(health) {
+      if (!health) return '<span class="chip muted"><i class="fa-solid fa-circle-question"></i> No health data</span>';
+      var chips = '';
+
+      // DNS
+      if (health.dns_fail > 0) {
+        chips += '<span class="chip fail"><i class="fa-solid fa-globe"></i> DNS ' + health.dns_fail + ' fail</span>';
+      } else if (health.dns_ok > 0) {
+        chips += '<span class="chip ok"><i class="fa-solid fa-globe"></i> DNS OK</span>';
+      } else {
+        chips += '<span class="chip muted"><i class="fa-solid fa-globe"></i> DNS N/A</span>';
+      }
+
+      // HTTP
+      if (health.http_fail > 0) {
+        chips += '<span class="chip fail"><i class="fa-solid fa-signal"></i> HTTP ' + health.http_fail + ' fail</span>';
+      } else if (health.http_ok > 0) {
+        chips += '<span class="chip ok"><i class="fa-solid fa-signal"></i> HTTP OK</span>';
+      } else {
+        chips += '<span class="chip muted"><i class="fa-solid fa-signal"></i> HTTP N/A</span>';
+      }
+
+      // SSL
+      if (health.ssl_fail > 0) {
+        chips += '<span class="chip fail"><i class="fa-solid fa-lock"></i> SSL ' + health.ssl_fail + ' fail</span>';
+      } else if (health.ssl_ok > 0) {
+        chips += '<span class="chip ok"><i class="fa-solid fa-lock"></i> SSL OK</span>';
+      } else {
+        chips += '<span class="chip muted"><i class="fa-solid fa-lock"></i> SSL N/A</span>';
+      }
+
+      return chips;
+    }
+
+    function statusPill(status) {
+      var labels = { operational: 'Operational', warning: 'Warning', degraded: 'Degraded' };
+      return '<span class="status-pill ' + escHtml(status) + '">' + escHtml(labels[status] || status) + '</span>';
+    }
+
+    var statusIconMap = {
+      operational: '<i class="fa-solid fa-circle-check" style="color:var(--green)"></i>',
+      warning:     '<i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow)"></i>',
+      degraded:    '<i class="fa-solid fa-circle-xmark" style="color:var(--red)"></i>',
+    };
+
+    var bannerTitles = {
+      operational: 'All Systems Operational',
+      warning:     'Some Systems Need Attention',
+      degraded:    'Service Disruption Detected',
+    };
+
     async function loadStatus() {
       try {
         var res = await fetch('/api/status');
-        if (!res.ok) throw new Error('Failed to load status');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         var data = await res.json();
 
-        var statusLabels = {
-          operational: 'All Systems Operational',
-          warning: 'Some Systems Need Attention',
-          degraded: 'Service Disruption',
-        };
-        var statusIcons = {
-          operational: 'fa-circle-check',
-          warning: 'fa-triangle-exclamation',
-          degraded: 'fa-circle-xmark',
-        };
+        var ts = new Date(data.timestamp);
+        var tsStr = ts.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-        var groupsHtml = (data.groups && data.groups.length > 0) ? data.groups.map(function(g) {
-          return '<div class="group-item">' +
-            '<div class="group-info">' +
-              '<div class="group-dot" style="background:' + g.color + '"></div>' +
-              '<div>' +
-                '<div class="group-name">' + escHtml(g.name) + '</div>' +
-                '<div class="group-count">' + g.domains + ' domain' + (g.domains !== 1 ? 's' : '') + '</div>' +
-              '</div>' +
+        // === Status banner ===
+        var bannerHtml =
+          '<div class="status-banner ' + escHtml(data.status) + '">' +
+            '<div class="banner-icon">' + (statusIconMap[data.status] || '') + '</div>' +
+            '<div class="banner-text">' +
+              '<h2>' + escHtml(bannerTitles[data.status] || data.status) + '</h2>' +
+              '<p>Last updated: ' + escHtml(tsStr) + ' &bull; Auto-refreshes every 60s</p>' +
             '</div>' +
-            '<span class="group-status ' + g.status + '">' + g.status.charAt(0).toUpperCase() + g.status.slice(1) + '</span>' +
           '</div>';
-        }).join('') : '<p style="color:var(--text-muted);font-size:14px;">No groups configured.</p>';
 
-        var uptimePct = data.uptime_24h.uptime_pct;
-        var uptimeHtml = uptimePct !== null ? (
-          '<div class="uptime-bar">' +
-            '<div class="uptime-pct">' + uptimePct + '%</div>' +
-            '<div class="uptime-label">Uptime (last 24h)</div>' +
-            (data.uptime_24h.avg_response_time_ms ? '<div class="uptime-meta">Avg response: ' + data.uptime_24h.avg_response_time_ms + 'ms &bull; ' + data.uptime_24h.total_checks + ' checks</div>' : '') +
-          '</div>'
-        ) : '';
+        // === Summary stats ===
+        var s = data.summary;
+        var statsHtml =
+          '<div class="stats-grid">' +
+            '<div class="stat-card"><div class="stat-value">' + s.total_domains + '</div><div class="stat-label">Total Domains</div></div>' +
+            '<div class="stat-card"><div class="stat-value green">' + s.healthy + '</div><div class="stat-label">Healthy</div></div>' +
+            '<div class="stat-card"><div class="stat-value ' + (s.expiring_soon > 0 ? 'yellow' : '') + '">' + s.expiring_soon + '</div><div class="stat-label">Expiring (30d)</div></div>' +
+            '<div class="stat-card"><div class="stat-value ' + (s.expired > 0 ? 'red' : '') + '">' + s.expired + '</div><div class="stat-label">Expired</div></div>' +
+            '<div class="stat-card"><div class="stat-value ' + (s.errors > 0 ? 'red' : '') + '">' + s.errors + '</div><div class="stat-label">Errors</div></div>' +
+          '</div>';
 
-        var ts = new Date(data.timestamp).toLocaleString();
+        // === Uptime ===
+        var u = data.uptime_24h;
+        var uptimeHtml = '';
+        if (u && u.total_checks > 0) {
+          var pct = u.uptime_pct;
+          var pctColor = pct === null ? 'var(--text-muted)' : pct >= 99 ? 'var(--green)' : pct >= 95 ? 'var(--yellow)' : 'var(--red)';
+          uptimeHtml =
+            '<div class="section">' +
+              '<div class="section-title">Uptime (Last 24 hours)</div>' +
+              '<div class="uptime-card">' +
+                (pct !== null ? '<div><div class="uptime-pct" style="color:' + pctColor + '">' + pct + '%</div><div class="uptime-detail-label">Uptime</div></div>' : '') +
+                '<div>' +
+                  '<div class="uptime-meta-item"><strong>' + u.total_checks + '</strong> checks performed</div>' +
+                  (u.avg_response_time_ms !== null ? '<div class="uptime-meta-item" style="margin-top:4px;">Avg response: <strong>' + u.avg_response_time_ms + 'ms</strong></div>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>';
+        }
+
+        // === Groups ===
+        var groupsHtml = '';
+        if (data.groups && data.groups.length > 0) {
+          var groupCards = data.groups.map(function(g) {
+            var expiryItems = '';
+            if (g.expiry) {
+              if (g.expiry.expired > 0) {
+                expiryItems += '<span class="expiry-err"><i class="fa-solid fa-calendar-xmark"></i> ' + g.expiry.expired + ' expired</span>';
+              }
+              if (g.expiry.expiring_30d > 0) {
+                expiryItems += '<span class="expiry-warn"><i class="fa-solid fa-calendar-exclamation"></i> ' + g.expiry.expiring_30d + ' expiring within 30d</span>';
+              }
+              if (!g.expiry.expired && !g.expiry.expiring_30d) {
+                expiryItems += '<span><i class="fa-solid fa-calendar-check"></i> No expiring domains</span>';
+              }
+            }
+
+            return (
+              '<div class="group-card">' +
+                '<div class="group-card-header">' +
+                  '<div class="group-card-left">' +
+                    '<div class="group-dot" style="background:' + escHtml(g.color) + '"></div>' +
+                    '<span class="group-name">' + escHtml(g.name) + '</span>' +
+                    '<span class="group-count">(' + g.domains + ' domain' + (g.domains !== 1 ? 's' : '') + ')</span>' +
+                  '</div>' +
+                  statusPill(g.status) +
+                '</div>' +
+                '<div class="group-card-chips">' + healthChips(g.health) + '</div>' +
+                (expiryItems ? '<div class="group-expiry">' + expiryItems + '</div>' : '') +
+              '</div>'
+            );
+          }).join('');
+
+          groupsHtml =
+            '<div class="section">' +
+              '<div class="section-title">Groups</div>' +
+              groupCards +
+            '</div>';
+        }
+
+        // === App links ===
+        var appLinksHtml =
+          '<div class="section">' +
+            '<div class="section-title">Go to App</div>' +
+            '<div class="app-links">' +
+              '<a class="app-link" href="/#dashboard"><i class="fa-solid fa-gauge"></i> Dashboard</a>' +
+              '<a class="app-link" href="/#domains"><i class="fa-solid fa-globe"></i> Domains</a>' +
+              '<a class="app-link" href="/#audit"><i class="fa-solid fa-clock-rotate-left"></i> Audit Log</a>' +
+              '<a class="app-link" href="/#settings"><i class="fa-solid fa-gear"></i> Settings</a>' +
+            '</div>' +
+          '</div>';
+
+        // === Footer ===
+        var footerHtml =
+          '<footer>' +
+            '<p>Powered by Domain Monitor &bull; Auto-refreshes every 60 seconds</p>' +
+          '</footer>';
 
         document.getElementById('statusContent').innerHTML =
-          '<div class="status-banner ' + data.status + '">' +
-            '<div class="status-icon"><i class="fa-solid ' + statusIcons[data.status] + '"></i></div>' +
-            '<div class="status-text">' +
-              '<h2>' + statusLabels[data.status] + '</h2>' +
-              '<p>Last updated: ' + ts + '</p>' +
-            '</div>' +
-          '</div>' +
-          '<div class="stats-grid">' +
-            '<div class="stat-card"><div class="stat-value">' + data.summary.total_domains + '</div><div class="stat-label">Total Domains</div></div>' +
-            '<div class="stat-card"><div class="stat-value green">' + data.summary.healthy + '</div><div class="stat-label">Healthy</div></div>' +
-            '<div class="stat-card"><div class="stat-value ' + (data.summary.expiring_soon > 0 ? 'yellow' : '') + '">' + data.summary.expiring_soon + '</div><div class="stat-label">Expiring Soon</div></div>' +
-            '<div class="stat-card"><div class="stat-value ' + (data.summary.expired > 0 ? 'red' : '') + '">' + data.summary.expired + '</div><div class="stat-label">Expired</div></div>' +
-            '<div class="stat-card"><div class="stat-value ' + (data.summary.errors > 0 ? 'red' : '') + '">' + data.summary.errors + '</div><div class="stat-label">Errors</div></div>' +
-          '</div>' +
-          uptimeHtml +
-          (data.groups.length > 0 ?
-            '<div class="section"><h3>Groups</h3>' + groupsHtml + '</div>'
-          : '') +
-          '<div class="footer">' +
-            '<p>Powered by Domain Monitor &bull; Auto-refreshes every 60 seconds &bull; <a href="/" style="color:var(--accent);text-decoration:none;">Go to Dashboard</a></p>' +
-          '</div>';
+          bannerHtml + statsHtml + uptimeHtml + groupsHtml + appLinksHtml + footerHtml;
 
       } catch (err) {
         document.getElementById('statusContent').innerHTML =
           '<div class="status-banner degraded">' +
-            '<div class="status-icon"><i class="fa-solid fa-circle-xmark"></i></div>' +
-            '<div class="status-text">' +
-              '<h2>Unable to load status</h2>' +
-              '<p>The status service is currently unavailable.</p>' +
+            '<div class="banner-icon"><i class="fa-solid fa-circle-xmark" style="color:var(--red)"></i></div>' +
+            '<div class="banner-text">' +
+              '<h2>Unable to Load Status</h2>' +
+              '<p>The status service is currently unavailable. Please try again shortly.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="section">' +
+            '<div class="section-title">Go to App</div>' +
+            '<div class="app-links">' +
+              '<a class="app-link" href="/"><i class="fa-solid fa-gauge"></i> Dashboard</a>' +
             '</div>' +
           '</div>';
       }
-    }
-
-    function escHtml(str) {
-      var div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
     }
 
     loadStatus();

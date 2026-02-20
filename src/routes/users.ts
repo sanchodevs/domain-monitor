@@ -45,6 +45,7 @@ router.post('/', requireRole('admin'), asyncHandler(async (req: AuthenticatedReq
       new_value: JSON.stringify({ username, role }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
+      performed_by: req.username,
     });
     res.status(201).json({ success: true, data: user });
   } catch (err: unknown) {
@@ -76,6 +77,7 @@ router.put('/:id', requireRole('admin'), asyncHandler(async (req: AuthenticatedR
     new_value: JSON.stringify(parsed.data),
     ip_address: req.ip,
     user_agent: req.get('User-Agent'),
+    performed_by: req.username,
   });
 
   res.json({ success: true, data: getUserById(id) });
@@ -95,6 +97,7 @@ router.delete('/:id', requireRole('admin'), asyncHandler(async (req: Authenticat
     action: 'delete',
     ip_address: req.ip,
     user_agent: req.get('User-Agent'),
+    performed_by: req.username,
   });
 
   res.json({ success: true, message: 'User deleted' });

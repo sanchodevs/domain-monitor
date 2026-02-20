@@ -815,3 +815,64 @@ tr:hover .copy-btn {
   color: var(--text-muted);
 }
 
+/* ==========================
+   GROUPS STATUS WIDGET
+========================== */
+.groups-status-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.group-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.group-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.group-status-name {
+  flex: 1;
+  font-weight: 500;
+}
+.group-status-count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.group-status-pill {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ==========================
+   MAMMOTH WIDGET
+========================== */
+.mammoth-widget { }
+.mammoth-health-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.health-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.health-chip.ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+.health-chip.fail {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+.health-chip i {
+  margin-right: 3px;
+}
+

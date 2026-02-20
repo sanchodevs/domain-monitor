@@ -91,6 +91,12 @@ export function runMigrations(): void {
     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
   `);
 
+  // Migration: Add performed_by to audit_log
+  const auditCols = db.prepare("PRAGMA table_info(audit_log)").all() as { name: string }[];
+  if (!auditCols.some(c => c.name === 'performed_by')) {
+    db.exec('ALTER TABLE audit_log ADD COLUMN performed_by TEXT');
+  }
+
   // Settings table
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (

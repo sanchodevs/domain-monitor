@@ -223,3 +223,20 @@
   color: var(--danger);
 }
 
+/* ==========================
+   AUDIT LOG ENHANCEMENTS
+========================== */
+.audit-performer {
+  margin-left: 10px;
+  color: var(--accent);
+  font-size: 12px;
+}
+.audit-performer i {
+  margin-right: 3px;
+}
+.audit-details {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+

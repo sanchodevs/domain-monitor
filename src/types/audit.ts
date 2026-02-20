@@ -10,6 +10,7 @@ export interface AuditEntry {
   new_value?: unknown;
   ip_address?: string;
   user_agent?: string;
+  performed_by?: string;
   created_at?: string;
 }
 
@@ -22,6 +23,7 @@ export interface AuditRow {
   new_value: string | null; // JSON string
   ip_address: string | null;
   user_agent: string | null;
+  performed_by: string | null;
   created_at: string;
 }
 

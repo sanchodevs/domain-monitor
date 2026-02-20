@@ -683,7 +683,6 @@ function updateUptimeHeartbeat(domainId, uptimeCheck) {
 function initCharts() {
   try {
     const timelineCtx = document.getElementById('timelineChart')?.getContext('2d');
-    const healthCtx = document.getElementById('healthChart')?.getContext('2d');
 
     const colors = getThemeColors();
 
@@ -728,26 +727,6 @@ function initCharts() {
     });
   }
 
-  // Health Status Chart
-  if (healthCtx) {
-    state.charts.health = new Chart(healthCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['DNS OK', 'DNS Fail', 'HTTP OK', 'HTTP Fail', 'SSL Valid', 'SSL Invalid'],
-        datasets: [{
-          data: [0, 0, 0, 0, 0, 0],
-          backgroundColor: colors.healthColors,
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: compactLegendOptions }
-      }
-    });
-  }
-
   } catch (err) {
     console.error('Error initializing charts:', err);
     // Charts will gracefully degrade - app continues to function
@@ -787,29 +766,99 @@ function updateCharts(domains) {
     state.charts.timeline.update();
   }
 
-  // Health Status Chart
-  const healthStats = { dnsOk: 0, dnsFail: 0, httpOk: 0, httpFail: 0, sslValid: 0, sslInvalid: 0 };
+}
+
+/* ======================================================
+   Groups Status Widget
+====================================================== */
+function updateGroupsStatusWidget(domains) {
+  const container = document.getElementById('groupsStatusWidget');
+  if (!container) return;
+
+  if (!domains || !domains.length || !state.groups || !state.groups.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">No groups configured.</div>';
+    return;
+  }
+
+  // Count domains per group (exclude ungrouped)
+  const groupMap = {};
+  state.groups.forEach(g => {
+    groupMap[g.id] = { name: g.name, color: g.color, total: 0, error: 0, expired: 0 };
+  });
+
   domains.forEach(d => {
+    if (!d.group_id || !groupMap[d.group_id]) return;
+    groupMap[d.group_id].total++;
+    if (d.error) groupMap[d.group_id].error++;
+    const days = getExpiryDays(d.expiry_date);
+    if (days !== null && days <= 0) groupMap[d.group_id].expired++;
+  });
+
+  const groups = Object.values(groupMap).filter(g => g.total > 0);
+
+  if (groups.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">No domains in any group.</div>';
+    return;
+  }
+
+  container.innerHTML = groups.map(g => {
+    const isDegraded = g.error > 0 || g.expired > 0;
+    const statusColor = isDegraded ? 'var(--danger)' : 'var(--success)';
+    const statusText = isDegraded ? '⚠ Issues' : '✓ OK';
+    return `
+      <div class="group-status-row">
+        <div class="group-status-dot" style="background:${escapeHTML(g.color)}"></div>
+        <div class="group-status-name">${escapeHTML(g.name)}</div>
+        <div class="group-status-count">${g.total} site${g.total !== 1 ? 's' : ''}</div>
+        <div class="group-status-pill" style="color:${statusColor}">${statusText}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ======================================================
+   Mammoth Widget
+====================================================== */
+function updateMammothWidget(domains) {
+  const container = document.getElementById('mammothWidget');
+  if (!container) return;
+
+  const mammothGroup = state.groups && state.groups.find(g => g.name.toLowerCase() === 'mammoth');
+  if (!mammothGroup) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Group &ldquo;Mammoth&rdquo; not found.</div>';
+    return;
+  }
+
+  const mammothDomains = (domains || []).filter(d => d.group_id === mammothGroup.id);
+  if (mammothDomains.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">No domains in Mammoth group.</div>';
+    return;
+  }
+
+  let up = 0, down = 0, unknown = 0, dnsFail = 0, httpFail = 0, sslFail = 0;
+  mammothDomains.forEach(d => {
+    if (d.uptime && d.uptime.current_status === 'up') up++;
+    else if (d.uptime && d.uptime.current_status === 'down') down++;
+    else unknown++;
     if (d.health) {
-      if (d.health.dns_resolved === true) healthStats.dnsOk++;
-      else if (d.health.dns_resolved === false) healthStats.dnsFail++;
-
-      if (d.health.http_status && d.health.http_status < 400) healthStats.httpOk++;
-      else if (d.health.http_status && d.health.http_status >= 400) healthStats.httpFail++;
-
-      if (d.health.ssl_valid === true) healthStats.sslValid++;
-      else if (d.health.ssl_valid === false) healthStats.sslInvalid++;
+      if (d.health.dns_resolved === false) dnsFail++;
+      if (d.health.http_status && d.health.http_status >= 400) httpFail++;
+      if (d.health.ssl_valid === false) sslFail++;
     }
   });
 
-  if (state.charts.health) {
-    state.charts.health.data.datasets[0].data = [
-      healthStats.dnsOk, healthStats.dnsFail,
-      healthStats.httpOk, healthStats.httpFail,
-      healthStats.sslValid, healthStats.sslInvalid
-    ];
-    state.charts.health.update();
-  }
+  container.innerHTML = `
+    <div class="uptime-status-widget" style="margin-bottom:10px;">
+      <div class="status-big-number up"><span class="status-count">${up}</span><span class="status-label">Up</span></div>
+      <div class="status-big-number down"><span class="status-count">${down}</span><span class="status-label">Down</span></div>
+      <div class="status-big-number unknown"><span class="status-count">${unknown}</span><span class="status-label">Unknown</span></div>
+    </div>
+    <div class="mammoth-health-row">
+      <span class="health-chip ${dnsFail > 0 ? 'fail' : 'ok'}"><i class="fa-solid fa-globe"></i> DNS ${dnsFail > 0 ? dnsFail + ' fail' : 'OK'}</span>
+      <span class="health-chip ${httpFail > 0 ? 'fail' : 'ok'}"><i class="fa-solid fa-signal"></i> HTTP ${httpFail > 0 ? httpFail + ' fail' : 'OK'}</span>
+      <span class="health-chip ${sslFail > 0 ? 'fail' : 'ok'}"><i class="fa-solid fa-lock"></i> SSL ${sslFail > 0 ? sslFail + ' fail' : 'OK'}</span>
+    </div>
+  `;
 }
 
 // Load activity log from audit API
@@ -1508,12 +1557,9 @@ async function load() {
       filteredDomains = sortDomains(filteredDomains, FILTERS.sortBy, FILTERS.sortOrder);
     }
 
-    // Calculate stats - for paginated mode, we need to fetch stats separately or use total
-    // For now, calculate from what we have (in paginated mode, this will be per-page stats)
+    // Calculate expiry stats from current page/view (statsSource)
     const statsSource = state.pagination.enabled ? filteredDomains : displayDomains;
     const stats = { expired: 0, exp15: 0, exp30: 0, exp90: 0, exp180: 0, unchecked: 0 };
-    const uptimeStats = { up: 0, down: 0, unknown: 0 };
-    const criticalAlerts = [];
 
     statsSource.forEach(d => {
       if (!d.last_checked) {
@@ -1523,15 +1569,37 @@ async function load() {
       if (days !== null) {
         if (days <= 0) {
           stats.expired++;
-          criticalAlerts.push({ type: 'expired', domain: d.domain, message: 'Domain expired', icon: 'fa-calendar-xmark', severity: 'critical' });
         } else {
-          if (days <= 15) {
-            stats.exp15++;
-            criticalAlerts.push({ type: 'expiring', domain: d.domain, message: `Expires in ${days} days`, icon: 'fa-calendar-exclamation', severity: 'warning' });
-          }
+          if (days <= 15) stats.exp15++;
           if (days <= 30) stats.exp30++;
           if (days <= 90) stats.exp90++;
           if (days <= 180) stats.exp180++;
+        }
+      }
+    });
+
+    // Always compute alerts and uptime stats from the full domain list to avoid
+    // duplication/flickering when paginating. Use a seen-set for dedup.
+    const alertSource = state.domains && state.domains.length > 0 ? state.domains : displayDomains;
+    const uptimeStats = { up: 0, down: 0, unknown: 0 };
+    const criticalAlerts = [];
+    const seenAlerts = new Set();
+
+    alertSource.forEach(d => {
+      const days = getExpiryDays(d.expiry_date);
+      if (days !== null) {
+        if (days <= 0) {
+          const k = `${d.domain}:expired`;
+          if (!seenAlerts.has(k)) {
+            seenAlerts.add(k);
+            criticalAlerts.push({ type: 'expired', domain: d.domain, message: 'Domain expired', icon: 'fa-calendar-xmark', severity: 'critical' });
+          }
+        } else if (days <= 15) {
+          const k = `${d.domain}:expiring`;
+          if (!seenAlerts.has(k)) {
+            seenAlerts.add(k);
+            criticalAlerts.push({ type: 'expiring', domain: d.domain, message: `Expires in ${days} days`, icon: 'fa-calendar-exclamation', severity: 'warning' });
+          }
         }
       }
 
@@ -1541,7 +1609,11 @@ async function load() {
           uptimeStats.up++;
         } else if (d.uptime.current_status === 'down') {
           uptimeStats.down++;
-          criticalAlerts.push({ type: 'down', domain: d.domain, message: 'Site is down', icon: 'fa-server', severity: 'critical' });
+          const k = `${d.domain}:down`;
+          if (!seenAlerts.has(k)) {
+            seenAlerts.add(k);
+            criticalAlerts.push({ type: 'down', domain: d.domain, message: 'Site is down', icon: 'fa-server', severity: 'critical' });
+          }
         } else {
           uptimeStats.unknown++;
         }
@@ -1553,16 +1625,28 @@ async function load() {
       const currentNs = (d.name_servers || []).map(ns => ns.toLowerCase()).sort();
       const prevNs = (d.name_servers_prev || []).map(ns => ns.toLowerCase()).sort();
       if (prevNs.length > 0 && JSON.stringify(currentNs) !== JSON.stringify(prevNs)) {
-        criticalAlerts.push({ type: 'ns-changed', domain: d.domain, message: 'Nameservers changed', icon: 'fa-server', severity: 'warning' });
+        const k = `${d.domain}:ns-changed`;
+        if (!seenAlerts.has(k)) {
+          seenAlerts.add(k);
+          criticalAlerts.push({ type: 'ns-changed', domain: d.domain, message: 'Nameservers changed', icon: 'fa-server', severity: 'warning' });
+        }
       }
 
       // Health alerts
       if (d.health) {
         if (!d.health.dns_resolved) {
-          criticalAlerts.push({ type: 'dns-fail', domain: d.domain, message: 'DNS resolution failed', icon: 'fa-globe', severity: 'critical' });
+          const k = `${d.domain}:dns-fail`;
+          if (!seenAlerts.has(k)) {
+            seenAlerts.add(k);
+            criticalAlerts.push({ type: 'dns-fail', domain: d.domain, message: 'DNS resolution failed', icon: 'fa-globe', severity: 'critical' });
+          }
         }
         if (d.health.ssl_valid === false) {
-          criticalAlerts.push({ type: 'ssl-invalid', domain: d.domain, message: 'SSL certificate invalid', icon: 'fa-lock-open', severity: 'warning' });
+          const k = `${d.domain}:ssl-invalid`;
+          if (!seenAlerts.has(k)) {
+            seenAlerts.add(k);
+            criticalAlerts.push({ type: 'ssl-invalid', domain: d.domain, message: 'SSL certificate invalid', icon: 'fa-lock-open', severity: 'warning' });
+          }
         }
       }
     });
@@ -1652,6 +1736,10 @@ async function load() {
 
     // Update charts
     updateCharts(filteredDomains);
+
+    // Update group and Mammoth widgets using full domain list
+    updateGroupsStatusWidget(state.domains && state.domains.length > 0 ? state.domains : filteredDomains);
+    updateMammothWidget(state.domains && state.domains.length > 0 ? state.domains : filteredDomains);
 
     showLoading(false);
 
@@ -3588,19 +3676,22 @@ async function loadAuditLog() {
       return;
     }
 
-    const actionIcon = a => a === 'create' ? 'plus' : a === 'update' ? 'pen' : a === 'delete' ? 'trash' : a === 'login' ? 'right-to-bracket' : a === 'logout' ? 'right-from-bracket' : a === 'refresh' ? 'rotate' : a === 'health_check' ? 'heart-pulse' : 'circle-info';
-
-    container.innerHTML = logs.map(log => `
-      <div class="audit-log-item">
-        <div class="audit-log-icon ${log.action}">
-          <i class="fa-solid fa-${actionIcon(log.action)}"></i>
+    container.innerHTML = logs.map(log => {
+      const fmt = formatAuditLog(log);
+      const performer = log.performed_by ? `<span class="audit-performer"><i class="fa-solid fa-user"></i> ${escapeHTML(log.performed_by)}</span>` : '';
+      const detailsSpan = fmt.details ? ` <span class="audit-details">${escapeHTML(fmt.details)}</span>` : '';
+      return `
+        <div class="audit-log-item ${fmt.className}">
+          <div class="audit-log-icon ${log.action}">
+            <i class="fa-solid fa-${fmt.icon}"></i>
+          </div>
+          <div class="audit-log-content">
+            <div class="audit-log-title">${fmt.message}${detailsSpan}</div>
+            <div class="audit-log-meta">${formatDateTime(log.created_at)}${performer}</div>
+          </div>
         </div>
-        <div class="audit-log-content">
-          <div class="audit-log-title">${escapeHTML(log.entity_type)}: ${escapeHTML(String(log.entity_id || ''))}</div>
-          <div class="audit-log-meta">${formatDateTime(log.created_at)} &mdash; ${escapeHTML(log.action)}</div>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
   } catch (err) {
     console.error('Error loading audit log:', err);

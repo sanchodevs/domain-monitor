@@ -487,10 +487,19 @@
                 <div class="no-alerts"><i class="fa-solid fa-check-circle"></i> No critical alerts</div>
               </div>
             </div>
-            <div class="chart-card" data-widget-id="health" draggable="true">
+            <div class="chart-card" data-widget-id="groups-status" draggable="true">
               <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
-              <h3><i class="fa-solid fa-heart-pulse"></i> Health Status</h3>
-              <canvas id="healthChart"></canvas>
+              <h3><i class="fa-solid fa-layer-group"></i> Sites per Group</h3>
+              <div class="groups-status-widget" id="groupsStatusWidget">
+                <div style="color:var(--text-muted);font-size:13px;">Loading...</div>
+              </div>
+            </div>
+            <div class="chart-card" data-widget-id="mammoth" draggable="true">
+              <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
+              <h3><i class="fa-solid fa-shield-halved"></i> Mammoth</h3>
+              <div class="mammoth-widget" id="mammothWidget">
+                <div style="color:var(--text-muted);font-size:13px;">Loading...</div>
+              </div>
             </div>
             <div class="chart-card chart-timeline" data-widget-id="timeline" draggable="true">
               <div class="widget-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>

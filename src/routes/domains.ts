@@ -30,6 +30,7 @@ import { wsService } from '../services/websocket.js';
 import { fireWebhookEvent } from '../services/webhooks.js';
 import { createLogger } from '../utils/logger.js';
 import type { DomainWithRelations } from '../types/domain.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 
 const logger = createLogger('domains');
 
@@ -149,7 +150,7 @@ router.post(
       group_id: group_id || null,
     });
 
-    auditDomainCreate(domain, { domain, group_id }, req.ip, req.get('User-Agent'));
+    auditDomainCreate(domain, { domain, group_id }, req.ip, req.get('User-Agent'), (req as AuthenticatedRequest).username);
 
     // Immediately return success, then run checks in background
     res.json({ success: true, id });
@@ -220,7 +221,7 @@ router.delete(
     }
 
     softDeleteDomain(domainName);
-    auditDomainDelete(domainName, existing, req.ip, req.get('User-Agent'));
+    auditDomainDelete(domainName, existing, req.ip, req.get('User-Agent'), (req as AuthenticatedRequest).username);
 
     res.json({ success: true });
   })
@@ -242,7 +243,7 @@ router.delete(
     }
 
     softDeleteDomainById(id);
-    auditDomainDelete(existing.domain, existing, req.ip, req.get('User-Agent'));
+    auditDomainDelete(existing.domain, existing, req.ip, req.get('User-Agent'), (req as AuthenticatedRequest).username);
 
     res.json({ success: true });
   })
