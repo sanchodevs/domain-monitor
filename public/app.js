@@ -3912,7 +3912,7 @@ async function loadResponseTimeChart(domainId) {
       responseTimeChartInstance = null;
     }
 
-    const validChecks = (checks || []).filter(c => c.is_up && c.response_time_ms > 0).slice(0, 100).reverse();
+    const validChecks = (checks || []).filter(c => c.status === 'up' && c.response_time_ms > 0).slice(0, 100).reverse();
 
     if (validChecks.length === 0) {
       if (emptyMsg) emptyMsg.style.display = '';
@@ -4031,7 +4031,7 @@ async function loadNotifications() {
   try {
     const res = await fetch('/api/audit?limit=30', { credentials: 'same-origin' });
     const data = await res.json();
-    const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+    const events = Array.isArray(data.entries) ? data.entries : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
 
     if (events.length === 0) {
       list.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
@@ -4088,7 +4088,7 @@ async function checkNotifications() {
   try {
     const res = await fetch('/api/audit?limit=5', { credentials: 'same-origin' });
     const data = await res.json();
-    const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+    const events = Array.isArray(data.entries) ? data.entries : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     const unread = events.filter(e => new Date(e.created_at).getTime() > notifLastRead).length;
     if (!notifOpen) updateNotifBadge(unread);
   } catch (_) { /* silent */ }
