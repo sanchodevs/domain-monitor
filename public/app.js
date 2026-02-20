@@ -2313,8 +2313,23 @@ async function loadSettings() {
     document.getElementById('settingAuditRetention').value = settings.audit_log_retention_days || 90;
     document.getElementById('settingHealthRetention').value = settings.health_log_retention_days || 30;
 
+    // Slack settings
+    populateEventsCheckboxes('slackEventsCheckboxes', settings.slack_events || []);
+    document.getElementById('settingSlackEnabled').checked = settings.slack_enabled || false;
+    document.getElementById('settingSlackWebhookUrl').value = settings.slack_webhook_url || '';
+
+    // Signal settings
+    populateEventsCheckboxes('signalEventsCheckboxes', settings.signal_events || []);
+    document.getElementById('settingSignalEnabled').checked = settings.signal_enabled || false;
+    document.getElementById('settingSignalApiUrl').value = settings.signal_api_url || '';
+    document.getElementById('settingSignalSender').value = settings.signal_sender || '';
+    document.getElementById('settingSignalRecipients').value = (settings.signal_recipients || []).join(', ');
+
     // Load API keys
     loadApiKeys();
+
+    // Load webhooks
+    loadWebhooks();
 
     // Load retention stats
     loadRetentionStats();
@@ -2354,6 +2369,16 @@ async function saveSettings() {
       auto_cleanup_enabled: document.getElementById('settingAutoCleanup').checked,
       audit_log_retention_days: parseInt(document.getElementById('settingAuditRetention').value, 10) || 90,
       health_log_retention_days: parseInt(document.getElementById('settingHealthRetention').value, 10) || 30,
+      // Slack
+      slack_enabled: document.getElementById('settingSlackEnabled').checked,
+      slack_webhook_url: document.getElementById('settingSlackWebhookUrl').value.trim(),
+      slack_events: getCheckedEvents('slackEventsCheckboxes'),
+      // Signal
+      signal_enabled: document.getElementById('settingSignalEnabled').checked,
+      signal_api_url: document.getElementById('settingSignalApiUrl').value.trim(),
+      signal_sender: document.getElementById('settingSignalSender').value.trim(),
+      signal_recipients: document.getElementById('settingSignalRecipients').value.split(',').map(s => s.trim()).filter(Boolean),
+      signal_events: getCheckedEvents('signalEventsCheckboxes'),
     };
 
     const res = await apiFetch('/api/settings', {
@@ -2394,6 +2419,222 @@ async function saveSettings() {
 
 function setCronPreset(cron) {
   document.getElementById('settingCron').value = cron;
+}
+
+/* ======================================================
+   Slack / Signal / Webhook helpers
+====================================================== */
+const WEBHOOK_EVENTS = [
+  { value: 'domain.expiring',    label: 'Domain Expiring Soon' },
+  { value: 'domain.expired',     label: 'Domain Expired' },
+  { value: 'domain.created',     label: 'Domain Added' },
+  { value: 'domain.deleted',     label: 'Domain Removed' },
+  { value: 'health.failed',      label: 'Health Check Failed' },
+  { value: 'uptime.down',        label: 'Domain Down' },
+  { value: 'uptime.recovered',   label: 'Domain Recovered' },
+  { value: 'refresh.complete',   label: 'Refresh Complete' },
+];
+
+function populateEventsCheckboxes(containerId, selectedEvents) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = WEBHOOK_EVENTS.map(e => `
+    <label class="event-checkbox-label">
+      <input type="checkbox" value="${e.value}" ${selectedEvents.includes(e.value) ? 'checked' : ''}>
+      ${e.label}
+    </label>
+  `).join('');
+}
+
+function getCheckedEvents(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+}
+
+async function testSlackNotification() {
+  const url = document.getElementById('settingSlackWebhookUrl').value.trim();
+  if (!url) { showNotification('Enter a Slack Webhook URL first', 'error'); return; }
+  try {
+    // Save current settings first so the test uses the current webhook URL
+    const res = await apiFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slack_enabled: true,
+        slack_webhook_url: url,
+        slack_events: getCheckedEvents('slackEventsCheckboxes'),
+      })
+    });
+    if (!res.ok) throw new Error('Failed to save Slack settings before test');
+    // Fire a test via the webhook test endpoint — use a dummy webhook or the refresh event
+    const testRes = await apiFetch('/api/settings/slack/test', { method: 'POST' });
+    const data = await testRes.json().catch(() => ({}));
+    if (testRes.ok) {
+      showNotification('Slack test message sent!', 'success');
+    } else {
+      showNotification(data.message || 'Slack test failed', 'error');
+    }
+  } catch (err) {
+    showNotification(err.message || 'Slack test failed', 'error');
+  }
+}
+
+async function testSignalNotification() {
+  const apiUrl = document.getElementById('settingSignalApiUrl').value.trim();
+  const sender = document.getElementById('settingSignalSender').value.trim();
+  const recipientsRaw = document.getElementById('settingSignalRecipients').value.trim();
+  if (!apiUrl || !sender || !recipientsRaw) {
+    showNotification('Fill in API URL, sender, and at least one recipient first', 'error');
+    return;
+  }
+  const recipients = recipientsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const res = await apiFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        signal_enabled: true,
+        signal_api_url: apiUrl,
+        signal_sender: sender,
+        signal_recipients: recipients,
+        signal_events: getCheckedEvents('signalEventsCheckboxes'),
+      })
+    });
+    if (!res.ok) throw new Error('Failed to save Signal settings before test');
+    const testRes = await apiFetch('/api/settings/signal/test', { method: 'POST' });
+    const data = await testRes.json().catch(() => ({}));
+    if (testRes.ok) {
+      showNotification('Signal test message sent!', 'success');
+    } else {
+      showNotification(data.message || 'Signal test failed', 'error');
+    }
+  } catch (err) {
+    showNotification(err.message || 'Signal test failed', 'error');
+  }
+}
+
+/* ======================================================
+   Webhooks CRUD
+====================================================== */
+async function loadWebhooks() {
+  try {
+    const res = await apiFetch('/api/webhooks');
+    if (!res.ok) return;
+    const webhooks = await res.json();
+
+    // Populate new-webhook event checkboxes
+    populateEventsCheckboxes('newWebhookEventsCheckboxes', []);
+
+    const container = document.getElementById('webhooksList');
+    if (!container) return;
+
+    if (!webhooks.length) {
+      container.innerHTML = '<p class="info-text">No webhooks configured yet.</p>';
+      return;
+    }
+
+    container.innerHTML = webhooks.map(wh => `
+      <div class="webhook-item" id="webhook-${wh.id}">
+        <div class="webhook-item-header">
+          <div class="webhook-item-info">
+            <span class="webhook-name">${escapeHTML(wh.name)}</span>
+            <span class="webhook-url" title="${escapeHTML(wh.url)}">${escapeHTML(wh.url.length > 50 ? wh.url.slice(0, 47) + '...' : wh.url)}</span>
+          </div>
+          <div class="webhook-item-actions">
+            <div class="api-key-toggle ${wh.enabled ? 'enabled' : ''}" onclick="toggleWebhook(${wh.id}, ${!wh.enabled})" title="${wh.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}"></div>
+            <button class="btn btn-sm" onclick="testWebhook(${wh.id})" title="Send test event"><i class="fa-solid fa-paper-plane"></i></button>
+            <button class="btn btn-sm" onclick="deleteWebhook(${wh.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="webhook-events-list">
+          ${wh.events.map(e => `<span class="tag-badge" style="background:#6366f1">${e}</span>`).join(' ')}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Error loading webhooks:', err);
+  }
+}
+
+async function addWebhook() {
+  const name = document.getElementById('newWebhookName').value.trim();
+  const url = document.getElementById('newWebhookUrl').value.trim();
+  const secret = document.getElementById('newWebhookSecret').value.trim();
+  const events = getCheckedEvents('newWebhookEventsCheckboxes');
+
+  if (!name) { showNotification('Webhook name is required', 'error'); return; }
+  if (!url) { showNotification('Webhook URL is required', 'error'); return; }
+  if (!events.length) { showNotification('Select at least one event', 'error'); return; }
+
+  try {
+    const body = { name, url, events, enabled: true };
+    if (secret) body.secret = secret;
+
+    const res = await apiFetch('/api/webhooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to add webhook');
+    }
+
+    const data = await res.json();
+    if (data.secret && data.secret !== '***') {
+      showNotification(`Webhook created! Secret: ${data.secret} — save this, it won't be shown again.`, 'info');
+    } else {
+      showNotification('Webhook added', 'success');
+    }
+
+    document.getElementById('newWebhookName').value = '';
+    document.getElementById('newWebhookUrl').value = '';
+    document.getElementById('newWebhookSecret').value = '';
+    populateEventsCheckboxes('newWebhookEventsCheckboxes', []);
+    loadWebhooks();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function toggleWebhook(id, enabled) {
+  try {
+    await apiFetch(`/api/webhooks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    loadWebhooks();
+  } catch (err) {
+    showNotification('Failed to update webhook', 'error');
+  }
+}
+
+async function testWebhook(id) {
+  try {
+    const res = await apiFetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+    if (res.ok) {
+      showNotification('Test event sent to webhook', 'success');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showNotification(data.message || 'Test failed', 'error');
+    }
+  } catch (err) {
+    showNotification('Test failed', 'error');
+  }
+}
+
+async function deleteWebhook(id) {
+  if (!confirm('Delete this webhook?')) return;
+  try {
+    await apiFetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+    showNotification('Webhook deleted', 'success');
+    loadWebhooks();
+  } catch (err) {
+    showNotification('Failed to delete webhook', 'error');
+  }
 }
 
 async function testEmailSettings() {

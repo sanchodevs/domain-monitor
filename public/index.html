@@ -64,6 +64,9 @@
           <button class="tab-btn" data-tab="uptime">Uptime</button>
           <button class="tab-btn" data-tab="retention">Retention</button>
           <button class="tab-btn" data-tab="email">Email</button>
+          <button class="tab-btn" data-tab="slack">Slack</button>
+          <button class="tab-btn" data-tab="signal">Signal</button>
+          <button class="tab-btn" data-tab="webhooks">Webhooks</button>
           <button class="tab-btn" data-tab="apikeys">API Keys</button>
         </div>
 
@@ -214,6 +217,95 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Slack Tab -->
+        <div class="tab-content" id="tab-slack">
+          <h3>Slack Notifications</h3>
+          <p class="info-text">Send alerts to a Slack channel via an Incoming Webhook URL. Create one at <strong>api.slack.com/apps</strong> → Incoming Webhooks.</p>
+          <div class="form-group">
+            <label for="settingSlackEnabled">
+              <input type="checkbox" id="settingSlackEnabled"> Enable Slack Notifications
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSlackWebhookUrl">Incoming Webhook URL</label>
+            <input type="url" id="settingSlackWebhookUrl" placeholder="https://hooks.slack.com/services/T.../B.../...">
+            <small>Paste your Slack Incoming Webhook URL here</small>
+          </div>
+          <div class="form-group">
+            <label>Events to Send</label>
+            <div class="events-checkboxes" id="slackEventsCheckboxes"></div>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="testSlackNotification()">
+              <i class="fa-solid fa-paper-plane"></i> Send Test Message
+            </button>
+          </div>
+        </div>
+
+        <!-- Signal Tab -->
+        <div class="tab-content" id="tab-signal">
+          <h3>Signal Notifications</h3>
+          <p class="info-text">Send alerts via Signal using <strong>signal-cli REST API</strong>. You must have a self-hosted <code>signal-cli-rest-api</code> instance running.</p>
+          <div class="form-group">
+            <label for="settingSignalEnabled">
+              <input type="checkbox" id="settingSignalEnabled"> Enable Signal Notifications
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalApiUrl">signal-cli REST API URL</label>
+            <input type="url" id="settingSignalApiUrl" placeholder="http://localhost:8080">
+            <small>Base URL of your signal-cli REST API instance</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalSender">Sender Phone Number</label>
+            <input type="text" id="settingSignalSender" placeholder="+12345678900">
+            <small>The registered Signal number that sends the messages</small>
+          </div>
+          <div class="form-group">
+            <label for="settingSignalRecipients">Recipients</label>
+            <input type="text" id="settingSignalRecipients" placeholder="+12345678900, +19876543210">
+            <small>Comma-separated phone numbers or Signal group IDs</small>
+          </div>
+          <div class="form-group">
+            <label>Events to Send</label>
+            <div class="events-checkboxes" id="signalEventsCheckboxes"></div>
+          </div>
+          <div class="form-group">
+            <button class="btn" onclick="testSignalNotification()">
+              <i class="fa-solid fa-paper-plane"></i> Send Test Message
+            </button>
+          </div>
+        </div>
+
+        <!-- Webhooks Tab -->
+        <div class="tab-content" id="tab-webhooks">
+          <h3>Outgoing Webhooks</h3>
+          <p class="info-text">POST a JSON payload to any URL when events occur. Each webhook can subscribe to specific events and optionally use an HMAC secret for verification.</p>
+          <div id="webhooksList" class="webhooks-list"></div>
+          <hr style="border-color:var(--border);margin:16px 0;">
+          <h4>Add Webhook</h4>
+          <div class="form-group">
+            <label for="newWebhookName">Name</label>
+            <input type="text" id="newWebhookName" placeholder="My Webhook">
+          </div>
+          <div class="form-group">
+            <label for="newWebhookUrl">URL</label>
+            <input type="url" id="newWebhookUrl" placeholder="https://example.com/hook">
+          </div>
+          <div class="form-group">
+            <label for="newWebhookSecret">Secret (optional)</label>
+            <input type="password" id="newWebhookSecret" placeholder="Leave blank to auto-generate">
+            <small>Used to sign payloads with HMAC-SHA256 (X-Hub-Signature-256 header)</small>
+          </div>
+          <div class="form-group">
+            <label>Events</label>
+            <div class="events-checkboxes" id="newWebhookEventsCheckboxes"></div>
+          </div>
+          <button class="btn btn-add" onclick="addWebhook()">
+            <i class="fa-solid fa-plus"></i> Add Webhook
+          </button>
         </div>
 
         <!-- API Keys Tab -->
