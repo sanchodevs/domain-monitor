@@ -4,22 +4,21 @@ import { config } from '../config/index.js';
 const isDev = !config.isProduction;
 
 // Standard limiter for all API routes
-// Dev: 2000 req/15min (dashboard makes many parallel calls on load)
-// Prod: 500 req/15min
+// Dev: skip entirely, Prod: 2000 req/15min
 export const standardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 2000 : 500,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
-  skip: () => isDev, // completely skip rate limiting in development
+  skip: () => isDev,
 });
 
 // Heavy operation limiter for expensive trigger endpoints
-// Dev: unlimited, Prod: 20 req/15min
+// Dev: skip entirely, Prod: 20 req/15min
 export const heavyOpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 1000 : 20,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests for this operation, please try again later.' },
