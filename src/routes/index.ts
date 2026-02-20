@@ -15,6 +15,7 @@ import metricsRouter from './metrics.js';
 import rssRouter from './rss.js';
 import webhooksRouter from './webhooks.js';
 import usersRouter from './users.js';
+import statusRouter from './status.js';
 
 const router = Router();
 
@@ -35,5 +36,6 @@ router.use('/metrics', metricsRouter);
 router.use('/feed.rss', rssRouter);
 router.use('/webhooks', webhooksRouter);
 router.use('/users', usersRouter);
+router.use('/status', statusRouter);
 
 export default router;
