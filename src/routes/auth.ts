@@ -39,7 +39,9 @@ router.post(
     res.cookie('session', result.sessionId, {
       httpOnly: true,
       secure: config.isProduction,
-      sameSite: 'strict',
+      // 'strict' can cause cookies to be dropped on localhost in some browsers;
+      // use 'lax' in dev, 'strict' in production
+      sameSite: config.isProduction ? 'strict' : 'lax',
       maxAge: config.sessionMaxAge,
     });
 
