@@ -1745,6 +1745,7 @@ async function addDomain() {
     showLoading(true);
     const res = await fetch("/api/domains", {
       method: "POST",
+      credentials: 'same-origin',
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ domain, group_id: groupId })
     });
@@ -1980,6 +1981,7 @@ async function addBulkDomains() {
     try {
       const res = await fetch("/api/domains", {
         method: "POST",
+        credentials: 'same-origin',
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({domain})
       });
@@ -2075,7 +2077,7 @@ async function refreshAll() {
     showRefreshProgress(true, 0, domains.length);
 
     // Refresh with health checks enabled by default
-    const res = await fetch("/api/refresh?withHealth=true", { method: "POST" });
+    const res = await fetch("/api/refresh?withHealth=true", { method: "POST", credentials: 'same-origin' });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -2806,6 +2808,7 @@ async function saveDomainDetails() {
     // Save group
     await fetch(`/api/domains/${state.currentDomainId}/group`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group_id: groupId ? parseInt(groupId) : null })
     });
@@ -2820,14 +2823,14 @@ async function saveDomainDetails() {
     // Add new tags
     for (const tagId of selectedTagIds) {
       if (!currentTagIds.includes(tagId)) {
-        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'POST' });
+        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'POST', credentials: 'same-origin' });
       }
     }
 
     // Remove unselected tags
     for (const tagId of currentTagIds) {
       if (!selectedTagIds.includes(tagId)) {
-        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'DELETE' });
+        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'DELETE', credentials: 'same-origin' });
       }
     }
 
@@ -2950,7 +2953,7 @@ async function loadAuditLog() {
     if (entityType) url += `&entity_type=${entityType}`;
     if (action) url += `&action=${action}`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { credentials: 'same-origin' });
     if (!res.ok) return;
 
     const logs = await res.json();
@@ -3267,7 +3270,7 @@ async function bulkAddTags() {
 
     for (const tagId of selectedTagIds) {
       try {
-        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'POST' });
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'POST', credentials: 'same-origin' });
         if (res.ok) updated++;
         else failed++;
       } catch {
@@ -3300,7 +3303,7 @@ async function bulkRemoveTags() {
 
     for (const tagId of selectedTagIds) {
       try {
-        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'DELETE', credentials: 'same-origin' });
         if (res.ok) removed++;
       } catch {
         // Ignore errors for removing non-existent tags
@@ -3358,7 +3361,7 @@ async function bulkCheckUptime() {
     if (!domain) continue;
 
     try {
-      await fetch(`/api/uptime/domain/${domain.id}`, { method: 'POST' });
+      await fetch(`/api/uptime/domain/${domain.id}`, { method: 'POST', credentials: 'same-origin' });
       checked++;
     } catch {
       // Continue on error
@@ -3384,7 +3387,7 @@ async function runUptimeCheckAll() {
   try {
     showNotification('Running uptime check for all domains...', 'info');
     showLoading(true);
-    const res = await fetch('/api/uptime/check-all', { method: 'POST' });
+    const res = await fetch('/api/uptime/check-all', { method: 'POST', credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {
@@ -3403,7 +3406,7 @@ async function runUptimeCheckAll() {
 
 async function restartUptimeService() {
   try {
-    const res = await fetch('/api/uptime/restart', { method: 'POST' });
+    const res = await fetch('/api/uptime/restart', { method: 'POST', credentials: 'same-origin' });
     if (res.ok) {
       showNotification('Uptime monitoring service restarted', 'success');
     }
@@ -3417,7 +3420,7 @@ async function restartUptimeService() {
 ====================================================== */
 async function loadRetentionStats() {
   try {
-    const res = await fetch('/api/uptime/retention/stats');
+    const res = await fetch('/api/uptime/retention/stats', { credentials: 'same-origin' });
     if (!res.ok) {
       console.error('Failed to fetch retention stats:', res.status);
       return;
@@ -3446,7 +3449,7 @@ async function runManualCleanup() {
 
   try {
     showLoading(true);
-    const res = await fetch('/api/uptime/retention/cleanup', { method: 'POST' });
+    const res = await fetch('/api/uptime/retention/cleanup', { method: 'POST', credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {
@@ -3896,7 +3899,7 @@ let responseTimeChartInstance = null;
 
 async function loadResponseTimeChart(domainId) {
   try {
-    const res = await fetch('/api/uptime/domain/' + domainId + '?limit=100');
+    const res = await fetch('/api/uptime/domain/' + domainId + '?limit=100', { credentials: 'same-origin' });
     if (!res.ok) return;
     const checks = await res.json();
 
@@ -4026,7 +4029,7 @@ async function loadNotifications() {
   if (!list) return;
 
   try {
-    const res = await fetch('/api/audit?limit=30');
+    const res = await fetch('/api/audit?limit=30', { credentials: 'same-origin' });
     const data = await res.json();
     const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
 
@@ -4083,7 +4086,7 @@ function notifFormatTimeAgo(timestamp) {
 
 async function checkNotifications() {
   try {
-    const res = await fetch('/api/audit?limit=5');
+    const res = await fetch('/api/audit?limit=5', { credentials: 'same-origin' });
     const data = await res.json();
     const events = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
     const unread = events.filter(e => new Date(e.created_at).getTime() > notifLastRead).length;
