@@ -646,67 +646,6 @@ api_keys (id, name, key_encrypted, provider, enabled, ...)
 
 ---
 
-## Troubleshooting
-
-### Common Issues
-
-#### "Database is locked"
-- Ensure only one instance of the app is running
-- Check file permissions on the `data/` directory
-
-#### WHOIS data not loading
-- Verify `APILAYER_KEY` is set in `.env`
-- Check API key has remaining quota
-- Some TLDs (.biz, .info) use fallback methods
-
-#### WebSocket not connecting
-- Check if running behind a proxy (needs WebSocket support)
-- Verify firewall allows WebSocket connections
-- Check browser console for errors
-
-#### Emails not sending
-- Verify SMTP settings in `.env`
-- For Gmail, use an "App Password" not your regular password
-- Check spam folder
-- Use Settings > Test Email to diagnose
-
-#### Health checks showing unknown
-- Run manual health check (heart icon)
-- Check if domain is accessible from server
-- Some sites block automated requests
-
-### Debug Mode
-
-Run with debug logging:
-
-```bash
-LOG_LEVEL=debug npm start
-```
-
-### Checking Logs
-
-```bash
-# If LOG_TO_FILE=true
-tail -f logs/app.log
-
-# Docker logs
-docker-compose logs -f
-```
-
----
-
-## Contributing
-
-Contributions are welcome! Here's how to get started:
-
-1. **Fork** the repository
-2. **Clone** your fork locally
-3. **Create a branch** for your feature (`git checkout -b feature/amazing`)
-4. **Make changes** and test thoroughly
-5. **Commit** with clear messages
-6. **Push** to your fork
-7. **Open a Pull Request**
-
 ### Development Setup
 
 ```bash
@@ -722,20 +661,3 @@ npm test
 # Build for production
 npm run build
 ```
-
----
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
----
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/sanchodevs/domain-monitor/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/sanchodevs/domain-monitor/discussions)
-
----
-
-Built with care for domain administrators everywhere.
