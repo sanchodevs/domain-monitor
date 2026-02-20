@@ -123,8 +123,21 @@ async function apiFetch(url, options = {}) {
 ====================================================== */
 const DAY_MS = 86400000;
 
-const formatDate = v => v ? new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
-const formatDateTime = v => v ? new Date(v).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
+// Active display timezone (IANA string). Updated when settings load.
+let appTimezone = "UTC";
+
+const formatDate = v => {
+  if (!v) return "-";
+  try {
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: appTimezone }).format(new Date(v));
+  } catch { return new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }); }
+};
+const formatDateTime = v => {
+  if (!v) return "-";
+  try {
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: appTimezone }).format(new Date(v));
+  } catch { return new Date(v).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+};
 
 const getDomainAge = created => {
   if (!created) return "—";
@@ -638,14 +651,14 @@ function updateCharts(domains) {
   const now = new Date();
   for (let i = 0; i < 6; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const key = date.toLocaleDateString('en-US', { month: 'short' });
+    const key = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: appTimezone }).format(date);
     monthCounts[key] = 0;
   }
 
   domains.forEach(d => {
     if (!d.expiry_date) return;
     const expiry = new Date(d.expiry_date);
-    const key = expiry.toLocaleDateString('en-US', { month: 'short' });
+    const key = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: appTimezone }).format(expiry);
     if (monthCounts.hasOwnProperty(key)) {
       monthCounts[key]++;
     }
@@ -860,7 +873,7 @@ function getTimeAgo(dateStr) {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: appTimezone }).format(date);
 }
 
 /* ======================================================
@@ -1231,13 +1244,10 @@ function renderNsStatus(domainId, currentNs, prevNs, updatedAt, createdAt) {
   const formatStatusDate = (dateStr) => {
     if (!dateStr) return 'Unknown';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZone: appTimezone
+    }).format(date);
   };
 
   // If no current nameservers, show pending status
@@ -2253,6 +2263,11 @@ async function loadSettings() {
     document.getElementById('settingAlertDays').value = settings.alert_days?.[0] || 30;
     document.getElementById('settingCron').value = settings.refresh_schedule || '0 0 * * *';
 
+    // Timezone setting
+    const tz = settings.timezone || 'UTC';
+    appTimezone = tz;
+    populateTimezoneSelect(tz);
+
     // Email settings
     document.getElementById('settingEmailEnabled').checked = settings.email_enabled || false;
     document.getElementById('settingEmailRecipients').value = (settings.email_recipients || []).join(', ');
@@ -2290,6 +2305,8 @@ async function saveSettings() {
     const emailRecipients = recipientsStr.split(',').map(e => e.trim()).filter(Boolean);
 
     const settings = {
+      // Timezone
+      timezone: document.getElementById('settingTimezone').value || 'UTC',
       // Schedule
       refresh_schedule: document.getElementById('settingCron').value,
       // Email
@@ -3843,7 +3860,7 @@ async function renderTimelineChart() {
             max: maxDate,
             ticks: {
               callback: function(val) {
-                return new Date(val).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: appTimezone }).format(new Date(val));
               },
               maxTicksLimit: 8,
               color: '#8892a4',
@@ -3895,8 +3912,7 @@ async function loadResponseTimeChart(domainId) {
 
     const labels = validChecks.map(c => {
       const d = new Date(c.checked_at);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
-        d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: appTimezone }).format(d);
     });
     const data = validChecks.map(c => c.response_time_ms);
     const avg = data.reduce((a, b) => a + b, 0) / data.length;
@@ -4069,3 +4085,105 @@ async function checkNotifications() {
 setInterval(checkNotifications, 60000);
 // Check on page load after a small delay
 setTimeout(checkNotifications, 3000);
+
+/* ======================================================
+   Timezone Settings
+====================================================== */
+
+// Common IANA timezones grouped with UTC offsets for the picker.
+// This covers the most-used zones; the browser validates the chosen value.
+const TIMEZONE_LIST = [
+  // UTC
+  { value: 'UTC',                       label: 'UTC — Coordinated Universal Time (UTC+0)' },
+  // Americas
+  { value: 'America/New_York',          label: 'Eastern Time — New York (UTC-5/-4)' },
+  { value: 'America/Chicago',           label: 'Central Time — Chicago (UTC-6/-5)' },
+  { value: 'America/Denver',            label: 'Mountain Time — Denver (UTC-7/-6)' },
+  { value: 'America/Phoenix',           label: 'Mountain Time (no DST) — Phoenix (UTC-7)' },
+  { value: 'America/Los_Angeles',       label: 'Pacific Time — Los Angeles (UTC-8/-7)' },
+  { value: 'America/Anchorage',         label: 'Alaska — Anchorage (UTC-9/-8)' },
+  { value: 'Pacific/Honolulu',          label: 'Hawaii — Honolulu (UTC-10)' },
+  { value: 'America/Sao_Paulo',         label: 'Brazil — São Paulo (UTC-3/-2)' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina — Buenos Aires (UTC-3)' },
+  { value: 'America/Bogota',            label: 'Colombia — Bogotá (UTC-5)' },
+  { value: 'America/Lima',              label: 'Peru — Lima (UTC-5)' },
+  { value: 'America/Mexico_City',       label: 'Mexico — Mexico City (UTC-6/-5)' },
+  { value: 'America/Toronto',           label: 'Canada — Toronto (UTC-5/-4)' },
+  { value: 'America/Vancouver',         label: 'Canada — Vancouver (UTC-8/-7)' },
+  // Europe
+  { value: 'Europe/London',             label: 'UK — London (UTC+0/+1)' },
+  { value: 'Europe/Dublin',             label: 'Ireland — Dublin (UTC+0/+1)' },
+  { value: 'Europe/Lisbon',             label: 'Portugal — Lisbon (UTC+0/+1)' },
+  { value: 'Europe/Madrid',             label: 'Spain — Madrid (UTC+1/+2)' },
+  { value: 'Europe/Paris',              label: 'France — Paris (UTC+1/+2)' },
+  { value: 'Europe/Berlin',             label: 'Germany — Berlin (UTC+1/+2)' },
+  { value: 'Europe/Rome',               label: 'Italy — Rome (UTC+1/+2)' },
+  { value: 'Europe/Amsterdam',          label: 'Netherlands — Amsterdam (UTC+1/+2)' },
+  { value: 'Europe/Stockholm',          label: 'Sweden — Stockholm (UTC+1/+2)' },
+  { value: 'Europe/Warsaw',             label: 'Poland — Warsaw (UTC+1/+2)' },
+  { value: 'Europe/Athens',             label: 'Greece — Athens (UTC+2/+3)' },
+  { value: 'Europe/Helsinki',           label: 'Finland — Helsinki (UTC+2/+3)' },
+  { value: 'Europe/Bucharest',          label: 'Romania — Bucharest (UTC+2/+3)' },
+  { value: 'Europe/Istanbul',           label: 'Turkey — Istanbul (UTC+3)' },
+  { value: 'Europe/Moscow',             label: 'Russia — Moscow (UTC+3)' },
+  // Africa
+  { value: 'Africa/Cairo',              label: 'Egypt — Cairo (UTC+2)' },
+  { value: 'Africa/Nairobi',            label: 'Kenya — Nairobi (UTC+3)' },
+  { value: 'Africa/Johannesburg',       label: 'South Africa — Johannesburg (UTC+2)' },
+  { value: 'Africa/Lagos',              label: 'Nigeria — Lagos (UTC+1)' },
+  // Asia
+  { value: 'Asia/Dubai',                label: 'UAE — Dubai (UTC+4)' },
+  { value: 'Asia/Karachi',              label: 'Pakistan — Karachi (UTC+5)' },
+  { value: 'Asia/Kolkata',              label: 'India — Kolkata (UTC+5:30)' },
+  { value: 'Asia/Dhaka',                label: 'Bangladesh — Dhaka (UTC+6)' },
+  { value: 'Asia/Bangkok',              label: 'Thailand — Bangkok (UTC+7)' },
+  { value: 'Asia/Jakarta',              label: 'Indonesia — Jakarta (UTC+7)' },
+  { value: 'Asia/Singapore',            label: 'Singapore (UTC+8)' },
+  { value: 'Asia/Hong_Kong',            label: 'Hong Kong (UTC+8)' },
+  { value: 'Asia/Shanghai',             label: 'China — Shanghai (UTC+8)' },
+  { value: 'Asia/Taipei',               label: 'Taiwan — Taipei (UTC+8)' },
+  { value: 'Asia/Seoul',                label: 'South Korea — Seoul (UTC+9)' },
+  { value: 'Asia/Tokyo',                label: 'Japan — Tokyo (UTC+9)' },
+  // Pacific
+  { value: 'Australia/Sydney',          label: 'Australia — Sydney (UTC+10/+11)' },
+  { value: 'Australia/Melbourne',       label: 'Australia — Melbourne (UTC+10/+11)' },
+  { value: 'Australia/Perth',           label: 'Australia — Perth (UTC+8)' },
+  { value: 'Pacific/Auckland',          label: 'New Zealand — Auckland (UTC+12/+13)' },
+  { value: 'Pacific/Fiji',              label: 'Fiji (UTC+12)' },
+];
+
+function populateTimezoneSelect(selected) {
+  const sel = document.getElementById('settingTimezone');
+  if (!sel) return;
+  sel.innerHTML = '';
+  TIMEZONE_LIST.forEach(tz => {
+    const opt = document.createElement('option');
+    opt.value = tz.value;
+    opt.textContent = tz.label;
+    if (tz.value === selected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // If the saved value isn't in the list, add it as a custom option at the top
+  if (selected && !TIMEZONE_LIST.find(t => t.value === selected)) {
+    const opt = document.createElement('option');
+    opt.value = selected;
+    opt.textContent = selected + ' (custom)';
+    opt.selected = true;
+    sel.insertBefore(opt, sel.firstChild);
+  }
+  // Update appTimezone whenever the user changes the select (live preview)
+  sel.onchange = () => { appTimezone = sel.value; };
+}
+
+function detectTimezone() {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected) {
+      appTimezone = detected;
+      populateTimezoneSelect(detected);
+      showNotification(`Detected timezone: ${detected}`, 'info');
+    }
+  } catch (e) {
+    showNotification('Could not detect timezone automatically', 'error');
+  }
+}

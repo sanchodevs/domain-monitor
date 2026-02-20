@@ -21,6 +21,19 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+function formatDateInTimezone(dateStr: string, timezone: string): string {
+  if (!dateStr) return dateStr;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr; // not parseable — return raw WHOIS string
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric', timeZone: timezone,
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+}
+
 let transporter: Transporter | null = null;
 
 // Resolve hostname to IP using OS resolver (dns.lookup) to avoid Node.js DNS resolver issues
@@ -160,14 +173,14 @@ interface ExpiringDomain {
   registrar: string;
 }
 
-function buildExpirationEmailHTML(domains: ExpiringDomain[]): string {
+function buildExpirationEmailHTML(domains: ExpiringDomain[], timezone: string): string {
   const rows = domains
     .sort((a, b) => a.days - b.days)
     .map(
       (d) => `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(d.domain)}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(d.expiry_date)}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(formatDateInTimezone(d.expiry_date, timezone))}</td>
         <td style="padding: 12px; border-bottom: 1px solid #374151; color: ${d.days <= 7 ? '#ef4444' : d.days <= 14 ? '#f97316' : '#eab308'}; font-weight: bold;">
           ${d.days} days
         </td>
@@ -233,7 +246,7 @@ export async function sendExpirationAlert(domains: ExpiringDomain[]): Promise<bo
     return false;
   }
 
-  const html = buildExpirationEmailHTML(domains);
+  const html = buildExpirationEmailHTML(domains, settings.timezone || 'UTC');
 
   try {
     await transporter.sendMail({

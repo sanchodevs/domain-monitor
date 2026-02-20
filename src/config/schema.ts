@@ -62,6 +62,18 @@ export const settingsSchema = z.object({
   signal_recipients: z.array(z.string()).optional(),
   signal_enabled: z.boolean().optional(),
   signal_events: z.array(z.string()).optional(),
+  // Display preferences
+  timezone: z
+    .string()
+    .refine((val) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: val });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Invalid IANA timezone identifier')
+    .optional(),
 });
 
 // Login validation

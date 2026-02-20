@@ -115,6 +115,8 @@ export function getSettingsData(): SettingsData {
     signal_recipients: JSON.parse(getSetting('signal_recipients') || '[]'),
     signal_enabled: getSetting('signal_enabled') === 'true',
     signal_events: JSON.parse(getSetting('signal_events') || '[]'),
+    // Display preferences
+    timezone: getSetting('timezone') || 'UTC',
   };
 
   // Cache the result
@@ -189,6 +191,10 @@ export function updateSettings(data: Partial<SettingsData>): void {
     }
     if (data.signal_events !== undefined) {
       setSetting('signal_events', JSON.stringify(data.signal_events));
+    }
+    // Display preferences
+    if (data.timezone !== undefined) {
+      setSetting('timezone', data.timezone);
     }
   })();
 

@@ -75,6 +75,14 @@
             <input type="number" id="settingAlertDays" min="1" max="365" value="30">
             <small>Days before expiration to show warnings</small>
           </div>
+          <div class="form-group">
+            <label for="settingTimezone">Display Timezone</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="settingTimezone" style="flex:1;"></select>
+              <button type="button" class="btn btn-sm" onclick="detectTimezone()" title="Auto-detect from browser">&#x1F310; Detect</button>
+            </div>
+            <small>All dates and times in the UI, logs, and alerts will use this timezone</small>
+          </div>
         </div>
 
         <!-- Schedule Tab -->

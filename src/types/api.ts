@@ -75,6 +75,8 @@ export interface SettingsData {
   signal_recipients?: string[];
   signal_enabled?: boolean;
   signal_events?: string[]; // which events to send to Signal
+  // Display preferences
+  timezone?: string; // IANA timezone, e.g. "America/Chicago"
 }
 
 export interface UptimeStats {
