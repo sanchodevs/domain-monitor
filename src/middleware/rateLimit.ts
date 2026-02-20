@@ -1,21 +1,29 @@
 import rateLimit from 'express-rate-limit';
+import { config } from '../config/index.js';
 
-// Standard limiter for all API routes: 100 requests per 15 minutes
+const isDev = !config.isProduction;
+
+// Standard limiter for all API routes
+// Dev: 2000 req/15min (dashboard makes many parallel calls on load)
+// Prod: 500 req/15min
 export const standardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: isDev ? 2000 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
+  skip: () => isDev, // completely skip rate limiting in development
 });
 
-// Heavy operation limiter for expensive trigger endpoints: 5 requests per 15 minutes
+// Heavy operation limiter for expensive trigger endpoints
+// Dev: unlimited, Prod: 20 req/15min
 export const heavyOpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: isDev ? 1000 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests for this operation, please try again later.' },
+  skip: () => isDev,
 });
 
 // Login limiter: 50 attempts per 15 minutes per IP (brute-force protection)
