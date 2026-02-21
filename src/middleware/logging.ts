@@ -1,16 +1,20 @@
+import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('http');
 
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
+  const requestId = crypto.randomUUID();
+  (req as Request & { requestId: string }).requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+
   const start = Date.now();
 
-  // Log response when finished
   res.on('finish', () => {
     const duration = Date.now() - start;
-
     const logData = {
+      requestId,
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,

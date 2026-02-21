@@ -37,12 +37,14 @@ export function updateRefreshSchedule(cronExpression: string): boolean {
 
   // Create new task
   refreshTask = cron.schedule(cronExpression, async () => {
-    logger.info('Scheduled refresh started');
+    const taskId = `refresh-${Date.now()}`;
+    const start = Date.now();
+    logger.info('Scheduled refresh started', { taskId });
     try {
       await runRefreshWithTimeout();
-      logger.info('Scheduled refresh completed');
+      logger.info('Scheduled refresh completed', { taskId, durationMs: Date.now() - start });
     } catch (err) {
-      logger.error('Scheduled refresh failed', { error: err });
+      logger.error('Scheduled refresh failed', { taskId, durationMs: Date.now() - start, error: err });
     }
   });
 
@@ -56,12 +58,14 @@ export function initializeScheduler(): void {
 
   // Email alerts check - run daily at 9 AM
   emailTask = cron.schedule('0 9 * * *', async () => {
-    logger.info('Daily email check started');
+    const taskId = `email-check-${Date.now()}`;
+    const start = Date.now();
+    logger.info('Daily email check started', { taskId });
     try {
-      await checkExpiringDomains();
-      logger.info('Daily email check completed');
+      const expiring = await checkExpiringDomains();
+      logger.info('Daily email check completed', { taskId, durationMs: Date.now() - start, expiringCount: expiring.length });
     } catch (err) {
-      logger.error('Daily email check failed', { error: err });
+      logger.error('Daily email check failed', { taskId, durationMs: Date.now() - start, error: err });
     }
   });
 

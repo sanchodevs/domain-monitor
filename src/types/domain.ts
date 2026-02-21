@@ -11,6 +11,7 @@ export interface Domain {
   group_id?: number | null;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 }
 
 export interface DomainRow {
@@ -26,6 +27,7 @@ export interface DomainRow {
   group_id: number | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface Group {

@@ -42,16 +42,60 @@ export const settingsSchema = z.object({
   email_enabled: z.boolean().optional(),
   email_recipients: z.array(z.string().email('Invalid email address')).optional(),
   alert_days: z.array(z.number().int().positive()).optional(),
+  // SMTP settings (DB overrides env)
+  smtp_host: z.string().max(253).optional(),
+  smtp_port: z.number().int().min(1).max(65535).optional(),
+  smtp_secure: z.boolean().optional(),
+  smtp_user: z.string().max(253).optional(),
+  smtp_pass: z.string().max(512).optional(),
+  smtp_from: z.string().max(500).optional(),
+  // Health checks
   health_check_enabled: z.boolean().optional(),
   health_check_interval_hours: z.number().int().min(1).max(168).optional(),
   // Uptime monitoring settings
   uptime_monitoring_enabled: z.boolean().optional(),
   uptime_check_interval_minutes: z.number().int().min(1).max(60).optional(),
   uptime_alert_threshold: z.number().int().min(1).max(10).optional(),
+  uptime_check_timeout_seconds: z.number().int().min(5).max(60).optional(),
   // Audit log retention settings
   audit_log_retention_days: z.number().int().min(7).max(365).optional(),
   health_log_retention_days: z.number().int().min(1).max(90).optional(),
   auto_cleanup_enabled: z.boolean().optional(),
+  // Slack integration
+  slack_webhook_url: z.string().url().optional().or(z.literal('')),
+  slack_enabled: z.boolean().optional(),
+  slack_events: z.array(z.string()).optional(),
+  // Signal integration
+  signal_api_url: z.string().url().optional().or(z.literal('')),
+  signal_sender: z.string().optional(),
+  signal_recipients: z.array(z.string()).optional(),
+  signal_enabled: z.boolean().optional(),
+  signal_events: z.array(z.string()).optional(),
+  // Display preferences
+  timezone: z
+    .string()
+    .refine((val) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: val });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Invalid IANA timezone identifier')
+    .optional(),
+  // Security
+  session_max_age_days: z.number().int().min(1).max(365).optional(),
+  // Advanced / WHOIS
+  whois_timeout_seconds: z.number().int().min(5).max(120).optional(),
+  whois_delay_ms: z.number().int().min(500).max(10000).optional(),
+  whois_max_retries: z.number().int().min(0).max(10).optional(),
+  // Email alert schedule
+  email_alert_cron: z
+    .string()
+    .refine((val) => cron.validate(val), 'Invalid cron expression')
+    .optional(),
+  // Rate limiting
+  rate_limit_max: z.number().int().min(100).max(10000).optional(),
 });
 
 // Login validation
@@ -83,6 +127,21 @@ export const assignGroupSchema = z.object({
 
 export const assignTagsSchema = z.object({
   tag_ids: z.array(z.number().int().positive()),
+});
+
+// Bulk operations
+export const bulkIdsSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+});
+
+export const bulkAssignGroupSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+  group_id: z.number().int().positive().nullable(),
+});
+
+export const bulkAssignTagsSchema = z.object({
+  domain_ids: z.array(z.number().int().positive()).min(1).max(500),
+  tag_ids: z.array(z.number().int().positive()).min(1).max(50),
 });
 
 // Query params validation

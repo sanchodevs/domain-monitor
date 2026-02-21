@@ -106,7 +106,7 @@ function showErrorBoundary(message) {
    API Fetch Wrapper (handles 401 globally)
 ====================================================== */
 async function apiFetch(url, options = {}) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, { credentials: 'same-origin', ...options });
 
   if (res.status === 401) {
     state.authRequired = true;
@@ -123,12 +123,47 @@ async function apiFetch(url, options = {}) {
 ====================================================== */
 const DAY_MS = 86400000;
 
-const formatDate = v => v ? new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
-const formatDateTime = v => v ? new Date(v).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
+// Active display timezone (IANA string). Updated when settings load.
+let appTimezone = "UTC";
+
+// All timestamps from SQLite come as either:
+//   '2026-02-20 03:50:11'  (datetime('now') — UTC, no suffix, space separator)
+//   '2026-02-20T03:41:20.115Z' (JS Date.toISOString() — already UTC with Z)
+//   '2027-06-17T04:00:00'  (WHOIS date — UTC, no Z suffix)
+// new Date() treats strings without a timezone as LOCAL time, which is wrong.
+// parseUTC() normalises all formats to a proper UTC Date object.
+function parseUTC(v) {
+  if (!v) return null;
+  let s = String(v).trim();
+  // Already has timezone info — parse as-is
+  if (s.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(s)) return new Date(s);
+  // Replace space separator with T, then append Z to mark as UTC
+  s = s.replace(' ', 'T');
+  if (!s.includes('T')) s += 'T00:00:00'; // date-only: treat as midnight UTC
+  return new Date(s + 'Z');
+}
+
+const formatDate = v => {
+  if (!v) return "-";
+  try {
+    const d = parseUTC(v);
+    if (!d || isNaN(d)) return "-";
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: appTimezone }).format(d);
+  } catch { return String(v); }
+};
+const formatDateTime = v => {
+  if (!v) return "-";
+  try {
+    const d = parseUTC(v);
+    if (!d || isNaN(d)) return "-";
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: appTimezone }).format(d);
+  } catch { return String(v); }
+};
 
 const getDomainAge = created => {
   if (!created) return "—";
-  const c = new Date(created), n = new Date();
+  const c = parseUTC(created), n = new Date();
+  if (!c || isNaN(c)) return "—";
   let years = n.getFullYear() - c.getFullYear(), months = n.getMonth() - c.getMonth();
   if (months < 0) { years--; months += 12; }
   const parts = [];
@@ -137,7 +172,7 @@ const getDomainAge = created => {
   return parts.join(" ") || "—";
 };
 
-const getExpiryDays = expiry => expiry ? Math.ceil((new Date(expiry) - new Date()) / DAY_MS) : null;
+const getExpiryDays = expiry => expiry ? Math.ceil((parseUTC(expiry) - new Date()) / DAY_MS) : null;
 
 const getStatusClass = days => days === null ? "" : days <= 0 ? "status-bad" : days <= 14 ? "status-warn" : "status-ok";
 
@@ -286,6 +321,52 @@ const FILTERS = {
 };
 
 /* ======================================================
+   Filter Persistence (localStorage)
+====================================================== */
+function saveFiltersToStorage() {
+  const filters = {
+    search: FILTERS.search || '',
+    status: FILTERS.status || 'all',
+    group: FILTERS.group || 'all',
+    registrar: FILTERS.registrar || 'all',
+    sortBy: FILTERS.sortBy || 'expiry',
+    sortOrder: FILTERS.sortOrder || 'asc',
+  };
+  try {
+    localStorage.setItem('domainFilters', JSON.stringify(filters));
+  } catch {}
+}
+
+function loadFiltersFromStorage() {
+  try {
+    const saved = localStorage.getItem('domainFilters');
+    if (!saved) return;
+    const filters = JSON.parse(saved);
+    if (filters.search) FILTERS.search = filters.search;
+    if (filters.status) FILTERS.status = filters.status;
+    if (filters.group) FILTERS.group = filters.group;
+    if (filters.registrar) FILTERS.registrar = filters.registrar;
+    if (filters.sortBy) FILTERS.sortBy = filters.sortBy;
+    if (filters.sortOrder) FILTERS.sortOrder = filters.sortOrder;
+  } catch {}
+}
+
+function restoreFilterUI() {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = FILTERS.search || '';
+  const filterStatus = document.getElementById('filterStatus');
+  if (filterStatus) filterStatus.value = FILTERS.status || 'all';
+  const filterRegistrar = document.getElementById('filterRegistrar');
+  if (filterRegistrar) filterRegistrar.value = FILTERS.registrar || 'all';
+  const filterGroup = document.getElementById('filterGroup');
+  if (filterGroup) filterGroup.value = FILTERS.group || 'all';
+  const sortBy = document.getElementById('sortBy');
+  if (sortBy) sortBy.value = FILTERS.sortBy || 'expiry';
+  const sortOrder = document.getElementById('sortOrder');
+  if (sortOrder) sortOrder.value = FILTERS.sortOrder || 'asc';
+}
+
+/* ======================================================
    WebSocket Connection
 ====================================================== */
 function initWebSocket() {
@@ -341,6 +422,7 @@ function handleWebSocketMessage(message) {
       if (payload.completed === payload.total) {
         showRefreshProgress(false);
         state.isRefreshing = false;
+        setRefreshButtonsDisabled(false);
         showNotification('Refresh complete!', 'success');
         load();
       }
@@ -349,6 +431,7 @@ function handleWebSocketMessage(message) {
     case 'refresh_complete':
       showRefreshProgress(false);
       state.isRefreshing = false;
+      setRefreshButtonsDisabled(false);
       showNotification(`Refresh complete! ${payload.total} domains processed.`, 'success');
       load();
       break;
@@ -590,14 +673,15 @@ function updateCharts(domains) {
   const now = new Date();
   for (let i = 0; i < 6; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const key = date.toLocaleDateString('en-US', { month: 'short' });
+    const key = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: appTimezone }).format(date);
     monthCounts[key] = 0;
   }
 
   domains.forEach(d => {
     if (!d.expiry_date) return;
-    const expiry = new Date(d.expiry_date);
-    const key = expiry.toLocaleDateString('en-US', { month: 'short' });
+    const expiry = parseUTC(d.expiry_date);
+    if (!expiry || isNaN(expiry)) return;
+    const key = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: appTimezone }).format(expiry);
     if (monthCounts.hasOwnProperty(key)) {
       monthCounts[key]++;
     }
@@ -801,7 +885,7 @@ function formatAuditLog(log) {
 
 // Helper function for relative time
 function getTimeAgo(dateStr) {
-  const date = new Date(dateStr);
+  const date = parseUTC(dateStr);
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);
@@ -812,7 +896,7 @@ function getTimeAgo(dateStr) {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: appTimezone }).format(date);
 }
 
 /* ======================================================
@@ -979,18 +1063,18 @@ function sortDomains(domains, sortBy, sortOrder) {
         comparison = (a.registrar || '').localeCompare(b.registrar || '');
         break;
       case 'expiry':
-        const aExpiry = a.expiry_date ? new Date(a.expiry_date) : new Date(8640000000000000);
-        const bExpiry = b.expiry_date ? new Date(b.expiry_date) : new Date(8640000000000000);
+        const aExpiry = a.expiry_date ? parseUTC(a.expiry_date) : new Date(8640000000000000);
+        const bExpiry = b.expiry_date ? parseUTC(b.expiry_date) : new Date(8640000000000000);
         comparison = aExpiry - bExpiry;
         break;
       case 'age':
-        const aCreated = a.created_date ? new Date(a.created_date) : new Date();
-        const bCreated = b.created_date ? new Date(b.created_date) : new Date();
+        const aCreated = a.created_date ? parseUTC(a.created_date) : new Date();
+        const bCreated = b.created_date ? parseUTC(b.created_date) : new Date();
         comparison = aCreated - bCreated;
         break;
       case 'lastChecked':
-        const aChecked = a.last_checked ? new Date(a.last_checked) : new Date(0);
-        const bChecked = b.last_checked ? new Date(b.last_checked) : new Date(0);
+        const aChecked = a.last_checked ? parseUTC(a.last_checked) : new Date(0);
+        const bChecked = b.last_checked ? parseUTC(b.last_checked) : new Date(0);
         comparison = aChecked - bChecked;
         break;
     }
@@ -1182,14 +1266,12 @@ function renderNsStatus(domainId, currentNs, prevNs, updatedAt, createdAt) {
   // Format date for tooltip
   const formatStatusDate = (dateStr) => {
     if (!dateStr) return 'Unknown';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const date = parseUTC(dateStr);
+    if (!date || isNaN(date)) return 'Unknown';
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZone: appTimezone
+    }).format(date);
   };
 
   // If no current nameservers, show pending status
@@ -1279,9 +1361,9 @@ async function load() {
 
     // Load domains, groups, and tags in parallel
     const [domainsRes, groupsRes, tagsRes] = await Promise.all([
-      fetch(`/api/domains?${params.toString()}`),
-      fetch("/api/groups"),
-      fetch("/api/tags")
+      fetch(`/api/domains?${params.toString()}`, { credentials: 'same-origin' }),
+      fetch("/api/groups", { credentials: 'same-origin' }),
+      fetch("/api/tags", { credentials: 'same-origin' })
     ]);
 
     if (!domainsRes.ok) {
@@ -1500,6 +1582,7 @@ function applyFilters() {
   // Reset to first page when filters change
   state.pagination.page = 1;
 
+  saveFiltersToStorage();
   load();
 }
 
@@ -1521,6 +1604,7 @@ function clearFilters() {
   // Reset to first page
   state.pagination.page = 1;
 
+  try { localStorage.removeItem('domainFilters'); } catch {}
   load();
 }
 
@@ -1655,6 +1739,15 @@ function changePageSize(size) {
   load();
 }
 
+function jumpToPage(value) {
+  const page = parseInt(value, 10);
+  if (isNaN(page)) return;
+  const clamped = Math.min(Math.max(1, page), state.pagination.totalPages || 1);
+  const input = document.getElementById('pageJumpInput');
+  if (input) input.value = '';
+  goToPage(clamped);
+}
+
 /* ======================================================
    CRUD Actions
 ====================================================== */
@@ -1676,6 +1769,7 @@ async function addDomain() {
     showLoading(true);
     const res = await fetch("/api/domains", {
       method: "POST",
+      credentials: 'same-origin',
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ domain, group_id: groupId })
     });
@@ -1911,6 +2005,7 @@ async function addBulkDomains() {
     try {
       const res = await fetch("/api/domains", {
         method: "POST",
+        credentials: 'same-origin',
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({domain})
       });
@@ -2001,11 +2096,12 @@ async function refreshAll() {
     if (!confirm(`Refresh ${domains.length} domain(s)?\n\nThis will query WHOIS data and run health checks for all domains.`)) return;
 
     state.isRefreshing = true;
+    setRefreshButtonsDisabled(true);
     showLoading(true);
     showRefreshProgress(true, 0, domains.length);
 
     // Refresh with health checks enabled by default
-    const res = await fetch("/api/refresh?withHealth=true", { method: "POST" });
+    const res = await fetch("/api/refresh?withHealth=true", { method: "POST", credentials: 'same-origin' });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -2014,15 +2110,27 @@ async function refreshAll() {
 
     showNotification(data.message || "Refresh started", 'info');
 
-    // WebSocket will handle progress updates
+    // WebSocket will handle progress updates; re-enable buttons on complete event
 
   } catch (err) {
     console.error("Error refreshing:", err);
     showNotification(err.message, 'error');
     state.isRefreshing = false;
+    setRefreshButtonsDisabled(false);
     showRefreshProgress(false);
     showLoading(false);
   }
+}
+
+function setRefreshButtonsDisabled(disabled) {
+  const selectors = ['#refreshAllBtn', '#refreshSelectedBtn', '.refresh-btn', '[data-action="refresh"]'];
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(btn => {
+      btn.disabled = disabled;
+      if (disabled) btn.classList.add('loading');
+      else btn.classList.remove('loading');
+    });
+  });
 }
 
 async function refreshOne(domain) {
@@ -2117,6 +2225,18 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Close topmost visible modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const visibleModals = Array.from(document.querySelectorAll('.modal'))
+      .filter(m => m.style.display !== 'none' && m.style.display !== '');
+    if (visibleModals.length > 0) {
+      visibleModals[visibleModals.length - 1].style.display = 'none';
+      e.preventDefault();
+    }
+  }
+});
+
 /* ======================================================
    Dropdown Management
 ====================================================== */
@@ -2169,23 +2289,72 @@ async function loadSettings() {
     document.getElementById('settingAlertDays').value = settings.alert_days?.[0] || 30;
     document.getElementById('settingCron').value = settings.refresh_schedule || '0 0 * * *';
 
+    // Timezone setting
+    const tz = settings.timezone || 'UTC';
+    appTimezone = tz;
+    populateTimezoneSelect(tz);
+
     // Email settings
     document.getElementById('settingEmailEnabled').checked = settings.email_enabled || false;
     document.getElementById('settingEmailRecipients').value = (settings.email_recipients || []).join(', ');
     document.getElementById('settingAlertDaysEmail').value = (settings.alert_days || [7, 14, 30]).join(', ');
+    document.getElementById('settingEmailAlertCron').value = settings.email_alert_cron || '0 9 * * *';
+
+    // SMTP settings (leave password blank — never pre-fill)
+    document.getElementById('settingSmtpHost').value = settings.smtp_host || '';
+    document.getElementById('settingSmtpPort').value = settings.smtp_port || '';
+    document.getElementById('settingSmtpSecure').checked = settings.smtp_secure || false;
+    document.getElementById('settingSmtpUser').value = settings.smtp_user || '';
+    document.getElementById('settingSmtpPass').value = ''; // never pre-fill password
+    document.getElementById('settingSmtpFrom').value = settings.smtp_from || '';
+
+    // Show SMTP status banner
+    updateSmtpStatusBanner(settings);
 
     // Uptime settings
     document.getElementById('settingUptimeEnabled').checked = settings.uptime_monitoring_enabled || false;
     document.getElementById('settingUptimeInterval').value = settings.uptime_check_interval_minutes || 5;
     document.getElementById('settingUptimeThreshold').value = settings.uptime_alert_threshold || 3;
 
+    // Health check settings
+    document.getElementById('settingHealthCheckEnabled').checked = settings.health_check_enabled !== false;
+    document.getElementById('settingHealthCheckInterval').value = settings.health_check_interval_hours || 24;
+
     // Retention settings
     document.getElementById('settingAutoCleanup').checked = settings.auto_cleanup_enabled !== false;
     document.getElementById('settingAuditRetention').value = settings.audit_log_retention_days || 90;
     document.getElementById('settingHealthRetention').value = settings.health_log_retention_days || 30;
 
+    // Slack settings
+    populateEventsCheckboxes('slackEventsCheckboxes', settings.slack_events || []);
+    document.getElementById('settingSlackEnabled').checked = settings.slack_enabled || false;
+    document.getElementById('settingSlackWebhookUrl').value = settings.slack_webhook_url || '';
+
+    // Signal settings
+    populateEventsCheckboxes('signalEventsCheckboxes', settings.signal_events || []);
+    document.getElementById('settingSignalEnabled').checked = settings.signal_enabled || false;
+    document.getElementById('settingSignalApiUrl').value = settings.signal_api_url || '';
+    document.getElementById('settingSignalSender').value = settings.signal_sender || '';
+    document.getElementById('settingSignalRecipients').value = (settings.signal_recipients || []).join(', ');
+
+    // Security settings
+    document.getElementById('settingSessionMaxAge').value = settings.session_max_age_days || 7;
+    document.getElementById('settingRateLimitMax').value = settings.rate_limit_max || 2000;
+
+    // Advanced settings
+    document.getElementById('settingWhoisTimeout').value = settings.whois_timeout_seconds || 30;
+    document.getElementById('settingWhoisDelay').value = settings.whois_delay_ms || 2000;
+    document.getElementById('settingWhoisRetries').value = settings.whois_max_retries || 3;
+    document.getElementById('settingUptimeTimeout').value = settings.uptime_check_timeout_seconds || 10;
+
     // Load API keys
     loadApiKeys();
+
+    // Load webhooks
+    loadWebhooks();
+
+    // Load users
+    loadUsers();
 
     // Load retention stats
     loadRetentionStats();
@@ -2205,21 +2374,59 @@ async function saveSettings() {
     const recipientsStr = document.getElementById('settingEmailRecipients').value;
     const emailRecipients = recipientsStr.split(',').map(e => e.trim()).filter(Boolean);
 
+    // SMTP fields — only include password if user typed something
+    const smtpPass = document.getElementById('settingSmtpPass').value;
+    const smtpHost = document.getElementById('settingSmtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('settingSmtpPort').value, 10);
+    const smtpUser = document.getElementById('settingSmtpUser').value.trim();
+    const smtpFrom = document.getElementById('settingSmtpFrom').value.trim();
+
     const settings = {
+      // Timezone
+      timezone: document.getElementById('settingTimezone').value || 'UTC',
       // Schedule
       refresh_schedule: document.getElementById('settingCron').value,
       // Email
       email_enabled: document.getElementById('settingEmailEnabled').checked,
       email_recipients: emailRecipients,
       alert_days: alertDays.length > 0 ? alertDays : [7, 14, 30],
+      email_alert_cron: document.getElementById('settingEmailAlertCron').value.trim() || '0 9 * * *',
+      // SMTP (only send password if user typed one)
+      smtp_host: smtpHost || undefined,
+      smtp_port: smtpPort > 0 ? smtpPort : undefined,
+      smtp_secure: document.getElementById('settingSmtpSecure').checked,
+      smtp_user: smtpUser || undefined,
+      smtp_from: smtpFrom || undefined,
+      ...(smtpPass ? { smtp_pass: smtpPass } : {}),
       // Uptime
       uptime_monitoring_enabled: document.getElementById('settingUptimeEnabled').checked,
       uptime_check_interval_minutes: parseInt(document.getElementById('settingUptimeInterval').value, 10) || 5,
       uptime_alert_threshold: parseInt(document.getElementById('settingUptimeThreshold').value, 10) || 3,
+      uptime_check_timeout_seconds: parseInt(document.getElementById('settingUptimeTimeout').value, 10) || 10,
+      // Health checks
+      health_check_enabled: document.getElementById('settingHealthCheckEnabled').checked,
+      health_check_interval_hours: parseInt(document.getElementById('settingHealthCheckInterval').value, 10) || 24,
       // Retention
       auto_cleanup_enabled: document.getElementById('settingAutoCleanup').checked,
       audit_log_retention_days: parseInt(document.getElementById('settingAuditRetention').value, 10) || 90,
       health_log_retention_days: parseInt(document.getElementById('settingHealthRetention').value, 10) || 30,
+      // Slack
+      slack_enabled: document.getElementById('settingSlackEnabled').checked,
+      slack_webhook_url: document.getElementById('settingSlackWebhookUrl').value.trim(),
+      slack_events: getCheckedEvents('slackEventsCheckboxes'),
+      // Signal
+      signal_enabled: document.getElementById('settingSignalEnabled').checked,
+      signal_api_url: document.getElementById('settingSignalApiUrl').value.trim(),
+      signal_sender: document.getElementById('settingSignalSender').value.trim(),
+      signal_recipients: document.getElementById('settingSignalRecipients').value.split(',').map(s => s.trim()).filter(Boolean),
+      signal_events: getCheckedEvents('signalEventsCheckboxes'),
+      // Security
+      session_max_age_days: parseInt(document.getElementById('settingSessionMaxAge').value, 10) || 7,
+      rate_limit_max: parseInt(document.getElementById('settingRateLimitMax').value, 10) || 2000,
+      // Advanced / WHOIS
+      whois_timeout_seconds: parseInt(document.getElementById('settingWhoisTimeout').value, 10) || 30,
+      whois_delay_ms: parseInt(document.getElementById('settingWhoisDelay').value, 10) || 2000,
+      whois_max_retries: parseInt(document.getElementById('settingWhoisRetries').value, 10) || 3,
     };
 
     const res = await apiFetch('/api/settings', {
@@ -2235,8 +2442,17 @@ async function saveSettings() {
 
     showNotification('Settings saved successfully', 'success');
 
+    // Track if timezone changed before reloading settings
+    const prevTimezone = appTimezone;
+
     // Reload settings to reflect saved values (don't close modal)
     await loadSettings();
+
+    // If the timezone changed, re-render all date-bearing UI so changes are visible immediately
+    if (appTimezone !== prevTimezone) {
+      load();           // re-renders domain table (expiry dates, last-checked)
+      loadActivityLog();// re-renders activity feed timestamps
+    }
 
     // Restart uptime monitoring if settings changed
     if (settings.uptime_monitoring_enabled) {
@@ -2251,6 +2467,430 @@ async function saveSettings() {
 
 function setCronPreset(cron) {
   document.getElementById('settingCron').value = cron;
+}
+
+/* ======================================================
+   SMTP helpers
+====================================================== */
+function updateSmtpStatusBanner(settings) {
+  const banner = document.getElementById('smtpStatusBanner');
+  if (!banner) return;
+  const hasHost = !!(settings.smtp_host || '').trim() || true; // env fallback may have host
+  const emailEnabled = settings.email_enabled;
+  if (!emailEnabled) {
+    banner.style.display = 'none';
+    return;
+  }
+  // Request live SMTP status from backend
+  apiFetch('/api/settings/email/status').then(async r => {
+    if (!r.ok) { banner.style.display = 'none'; return; }
+    const d = await r.json();
+    banner.style.display = '';
+    if (d.initialized) {
+      banner.className = 'smtp-status-ok';
+      banner.textContent = `✓ SMTP connected — ${d.host}:${d.port} (${d.user || 'anonymous'})`;
+    } else if (d.configured) {
+      banner.className = 'smtp-status-warn';
+      banner.textContent = `⚠ SMTP configured but not verified — ${d.reason || 'unknown error'}`;
+    } else {
+      banner.className = 'smtp-status-err';
+      banner.textContent = `✗ SMTP not configured — ${d.reason || 'missing host or username'}`;
+    }
+  }).catch(() => { banner.style.display = 'none'; });
+}
+
+async function reinitSmtp() {
+  const btn = document.getElementById('btnReinitSmtp');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reinitializing…'; }
+  try {
+    const res = await apiFetch('/api/settings/email/reinit', { method: 'POST' });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok && d.success) {
+      showNotification('SMTP reinitialized successfully', 'success');
+    } else {
+      showNotification(d.message || 'SMTP reinit failed', 'error');
+    }
+    // Refresh the status banner
+    const settings = await apiFetch('/api/settings').then(r => r.json()).catch(() => ({}));
+    updateSmtpStatusBanner(settings);
+  } catch (err) {
+    showNotification('SMTP reinit error: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Re-initialize SMTP'; }
+  }
+}
+
+/* ======================================================
+   User Management
+====================================================== */
+async function loadUsers() {
+  const container = document.getElementById('usersList');
+  if (!container) return;
+  try {
+    const res = await apiFetch('/api/users');
+    if (!res.ok) {
+      if (res.status === 403) {
+        container.innerHTML = '<p class="info-text">User management requires admin role.</p>';
+      }
+      return;
+    }
+    const data = await res.json();
+    const users = data.data || data || [];
+    if (users.length === 0) {
+      container.innerHTML = '<p class="info-text">No users found.</p>';
+      return;
+    }
+    container.innerHTML = users.map(u => {
+      const roleBadge = `<span class="user-badge user-badge-${u.role}">${u.role}</span>`;
+      const disabledBadge = u.enabled === false ? '<span class="user-badge user-badge-disabled">Disabled</span>' : '';
+      const lastLogin = u.last_login ? `Last login: ${formatDateTime(u.last_login)}` : 'Never logged in';
+      const toggleLabel = u.enabled === false ? 'Enable' : 'Disable';
+      const toggleIcon = u.enabled === false ? 'fa-toggle-off' : 'fa-toggle-on';
+      return `
+        <div class="user-item" id="user-item-${u.id}">
+          <div class="user-item-info">
+            <span class="user-item-name">${escapeHtml(u.username)}</span>
+            ${roleBadge}
+            ${disabledBadge}
+            <span class="user-item-meta">${lastLogin}</span>
+          </div>
+          <div class="user-item-actions">
+            <select class="btn btn-sm" onchange="changeUserRole(${u.id}, this.value)" title="Change role">
+              ${['admin','manager','viewer'].map(r => `<option value="${r}"${u.role===r?' selected':''}>${r}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm" onclick="toggleUser(${u.id}, ${u.enabled !== false})" title="${toggleLabel}">
+              <i class="fa-solid ${toggleIcon}"></i>
+            </button>
+            <button class="btn btn-sm" onclick="resetUserPassword(${u.id}, '${escapeHtml(u.username)}')" title="Reset password">
+              <i class="fa-solid fa-key"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')" title="Delete user">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error loading users:', err);
+    container.innerHTML = '<p class="info-text">Error loading users.</p>';
+  }
+}
+
+async function createUser() {
+  const username = document.getElementById('newUserUsername').value.trim();
+  const role = document.getElementById('newUserRole').value;
+  const password = document.getElementById('newUserPassword').value;
+  const confirm = document.getElementById('newUserPasswordConfirm').value;
+
+  if (!username) { showNotification('Username is required', 'error'); return; }
+  if (!password) { showNotification('Password is required', 'error'); return; }
+  if (password !== confirm) { showNotification('Passwords do not match', 'error'); return; }
+
+  try {
+    const res = await apiFetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to create user');
+    showNotification(`User "${username}" created`, 'success');
+    document.getElementById('newUserUsername').value = '';
+    document.getElementById('newUserPassword').value = '';
+    document.getElementById('newUserPasswordConfirm').value = '';
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function changeUserRole(id, role) {
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to update role');
+    showNotification('Role updated', 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function toggleUser(id, currentlyEnabled) {
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !currentlyEnabled }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to update user');
+    showNotification(currentlyEnabled ? 'User disabled' : 'User enabled', 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function resetUserPassword(id, username) {
+  const newPass = prompt(`Enter new password for "${username}":`);
+  if (!newPass) return;
+  if (newPass.length < 6) { showNotification('Password must be at least 6 characters', 'error'); return; }
+  try {
+    const res = await apiFetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPass }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to reset password');
+    showNotification(`Password updated for "${username}"`, 'success');
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  try {
+    const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || data.error || 'Failed to delete user');
+    showNotification(`User "${username}" deleted`, 'success');
+    loadUsers();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/* ======================================================
+   Slack / Signal / Webhook helpers
+====================================================== */
+const WEBHOOK_EVENTS = [
+  { value: 'domain.expiring',    label: 'Domain Expiring Soon' },
+  { value: 'domain.expired',     label: 'Domain Expired' },
+  { value: 'domain.created',     label: 'Domain Added' },
+  { value: 'domain.deleted',     label: 'Domain Removed' },
+  { value: 'health.failed',      label: 'Health Check Failed' },
+  { value: 'uptime.down',        label: 'Domain Down' },
+  { value: 'uptime.recovered',   label: 'Domain Recovered' },
+  { value: 'refresh.complete',   label: 'Refresh Complete' },
+];
+
+function populateEventsCheckboxes(containerId, selectedEvents) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = WEBHOOK_EVENTS.map(e => `
+    <label class="event-checkbox-label">
+      <input type="checkbox" value="${e.value}" ${selectedEvents.includes(e.value) ? 'checked' : ''}>
+      ${e.label}
+    </label>
+  `).join('');
+}
+
+function getCheckedEvents(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+}
+
+async function testSlackNotification() {
+  const url = document.getElementById('settingSlackWebhookUrl').value.trim();
+  if (!url) { showNotification('Enter a Slack Webhook URL first', 'error'); return; }
+  try {
+    // Save current settings first so the test uses the current webhook URL
+    const res = await apiFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slack_enabled: true,
+        slack_webhook_url: url,
+        slack_events: getCheckedEvents('slackEventsCheckboxes'),
+      })
+    });
+    if (!res.ok) throw new Error('Failed to save Slack settings before test');
+    // Fire a test via the webhook test endpoint — use a dummy webhook or the refresh event
+    const testRes = await apiFetch('/api/settings/slack/test', { method: 'POST' });
+    const data = await testRes.json().catch(() => ({}));
+    if (testRes.ok) {
+      showNotification('Slack test message sent!', 'success');
+    } else {
+      showNotification(data.message || 'Slack test failed', 'error');
+    }
+  } catch (err) {
+    showNotification(err.message || 'Slack test failed', 'error');
+  }
+}
+
+async function testSignalNotification() {
+  const apiUrl = document.getElementById('settingSignalApiUrl').value.trim();
+  const sender = document.getElementById('settingSignalSender').value.trim();
+  const recipientsRaw = document.getElementById('settingSignalRecipients').value.trim();
+  if (!apiUrl || !sender || !recipientsRaw) {
+    showNotification('Fill in API URL, sender, and at least one recipient first', 'error');
+    return;
+  }
+  const recipients = recipientsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const res = await apiFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        signal_enabled: true,
+        signal_api_url: apiUrl,
+        signal_sender: sender,
+        signal_recipients: recipients,
+        signal_events: getCheckedEvents('signalEventsCheckboxes'),
+      })
+    });
+    if (!res.ok) throw new Error('Failed to save Signal settings before test');
+    const testRes = await apiFetch('/api/settings/signal/test', { method: 'POST' });
+    const data = await testRes.json().catch(() => ({}));
+    if (testRes.ok) {
+      showNotification('Signal test message sent!', 'success');
+    } else {
+      showNotification(data.message || 'Signal test failed', 'error');
+    }
+  } catch (err) {
+    showNotification(err.message || 'Signal test failed', 'error');
+  }
+}
+
+/* ======================================================
+   Webhooks CRUD
+====================================================== */
+async function loadWebhooks() {
+  try {
+    const res = await apiFetch('/api/webhooks');
+    if (!res.ok) return;
+    const webhooks = await res.json();
+
+    // Populate new-webhook event checkboxes
+    populateEventsCheckboxes('newWebhookEventsCheckboxes', []);
+
+    const container = document.getElementById('webhooksList');
+    if (!container) return;
+
+    if (!webhooks.length) {
+      container.innerHTML = '<p class="info-text">No webhooks configured yet.</p>';
+      return;
+    }
+
+    container.innerHTML = webhooks.map(wh => `
+      <div class="webhook-item" id="webhook-${wh.id}">
+        <div class="webhook-item-header">
+          <div class="webhook-item-info">
+            <span class="webhook-name">${escapeHTML(wh.name)}</span>
+            <span class="webhook-url" title="${escapeHTML(wh.url)}">${escapeHTML(wh.url.length > 50 ? wh.url.slice(0, 47) + '...' : wh.url)}</span>
+          </div>
+          <div class="webhook-item-actions">
+            <div class="api-key-toggle ${wh.enabled ? 'enabled' : ''}" onclick="toggleWebhook(${wh.id}, ${!wh.enabled})" title="${wh.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}"></div>
+            <button class="btn btn-sm" onclick="testWebhook(${wh.id})" title="Send test event"><i class="fa-solid fa-paper-plane"></i></button>
+            <button class="btn btn-sm" onclick="deleteWebhook(${wh.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="webhook-events-list">
+          ${wh.events.map(e => `<span class="tag-badge" style="background:#6366f1">${e}</span>`).join(' ')}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Error loading webhooks:', err);
+  }
+}
+
+async function addWebhook() {
+  const name = document.getElementById('newWebhookName').value.trim();
+  const url = document.getElementById('newWebhookUrl').value.trim();
+  const secret = document.getElementById('newWebhookSecret').value.trim();
+  const events = getCheckedEvents('newWebhookEventsCheckboxes');
+
+  if (!name) { showNotification('Webhook name is required', 'error'); return; }
+  if (!url) { showNotification('Webhook URL is required', 'error'); return; }
+  if (!events.length) { showNotification('Select at least one event', 'error'); return; }
+
+  try {
+    const body = { name, url, events, enabled: true };
+    if (secret) body.secret = secret;
+
+    const res = await apiFetch('/api/webhooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to add webhook');
+    }
+
+    const data = await res.json();
+    if (data.secret && data.secret !== '***') {
+      showNotification(`Webhook created! Secret: ${data.secret} — save this, it won't be shown again.`, 'info');
+    } else {
+      showNotification('Webhook added', 'success');
+    }
+
+    document.getElementById('newWebhookName').value = '';
+    document.getElementById('newWebhookUrl').value = '';
+    document.getElementById('newWebhookSecret').value = '';
+    populateEventsCheckboxes('newWebhookEventsCheckboxes', []);
+    loadWebhooks();
+  } catch (err) {
+    showNotification(err.message, 'error');
+  }
+}
+
+async function toggleWebhook(id, enabled) {
+  try {
+    await apiFetch(`/api/webhooks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    loadWebhooks();
+  } catch (err) {
+    showNotification('Failed to update webhook', 'error');
+  }
+}
+
+async function testWebhook(id) {
+  try {
+    const res = await apiFetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+    if (res.ok) {
+      showNotification('Test event sent to webhook', 'success');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showNotification(data.message || 'Test failed', 'error');
+    }
+  } catch (err) {
+    showNotification('Test failed', 'error');
+  }
+}
+
+async function deleteWebhook(id) {
+  if (!confirm('Delete this webhook?')) return;
+  try {
+    await apiFetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+    showNotification('Webhook deleted', 'success');
+    loadWebhooks();
+  } catch (err) {
+    showNotification('Failed to delete webhook', 'error');
+  }
 }
 
 async function testEmailSettings() {
@@ -2626,7 +3266,65 @@ async function openDomainDetails(domainId) {
     console.error('Error loading health history:', err);
   }
 
+  // Reset history panel
+  document.getElementById('domainChangeHistory').innerHTML =
+    '<p style="color:var(--text-muted);font-size:13px;">Click "Load History" to view audit log for this domain.</p>';
+
   openModal('domainModal');
+
+  // Load response time chart
+  loadResponseTimeChart(domainId);
+}
+
+async function loadDomainHistory() {
+  const domainId = state.currentDomainId;
+  if (!domainId) return;
+
+  const domain = state.allDomains.find(d => d.id === domainId);
+  if (!domain) return;
+
+  const container = document.getElementById('domainChangeHistory');
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Loading...</p>';
+
+  try {
+    const res = await apiFetch(`/api/audit?entity_type=domain&entity_id=${encodeURIComponent(domain.domain)}&limit=25`);
+    if (!res.ok) throw new Error('Failed to load history');
+    const data = await res.json();
+    const entries = data.entries || [];
+
+    if (entries.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No history found for this domain.</p>';
+      return;
+    }
+
+    container.innerHTML = entries.map(e => {
+      const actionBadge = {
+        create: '<span style="color:#22c55e;">created</span>',
+        delete: '<span style="color:#ef4444;">deleted</span>',
+        refresh: '<span style="color:#6366f1;">refreshed</span>',
+        update: '<span style="color:#f59e0b;">updated</span>',
+        health_check: '<span style="color:#3b82f6;">health check</span>',
+      }[e.action] || `<span>${escapeHTML(e.action)}</span>`;
+
+      let detail = '';
+      if (e.action === 'refresh' && e.new_value) {
+        const nv = e.new_value;
+        const parts = [];
+        if (nv.registrar) parts.push(`Registrar: ${escapeHTML(nv.registrar)}`);
+        if (nv.expiry_date) parts.push(`Expires: ${escapeHTML(nv.expiry_date)}`);
+        if (parts.length) detail = `<span style="color:var(--text-muted);font-size:11px;"> — ${parts.join(', ')}</span>`;
+      }
+
+      return `
+        <div class="health-history-item" style="font-size:13px;">
+          <span style="color:var(--text-muted);">${formatDateTime(e.created_at)}</span>
+          <span>${actionBadge}${detail}</span>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = '<p style="color:var(--danger);font-size:13px;">Failed to load history.</p>';
+  }
 }
 
 async function saveDomainDetails() {
@@ -2638,6 +3336,7 @@ async function saveDomainDetails() {
     // Save group
     await fetch(`/api/domains/${state.currentDomainId}/group`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ group_id: groupId ? parseInt(groupId) : null })
     });
@@ -2652,14 +3351,14 @@ async function saveDomainDetails() {
     // Add new tags
     for (const tagId of selectedTagIds) {
       if (!currentTagIds.includes(tagId)) {
-        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'POST' });
+        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'POST', credentials: 'same-origin' });
       }
     }
 
     // Remove unselected tags
     for (const tagId of currentTagIds) {
       if (!selectedTagIds.includes(tagId)) {
-        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'DELETE' });
+        await fetch(`/api/domains/${state.currentDomainId}/tags/${tagId}`, { method: 'DELETE', credentials: 'same-origin' });
       }
     }
 
@@ -2782,10 +3481,11 @@ async function loadAuditLog() {
     if (entityType) url += `&entity_type=${entityType}`;
     if (action) url += `&action=${action}`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { credentials: 'same-origin' });
     if (!res.ok) return;
 
-    const logs = await res.json();
+    const data = await res.json();
+    const logs = Array.isArray(data.entries) ? data.entries : (Array.isArray(data) ? data : []);
     const container = document.getElementById('auditLogList');
 
     if (logs.length === 0) {
@@ -2793,14 +3493,16 @@ async function loadAuditLog() {
       return;
     }
 
+    const actionIcon = a => a === 'create' ? 'plus' : a === 'update' ? 'pen' : a === 'delete' ? 'trash' : a === 'login' ? 'right-to-bracket' : a === 'logout' ? 'right-from-bracket' : a === 'refresh' ? 'rotate' : a === 'health_check' ? 'heart-pulse' : 'circle-info';
+
     container.innerHTML = logs.map(log => `
       <div class="audit-log-item">
         <div class="audit-log-icon ${log.action}">
-          <i class="fa-solid fa-${log.action === 'create' ? 'plus' : log.action === 'update' ? 'pen' : 'trash'}"></i>
+          <i class="fa-solid fa-${actionIcon(log.action)}"></i>
         </div>
         <div class="audit-log-content">
-          <div class="audit-log-title">${escapeHTML(log.entity_type)}: ${escapeHTML(log.entity_id)}</div>
-          <div class="audit-log-meta">${formatDateTime(log.created_at)} - ${log.action}</div>
+          <div class="audit-log-title">${escapeHTML(log.entity_type)}: ${escapeHTML(String(log.entity_id || ''))}</div>
+          <div class="audit-log-meta">${formatDateTime(log.created_at)} &mdash; ${escapeHTML(log.action)}</div>
         </div>
       </div>
     `).join('');
@@ -2824,6 +3526,7 @@ async function handleLogin(event) {
     // Use regular fetch for login - don't trigger the 401 handler
     const res = await fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
@@ -2869,7 +3572,7 @@ async function handleLogout() {
 async function checkAuthStatus() {
   try {
     // Use regular fetch - we handle auth status ourselves here
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {
@@ -2999,6 +3702,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Restore saved filters and update UI inputs
+  loadFiltersFromStorage();
+  restoreFilterUI();
+
   // Initial load
   load();
 });
@@ -3094,7 +3801,7 @@ async function bulkAddTags() {
 
     for (const tagId of selectedTagIds) {
       try {
-        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'POST' });
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'POST', credentials: 'same-origin' });
         if (res.ok) updated++;
         else failed++;
       } catch {
@@ -3127,7 +3834,7 @@ async function bulkRemoveTags() {
 
     for (const tagId of selectedTagIds) {
       try {
-        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/domains/${domain.id}/tags/${tagId}`, { method: 'DELETE', credentials: 'same-origin' });
         if (res.ok) removed++;
       } catch {
         // Ignore errors for removing non-existent tags
@@ -3185,7 +3892,7 @@ async function bulkCheckUptime() {
     if (!domain) continue;
 
     try {
-      await fetch(`/api/uptime/domain/${domain.id}`, { method: 'POST' });
+      await fetch(`/api/uptime/domain/${domain.id}`, { method: 'POST', credentials: 'same-origin' });
       checked++;
     } catch {
       // Continue on error
@@ -3211,7 +3918,7 @@ async function runUptimeCheckAll() {
   try {
     showNotification('Running uptime check for all domains...', 'info');
     showLoading(true);
-    const res = await fetch('/api/uptime/check-all', { method: 'POST' });
+    const res = await fetch('/api/uptime/check-all', { method: 'POST', credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {
@@ -3230,7 +3937,7 @@ async function runUptimeCheckAll() {
 
 async function restartUptimeService() {
   try {
-    const res = await fetch('/api/uptime/restart', { method: 'POST' });
+    const res = await fetch('/api/uptime/restart', { method: 'POST', credentials: 'same-origin' });
     if (res.ok) {
       showNotification('Uptime monitoring service restarted', 'success');
     }
@@ -3244,7 +3951,7 @@ async function restartUptimeService() {
 ====================================================== */
 async function loadRetentionStats() {
   try {
-    const res = await fetch('/api/uptime/retention/stats');
+    const res = await fetch('/api/uptime/retention/stats', { credentials: 'same-origin' });
     if (!res.ok) {
       console.error('Failed to fetch retention stats:', res.status);
       return;
@@ -3273,7 +3980,7 @@ async function runManualCleanup() {
 
   try {
     showLoading(true);
-    const res = await fetch('/api/uptime/retention/cleanup', { method: 'POST' });
+    const res = await fetch('/api/uptime/retention/cleanup', { method: 'POST', credentials: 'same-origin' });
     const data = await res.json();
 
     if (res.ok) {
@@ -3572,3 +4279,557 @@ document.addEventListener('DOMContentLoaded', () => {
     initWidgetDragDrop();
   }, 100);
 });
+
+// Set copyright year dynamically
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('copyrightYear');
+  if (el) el.textContent = new Date().getFullYear();
+});
+
+/* ======================================================
+   Task #13: Expiration Timeline Chart Modal
+====================================================== */
+let domainTimelineChartInstance = null;
+
+async function openTimelineChart() {
+  openModal('timelineModal');
+  await renderTimelineChart();
+}
+
+async function renderTimelineChart() {
+  try {
+    const res = await apiFetch('/api/domains?limit=500');
+    const json = await res.json();
+    const domains = Array.isArray(json.data) ? json.data : [];
+
+    const filter = document.getElementById('timelineFilter')?.value || 'all';
+    const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
+
+    let filtered = domains.filter(d => {
+      if (filter === 'errors') return d.error;
+      if (!d.expiry_date) return filter === 'all';
+      const expiry = new Date(d.expiry_date);
+      const daysLeft = (expiry - now) / day;
+      if (filter === 'expiring90') return daysLeft <= 90;
+      if (filter === 'expiring365') return daysLeft <= 365;
+      return true;
+    });
+
+    // Sort by expiry date (soonest first, no-expiry at end)
+    filtered.sort((a, b) => {
+      if (!a.expiry_date && !b.expiry_date) return 0;
+      if (!a.expiry_date) return 1;
+      if (!b.expiry_date) return -1;
+      return parseUTC(a.expiry_date) - parseUTC(b.expiry_date);
+    });
+
+    // Limit to 50 for readability
+    if (filtered.length > 50) filtered = filtered.slice(0, 50);
+
+    const countEl = document.getElementById('timelineCount');
+    if (countEl) countEl.textContent = 'Showing ' + filtered.length + ' domains';
+
+    const labels = filtered.map(d => d.domain.length > 30 ? d.domain.slice(0, 27) + '...' : d.domain);
+    const today = now.getTime();
+    const maxDate = new Date(now.getTime() + 365 * day).getTime();
+
+    const barData = filtered.map(d => {
+      if (!d.expiry_date) return [today, today + 30 * day];
+      const expiry = parseUTC(d.expiry_date).getTime();
+      if (expiry < today) return [expiry - 30 * day, expiry];
+      return [today, expiry];
+    });
+
+    const colors = filtered.map(d => {
+      if (d.error) return 'rgba(239, 68, 68, 0.8)';
+      if (!d.expiry_date) return 'rgba(100, 116, 139, 0.6)';
+      const expiry = parseUTC(d.expiry_date);
+      const daysLeft = (expiry - now) / day;
+      if (daysLeft < 0) return 'rgba(239, 68, 68, 0.9)';
+      if (daysLeft < 7) return 'rgba(239, 68, 68, 0.8)';
+      if (daysLeft < 30) return 'rgba(245, 158, 11, 0.8)';
+      return 'rgba(34, 197, 94, 0.7)';
+    });
+
+    const canvas = document.getElementById('domainTimelineChart');
+    if (!canvas) return;
+
+    if (domainTimelineChartInstance) {
+      domainTimelineChartInstance.destroy();
+      domainTimelineChartInstance = null;
+    }
+
+    const barHeight = 28;
+    canvas.height = Math.max(300, filtered.length * barHeight + 60);
+
+    const ctx = canvas.getContext('2d');
+    domainTimelineChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Expiration Window',
+          data: barData,
+          backgroundColor: colors,
+          borderColor: colors.map(c => c.replace(/0\.[678]9?\)/, '1)')),
+          borderWidth: 1,
+          borderRadius: 4,
+          barThickness: 20,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const d = filtered[ctx.dataIndex];
+                if (!d.expiry_date) return d.error ? 'Error: ' + d.error.slice(0, 60) : 'No expiry date';
+                const expiry = parseUTC(d.expiry_date);
+                const daysLeft = Math.round((expiry - now) / day);
+                if (daysLeft < 0) return 'Expired ' + Math.abs(daysLeft) + ' days ago (' + formatDate(d.expiry_date) + ')';
+                return 'Expires in ' + daysLeft + ' days (' + formatDate(d.expiry_date) + ')';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: today - 30 * day,
+            max: maxDate,
+            ticks: {
+              callback: function(val) {
+                return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: appTimezone }).format(new Date(val));
+              },
+              maxTicksLimit: 8,
+              color: '#8892a4',
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          y: {
+            ticks: { color: '#e2e8f0', font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Timeline chart error:', err);
+  }
+}
+
+/* ======================================================
+   Task #14: Response Time Trend Chart
+====================================================== */
+let responseTimeChartInstance = null;
+
+async function loadResponseTimeChart(domainId) {
+  try {
+    const res = await fetch('/api/uptime/domain/' + domainId + '?limit=100', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const checks = await res.json();
+
+    const canvas = document.getElementById('responseTimeChart');
+    const emptyMsg = document.getElementById('responseTimeEmpty');
+    if (!canvas) return;
+
+    if (responseTimeChartInstance) {
+      responseTimeChartInstance.destroy();
+      responseTimeChartInstance = null;
+    }
+
+    const validChecks = (checks || []).filter(c => c.status === 'up' && c.response_time_ms > 0).slice(0, 100).reverse();
+
+    if (validChecks.length === 0) {
+      if (emptyMsg) emptyMsg.style.display = '';
+      canvas.style.display = 'none';
+      return;
+    }
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    canvas.style.display = '';
+
+    const labels = validChecks.map(c => {
+      const d = parseUTC(c.checked_at);
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: appTimezone }).format(d);
+    });
+    const data = validChecks.map(c => c.response_time_ms);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+    const ctx = canvas.getContext('2d');
+    responseTimeChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Response Time (ms)',
+          data,
+          borderColor: 'rgba(99, 102, 241, 0.8)',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.3,
+        }, {
+          label: 'Avg: ' + Math.round(avg) + 'ms',
+          data: data.map(() => Math.round(avg)),
+          borderColor: 'rgba(245, 158, 11, 0.6)',
+          borderDash: [5, 5],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#8892a4', font: { size: 11 } } },
+          tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + 'ms'; } } }
+        },
+        scales: {
+          x: { display: false },
+          y: {
+            ticks: { color: '#8892a4', font: { size: 11 }, callback: function(v) { return v + 'ms'; } },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            beginAtZero: true,
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Response time chart error:', err);
+  }
+}
+
+/* ======================================================
+   Task #15: Notification History Sidebar
+====================================================== */
+let notifOpen = false;
+let notifLastRead = parseInt(localStorage.getItem('notifLastRead') || '0', 10);
+
+function toggleNotificationSidebar() {
+  notifOpen = !notifOpen;
+  const sidebar = document.getElementById('notifSidebar');
+  const overlay = document.getElementById('notifOverlay');
+  if (!sidebar || !overlay) return;
+
+  if (notifOpen) {
+    overlay.style.display = '';
+    requestAnimationFrame(() => sidebar.classList.add('open'));
+    loadNotifications();
+    notifLastRead = Date.now();
+    localStorage.setItem('notifLastRead', String(notifLastRead));
+    updateNotifBadge(0);
+  } else {
+    sidebar.classList.remove('open');
+    overlay.style.display = 'none';
+  }
+}
+
+function markAllNotifsRead() {
+  notifLastRead = Date.now();
+  localStorage.setItem('notifLastRead', String(notifLastRead));
+  updateNotifBadge(0);
+  document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+}
+
+function updateNotifBadge(count) {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function notifCapitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
+async function loadNotifications() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
+
+  try {
+    const res = await fetch('/api/audit?limit=30', { credentials: 'same-origin' });
+    const data = await res.json();
+    const events = Array.isArray(data.entries) ? data.entries : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+
+    if (events.length === 0) {
+      list.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
+      return;
+    }
+
+    const itemsHtml = events.map(evt => {
+      const evtTime = parseUTC(evt.created_at).getTime();
+      const isUnread = evtTime > notifLastRead;
+      const timeAgo = notifFormatTimeAgo(evtTime);
+
+      let iconClass = 'fa-circle-info';
+      let color = 'blue';
+      let title = notifCapitalize(evt.action) + ' ' + notifCapitalize(evt.entity_type);
+
+      if (evt.action === 'create') { iconClass = 'fa-plus-circle'; color = 'green'; title = notifCapitalize(evt.entity_type) + ' created'; }
+      else if (evt.action === 'delete') { iconClass = 'fa-trash'; color = 'red'; title = notifCapitalize(evt.entity_type) + ' deleted'; }
+      else if (evt.action === 'update') { iconClass = 'fa-pen-to-square'; color = 'blue'; title = notifCapitalize(evt.entity_type) + ' updated'; }
+      else if (evt.action === 'login') { iconClass = 'fa-right-to-bracket'; color = 'blue'; title = 'User logged in'; }
+      else if (evt.action === 'logout') { iconClass = 'fa-right-from-bracket'; color = 'blue'; title = 'User logged out'; }
+      else if (evt.action === 'email_sent') { iconClass = 'fa-envelope'; color = 'yellow'; title = 'Alert email sent'; }
+
+      const body = (evt.entity_id && evt.entity_id !== 'auth') ? escapeHTML(String(evt.entity_id)) : '';
+
+      return '<div class="notif-item' + (isUnread ? ' unread' : '') + '">' +
+        '<div class="notif-item-header">' +
+        '<span class="notif-item-icon ' + color + '"><i class="fa-solid ' + iconClass + '"></i></span>' +
+        '<span class="notif-item-title">' + escapeHTML(title) + '</span>' +
+        '<span class="notif-item-time">' + timeAgo + '</span>' +
+        '</div>' +
+        (body ? '<div class="notif-item-body">' + body + '</div>' : '') +
+        '</div>';
+    }).join('');
+
+    list.innerHTML = itemsHtml;
+  } catch (err) {
+    console.error('Notification load error:', err);
+    list.innerHTML = '<p class="notif-empty">Failed to load notifications.</p>';
+  }
+}
+
+function notifFormatTimeAgo(timestamp) {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+async function checkNotifications() {
+  try {
+    const res = await fetch('/api/audit?limit=5', { credentials: 'same-origin' });
+    const data = await res.json();
+    const events = Array.isArray(data.entries) ? data.entries : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+    const unread = events.filter(e => parseUTC(e.created_at).getTime() > notifLastRead).length;
+    if (!notifOpen) updateNotifBadge(unread);
+  } catch (_) { /* silent */ }
+}
+
+// Poll for new notifications every 60 seconds
+setInterval(checkNotifications, 60000);
+// Check on page load after a small delay
+setTimeout(checkNotifications, 3000);
+
+/* ======================================================
+   Timezone Settings
+====================================================== */
+
+// Common IANA timezone values (labels are computed dynamically with the live offset).
+const TIMEZONE_LIST = [
+  // UTC
+  { value: 'UTC',                                city: 'UTC' },
+  // Americas — North
+  { value: 'America/New_York',                   city: 'Eastern Time — New York' },
+  { value: 'America/Detroit',                    city: 'Eastern Time — Detroit' },
+  { value: 'America/Indiana/Indianapolis',       city: 'Eastern Time — Indianapolis' },
+  { value: 'America/Chicago',                    city: 'Central Time — Chicago' },
+  { value: 'America/Winnipeg',                   city: 'Central Time — Winnipeg' },
+  { value: 'America/Denver',                     city: 'Mountain Time — Denver' },
+  { value: 'America/Boise',                      city: 'Mountain Time — Boise' },
+  { value: 'America/Phoenix',                    city: 'Mountain Time — Phoenix (no DST)' },
+  { value: 'America/Los_Angeles',                city: 'Pacific Time — Los Angeles' },
+  { value: 'America/Anchorage',                  city: 'Alaska — Anchorage' },
+  { value: 'Pacific/Honolulu',                   city: 'Hawaii — Honolulu' },
+  { value: 'America/Toronto',                    city: 'Canada — Toronto' },
+  { value: 'America/Vancouver',                  city: 'Canada — Vancouver' },
+  { value: 'America/Edmonton',                   city: 'Canada — Edmonton' },
+  { value: 'America/Halifax',                    city: 'Canada — Halifax' },
+  { value: 'America/St_Johns',                   city: 'Canada — St. Johns' },
+  // Americas — Mexico & Central America
+  { value: 'America/Mexico_City',                city: 'Mexico — Mexico City' },
+  { value: 'America/Monterrey',                  city: 'Mexico — Monterrey' },
+  { value: 'America/Tijuana',                    city: 'Mexico — Tijuana' },
+  { value: 'America/Guatemala',                  city: 'Guatemala' },
+  { value: 'America/Belize',                     city: 'Belize' },
+  { value: 'America/El_Salvador',                city: 'El Salvador' },
+  { value: 'America/Tegucigalpa',                city: 'Honduras' },
+  { value: 'America/Managua',                    city: 'Nicaragua' },
+  { value: 'America/Costa_Rica',                 city: 'Costa Rica' },
+  { value: 'America/Panama',                     city: 'Panama' },
+  // Americas — Caribbean
+  { value: 'America/Havana',                     city: 'Cuba — Havana' },
+  { value: 'America/Jamaica',                    city: 'Jamaica' },
+  { value: 'America/Puerto_Rico',                city: 'Puerto Rico' },
+  { value: 'America/Santo_Domingo',              city: 'Dominican Republic' },
+  // Americas — South
+  { value: 'America/Bogota',                     city: 'Colombia — Bogotá' },
+  { value: 'America/Lima',                       city: 'Peru — Lima' },
+  { value: 'America/Caracas',                    city: 'Venezuela — Caracas' },
+  { value: 'America/Guayaquil',                  city: 'Ecuador — Guayaquil' },
+  { value: 'America/La_Paz',                     city: 'Bolivia — La Paz' },
+  { value: 'America/Santiago',                   city: 'Chile — Santiago' },
+  { value: 'America/Sao_Paulo',                  city: 'Brazil — São Paulo' },
+  { value: 'America/Manaus',                     city: 'Brazil — Manaus' },
+  { value: 'America/Argentina/Buenos_Aires',     city: 'Argentina — Buenos Aires' },
+  { value: 'America/Montevideo',                 city: 'Uruguay — Montevideo' },
+  { value: 'America/Asuncion',                   city: 'Paraguay — Asunción' },
+  // Europe
+  { value: 'Europe/London',                      city: 'UK — London' },
+  { value: 'Europe/Dublin',                      city: 'Ireland — Dublin' },
+  { value: 'Europe/Lisbon',                      city: 'Portugal — Lisbon' },
+  { value: 'Europe/Madrid',                      city: 'Spain — Madrid' },
+  { value: 'Europe/Paris',                       city: 'France — Paris' },
+  { value: 'Europe/Berlin',                      city: 'Germany — Berlin' },
+  { value: 'Europe/Rome',                        city: 'Italy — Rome' },
+  { value: 'Europe/Amsterdam',                   city: 'Netherlands — Amsterdam' },
+  { value: 'Europe/Brussels',                    city: 'Belgium — Brussels' },
+  { value: 'Europe/Zurich',                      city: 'Switzerland — Zurich' },
+  { value: 'Europe/Vienna',                      city: 'Austria — Vienna' },
+  { value: 'Europe/Prague',                      city: 'Czech Republic — Prague' },
+  { value: 'Europe/Budapest',                    city: 'Hungary — Budapest' },
+  { value: 'Europe/Stockholm',                   city: 'Sweden — Stockholm' },
+  { value: 'Europe/Oslo',                        city: 'Norway — Oslo' },
+  { value: 'Europe/Copenhagen',                  city: 'Denmark — Copenhagen' },
+  { value: 'Europe/Warsaw',                      city: 'Poland — Warsaw' },
+  { value: 'Europe/Athens',                      city: 'Greece — Athens' },
+  { value: 'Europe/Helsinki',                    city: 'Finland — Helsinki' },
+  { value: 'Europe/Riga',                        city: 'Latvia — Riga' },
+  { value: 'Europe/Tallinn',                     city: 'Estonia — Tallinn' },
+  { value: 'Europe/Vilnius',                     city: 'Lithuania — Vilnius' },
+  { value: 'Europe/Bucharest',                   city: 'Romania — Bucharest' },
+  { value: 'Europe/Sofia',                       city: 'Bulgaria — Sofia' },
+  { value: 'Europe/Belgrade',                    city: 'Serbia — Belgrade' },
+  { value: 'Europe/Kiev',                        city: 'Ukraine — Kyiv' },
+  { value: 'Europe/Minsk',                       city: 'Belarus — Minsk' },
+  { value: 'Europe/Istanbul',                    city: 'Turkey — Istanbul' },
+  { value: 'Europe/Moscow',                      city: 'Russia — Moscow' },
+  // Africa
+  { value: 'Africa/Abidjan',                     city: 'Ivory Coast — Abidjan' },
+  { value: 'Africa/Accra',                       city: 'Ghana — Accra' },
+  { value: 'Africa/Dakar',                       city: 'Senegal — Dakar' },
+  { value: 'Africa/Casablanca',                  city: 'Morocco — Casablanca' },
+  { value: 'Africa/Lagos',                       city: 'Nigeria — Lagos' },
+  { value: 'Africa/Cairo',                       city: 'Egypt — Cairo' },
+  { value: 'Africa/Nairobi',                     city: 'Kenya — Nairobi' },
+  { value: 'Africa/Addis_Ababa',                 city: 'Ethiopia — Addis Ababa' },
+  { value: 'Africa/Johannesburg',                city: 'South Africa — Johannesburg' },
+  // Middle East
+  { value: 'Asia/Beirut',                        city: 'Lebanon — Beirut' },
+  { value: 'Asia/Jerusalem',                     city: 'Israel — Jerusalem' },
+  { value: 'Asia/Amman',                         city: 'Jordan — Amman' },
+  { value: 'Asia/Riyadh',                        city: 'Saudi Arabia — Riyadh' },
+  { value: 'Asia/Kuwait',                        city: 'Kuwait' },
+  { value: 'Asia/Qatar',                         city: 'Qatar — Doha' },
+  { value: 'Asia/Dubai',                         city: 'UAE — Dubai' },
+  { value: 'Asia/Tehran',                        city: 'Iran — Tehran' },
+  { value: 'Asia/Baghdad',                       city: 'Iraq — Baghdad' },
+  // Asia
+  { value: 'Asia/Karachi',                       city: 'Pakistan — Karachi' },
+  { value: 'Asia/Kabul',                         city: 'Afghanistan — Kabul' },
+  { value: 'Asia/Tashkent',                      city: 'Uzbekistan — Tashkent' },
+  { value: 'Asia/Kolkata',                       city: 'India — Kolkata' },
+  { value: 'Asia/Colombo',                       city: 'Sri Lanka — Colombo' },
+  { value: 'Asia/Kathmandu',                     city: 'Nepal — Kathmandu' },
+  { value: 'Asia/Dhaka',                         city: 'Bangladesh — Dhaka' },
+  { value: 'Asia/Rangoon',                       city: 'Myanmar — Yangon' },
+  { value: 'Asia/Bangkok',                       city: 'Thailand — Bangkok' },
+  { value: 'Asia/Ho_Chi_Minh',                   city: 'Vietnam — Ho Chi Minh City' },
+  { value: 'Asia/Phnom_Penh',                    city: 'Cambodia — Phnom Penh' },
+  { value: 'Asia/Vientiane',                     city: 'Laos — Vientiane' },
+  { value: 'Asia/Jakarta',                       city: 'Indonesia — Jakarta' },
+  { value: 'Asia/Kuala_Lumpur',                  city: 'Malaysia — Kuala Lumpur' },
+  { value: 'Asia/Singapore',                     city: 'Singapore' },
+  { value: 'Asia/Manila',                        city: 'Philippines — Manila' },
+  { value: 'Asia/Hong_Kong',                     city: 'Hong Kong' },
+  { value: 'Asia/Shanghai',                      city: 'China — Shanghai' },
+  { value: 'Asia/Taipei',                        city: 'Taiwan — Taipei' },
+  { value: 'Asia/Seoul',                         city: 'South Korea — Seoul' },
+  { value: 'Asia/Tokyo',                         city: 'Japan — Tokyo' },
+  { value: 'Asia/Ulaanbaatar',                   city: 'Mongolia — Ulaanbaatar' },
+  // Pacific
+  { value: 'Australia/Perth',                    city: 'Australia — Perth' },
+  { value: 'Australia/Darwin',                   city: 'Australia — Darwin' },
+  { value: 'Australia/Adelaide',                 city: 'Australia — Adelaide' },
+  { value: 'Australia/Brisbane',                 city: 'Australia — Brisbane' },
+  { value: 'Australia/Sydney',                   city: 'Australia — Sydney' },
+  { value: 'Australia/Melbourne',                city: 'Australia — Melbourne' },
+  { value: 'Pacific/Auckland',                   city: 'New Zealand — Auckland' },
+  { value: 'Pacific/Fiji',                       city: 'Fiji' },
+  { value: 'Pacific/Guam',                       city: 'Guam' },
+];
+
+// Compute the current UTC offset string for an IANA timezone, e.g. "UTC-6" or "UTC+5:30"
+function getLiveOffset(tzValue) {
+  try {
+    // Use a fixed reference time (now) so the offset reflects the current DST state
+    const now = new Date();
+    // Intl gives us the offset via timeZoneName:'shortOffset' (e.g. "GMT-6")
+    const parts = new Intl.DateTimeFormat('en', { timeZone: tzValue, timeZoneName: 'shortOffset' })
+      .formatToParts(now);
+    const offsetPart = parts.find(p => p.type === 'timeZoneName');
+    if (!offsetPart) return '';
+    // Convert "GMT+0" → "UTC+0", "GMT-6" → "UTC-6", etc.
+    return offsetPart.value.replace('GMT', 'UTC');
+  } catch {
+    return '';
+  }
+}
+
+function populateTimezoneSelect(selected) {
+  const sel = document.getElementById('settingTimezone');
+  if (!sel) return;
+  sel.innerHTML = '';
+  TIMEZONE_LIST.forEach(tz => {
+    const opt = document.createElement('option');
+    opt.value = tz.value;
+    const offset = getLiveOffset(tz.value);
+    opt.textContent = offset ? `${tz.city} (${offset})` : tz.city;
+    if (tz.value === selected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // If the saved value isn't in the list, add it as a custom option at the top
+  if (selected && !TIMEZONE_LIST.find(t => t.value === selected)) {
+    const opt = document.createElement('option');
+    opt.value = selected;
+    const offset = getLiveOffset(selected);
+    opt.textContent = offset ? `${selected} (${offset})` : selected;
+    opt.selected = true;
+    sel.insertBefore(opt, sel.firstChild);
+  }
+  // Update appTimezone whenever the user changes the select (live preview)
+  sel.onchange = () => {
+    appTimezone = sel.value;
+    // Live preview: re-render the domain table and activity log so dates update as the user browses
+    load();
+    loadActivityLog();
+  };
+}
+
+function detectTimezone() {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected) {
+      appTimezone = detected;
+      populateTimezoneSelect(detected);
+      // Re-render all dates immediately — onchange only fires on user interaction
+      load();
+      loadActivityLog();
+      const offset = getLiveOffset(detected);
+      const inList = TIMEZONE_LIST.find(t => t.value === detected);
+      const label = inList ? inList.city : detected;
+      showNotification(`Timezone set to ${label}${offset ? ' (' + offset + ')' : ''}`, 'info');
+    }
+  } catch (e) {
+    showNotification('Could not detect timezone automatically', 'error');
+  }
+}

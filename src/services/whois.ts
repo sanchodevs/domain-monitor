@@ -1,4 +1,6 @@
 import axios from 'axios';
+import http from 'http';
+import https from 'https';
 import whoisJson from 'whois-json';
 import { config } from '../config/index.js';
 import { apiKeyManager } from '../database/apikeys.js';
@@ -9,6 +11,11 @@ import type { Domain } from '../types/domain.js';
 import { updateDomain, getAllDomains } from '../database/domains.js';
 import { auditDomainRefresh } from '../database/audit.js';
 import { performHealthCheck } from './healthcheck.js';
+
+// Reuse TCP connections across WHOIS API calls
+const httpAgent = new http.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 10 });
+const httpsAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: 30000, maxSockets: 10 });
+const axiosInstance = axios.create({ httpAgent, httpsAgent });
 
 const logger = createLogger('whois');
 
@@ -234,7 +241,7 @@ async function fetchWhoisRDAP(domain: string): Promise<WHOISResult> {
   try {
     logger.info(`Fetching RDAP for ${domain} (TLD: ${tld})...`);
 
-    const res = await axios.get(`${rdapUrl}${domain}`, {
+    const res = await axiosInstance.get(`${rdapUrl}${domain}`, {
       timeout: config.requestTimeoutMs,
       headers: {
         'Accept': 'application/rdap+json',
@@ -331,7 +338,7 @@ async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> 
   try {
     logger.info(`Fetching WHOIS for ${domain}...`);
 
-    const res = await axios.get(`${config.whoisApiUrl}?domain=${domain}`, {
+    const res = await axiosInstance.get(`${config.whoisApiUrl}?domain=${domain}`, {
       headers: { apikey: apiKey.key },
       timeout: config.requestTimeoutMs,
     });
@@ -380,8 +387,10 @@ async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> 
     });
 
     if (retryCount < config.maxRetries) {
-      logger.warn(`Retry ${retryCount + 1}/${config.maxRetries} for ${domain}`, { error: errorMessage });
-      await sleep(config.retryDelayMs);
+      // Exponential backoff with jitter: base * 2^n + random(0-1000ms)
+      const backoffMs = config.retryDelayMs * Math.pow(2, retryCount) + Math.floor(Math.random() * 1000);
+      logger.warn(`Retry ${retryCount + 1}/${config.maxRetries} for ${domain} in ${backoffMs}ms`, { error: errorMessage });
+      await sleep(backoffMs);
       return fetchWhois(domain, retryCount + 1);
     }
     throw err;
@@ -390,11 +399,27 @@ async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> 
 
 export interface RefreshOptions {
   withHealthCheck?: boolean;
+  /** Skip re-fetching if last_checked is within this many hours (default: 0 = always refresh) */
+  skipIfCheckedWithinHours?: number;
 }
 
 export async function refreshDomain(domain: Domain, options: RefreshOptions = {}): Promise<Domain> {
   const oldData = { ...domain };
-  const { withHealthCheck = false } = options;
+  const { withHealthCheck = false, skipIfCheckedWithinHours = 0 } = options;
+
+  // Smart cache: skip if checked recently and no error on last run
+  if (skipIfCheckedWithinHours > 0 && domain.last_checked && !domain.error) {
+    const ageMs = Date.now() - new Date(domain.last_checked).getTime();
+    const ageHours = ageMs / (1000 * 60 * 60);
+    if (ageHours < skipIfCheckedWithinHours) {
+      logger.debug('Skipping refresh (checked recently)', {
+        domain: domain.domain,
+        ageHours: Math.round(ageHours * 10) / 10,
+        skipThreshold: skipIfCheckedWithinHours,
+      });
+      return domain;
+    }
+  }
 
   try {
     const result = await fetchWhois(domain.domain);
@@ -469,8 +494,14 @@ export async function refreshAllDomains(domains?: Domain[], options: RefreshOpti
   refreshStatus.completed = 0;
   refreshStatus.startTime = Date.now();
 
-  logger.info('Starting bulk refresh', { total: domainsToRefresh.length, withHealthCheck: options.withHealthCheck });
+  logger.info('Starting bulk refresh', {
+    total: domainsToRefresh.length,
+    withHealthCheck: options.withHealthCheck,
+    skipIfCheckedWithinHours: options.skipIfCheckedWithinHours,
+  });
   emitRefreshUpdate();
+
+  let skipped = 0;
 
   try {
     for (let i = 0; i < domainsToRefresh.length; i++) {
@@ -479,8 +510,15 @@ export async function refreshAllDomains(domains?: Domain[], options: RefreshOpti
       emitRefreshUpdate();
 
       try {
+        const before = domain.last_checked;
         await refreshDomain(domain, options);
-        logger.info(`Refreshed ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
+        // Detect if it was a cache skip
+        if (options.skipIfCheckedWithinHours && domain.last_checked === before) {
+          skipped++;
+          logger.debug(`Skipped ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
+        } else {
+          logger.info(`Refreshed ${domain.domain} (${i + 1}/${domainsToRefresh.length})`);
+        }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         logger.error(`Failed to refresh ${domain.domain}`, { error: errorMessage });
@@ -497,6 +535,7 @@ export async function refreshAllDomains(domains?: Domain[], options: RefreshOpti
 
     logger.info('Bulk refresh completed', {
       total: domainsToRefresh.length,
+      skipped,
       duration: Date.now() - (refreshStatus.startTime || Date.now()),
     });
   } finally {

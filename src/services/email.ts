@@ -7,6 +7,7 @@ import { createLogger } from '../utils/logger.js';
 import { getSettingsData } from '../database/settings.js';
 import { getAllDomains } from '../database/domains.js';
 import { getExpiryDays } from '../utils/helpers.js';
+import { fireWebhookEvent } from './webhooks.js';
 
 const logger = createLogger('email');
 const dnsLookup = promisify(dns.lookup);
@@ -18,6 +19,19 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function formatDateInTimezone(dateStr: string, timezone: string): string {
+  if (!dateStr) return dateStr;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr; // not parseable — return raw WHOIS string
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric', timeZone: timezone,
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
 }
 
 let transporter: Transporter | null = null;
@@ -34,34 +48,66 @@ async function resolveHostToIP(hostname: string): Promise<string> {
   }
 }
 
+// Resolve effective SMTP config: DB settings override env vars
+function getSmtpConfig(): { host: string; port: number; secure: boolean; user: string; pass: string; from: string } {
+  try {
+    const s = getSettingsData();
+    return {
+      host: s.smtp_host || config.smtp.host,
+      port: s.smtp_port ?? config.smtp.port,
+      secure: s.smtp_secure ?? config.smtp.secure,
+      user: s.smtp_user || config.smtp.user,
+      pass: s.smtp_pass || config.smtp.pass,
+      from: s.smtp_from || config.smtp.from,
+    };
+  } catch {
+    // DB not ready yet — fall back to env
+    return { host: config.smtp.host, port: config.smtp.port, secure: config.smtp.secure, user: config.smtp.user, pass: config.smtp.pass, from: config.smtp.from };
+  }
+}
+
 export async function initializeEmail(): Promise<boolean> {
-  if (!config.smtp.host || !config.smtp.user) {
+  const smtp = getSmtpConfig();
+  if (!smtp.host || !smtp.user) {
     logger.warn('Email service not configured - missing SMTP settings');
     return false;
   }
 
   try {
-    // Resolve hostname to IP to avoid Node.js DNS resolver issues
-    const smtpHost = await resolveHostToIP(config.smtp.host);
+    const smtpHost = await resolveHostToIP(smtp.host);
 
     transporter = nodemailer.createTransport({
       host: smtpHost,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
+      port: smtp.port,
+      secure: smtp.secure,
       auth: {
-        user: config.smtp.user,
-        pass: config.smtp.pass,
+        user: smtp.user,
+        pass: smtp.pass,
       },
-      connectionTimeout: 10000, // 10 seconds to establish connection
-      greetingTimeout: 10000, // 10 seconds for SMTP greeting
-      socketTimeout: 15000, // 15 seconds for socket inactivity
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       tls: {
-        rejectUnauthorized: false, // Allow self-signed certificates
-        servername: config.smtp.host, // Use original hostname for TLS
+        rejectUnauthorized: false,
+        servername: smtp.host,
       },
     });
 
-    logger.info('Email service initialized', { host: smtpHost, port: config.smtp.port });
+    try {
+      await Promise.race([
+        transporter.verify(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP verify timeout')), 15000)
+        ),
+      ]);
+      logger.info('Email service initialized and verified', { host: smtpHost, port: smtp.port });
+    } catch (verifyErr) {
+      const msg = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
+      logger.warn('Email transporter created but SMTP verification failed — alerts may not send', {
+        host: smtpHost, port: smtp.port, error: msg,
+      });
+    }
+
     return true;
   } catch (err) {
     logger.error('Failed to initialize email service', { error: err });
@@ -80,15 +126,16 @@ export interface EmailStatus {
 }
 
 export function getEmailStatus(): EmailStatus {
-  const configured = !!(config.smtp.host && config.smtp.user);
+  const smtp = getSmtpConfig();
+  const configured = !!(smtp.host && smtp.user);
 
   let reason: string | undefined;
-  if (!config.smtp.host) {
-    reason = 'SMTP_HOST not set';
-  } else if (!config.smtp.user) {
-    reason = 'SMTP_USER not set';
-  } else if (!config.smtp.pass) {
-    reason = 'SMTP_PASS not set';
+  if (!smtp.host) {
+    reason = 'SMTP host not configured';
+  } else if (!smtp.user) {
+    reason = 'SMTP username not configured';
+  } else if (!smtp.pass) {
+    reason = 'SMTP password not configured';
   } else if (!transporter) {
     reason = 'Transporter not created';
   }
@@ -96,12 +143,21 @@ export function getEmailStatus(): EmailStatus {
   return {
     initialized: !!transporter,
     configured,
-    host: config.smtp.host || '(not set)',
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    user: config.smtp.user || '(not set)',
+    host: smtp.host || '(not set)',
+    port: smtp.port,
+    secure: smtp.secure,
+    user: smtp.user || '(not set)',
     reason,
   };
+}
+
+// Re-initialize SMTP with current settings (called after settings are saved)
+export async function reinitializeEmail(): Promise<boolean> {
+  if (transporter) {
+    try { transporter.close(); } catch { /* ignore */ }
+    transporter = null;
+  }
+  return initializeEmail();
 }
 
 let lastVerifyError: string | null = null;
@@ -142,14 +198,14 @@ interface ExpiringDomain {
   registrar: string;
 }
 
-function buildExpirationEmailHTML(domains: ExpiringDomain[]): string {
+function buildExpirationEmailHTML(domains: ExpiringDomain[], timezone: string): string {
   const rows = domains
     .sort((a, b) => a.days - b.days)
     .map(
       (d) => `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(d.domain)}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(d.expiry_date)}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #374151;">${escapeHtml(formatDateInTimezone(d.expiry_date, timezone))}</td>
         <td style="padding: 12px; border-bottom: 1px solid #374151; color: ${d.days <= 7 ? '#ef4444' : d.days <= 14 ? '#f97316' : '#eab308'}; font-weight: bold;">
           ${d.days} days
         </td>
@@ -215,7 +271,7 @@ export async function sendExpirationAlert(domains: ExpiringDomain[]): Promise<bo
     return false;
   }
 
-  const html = buildExpirationEmailHTML(domains);
+  const html = buildExpirationEmailHTML(domains, settings.timezone || 'UTC');
 
   try {
     await transporter.sendMail({
@@ -229,6 +285,17 @@ export async function sendExpirationAlert(domains: ExpiringDomain[]): Promise<bo
       domainCount: domains.length,
       recipients: settings.email_recipients,
     });
+
+    // Fire webhook events for each expiring domain
+    for (const domain of domains) {
+      fireWebhookEvent('domain.expiring', {
+        domain: domain.domain,
+        expiry_date: domain.expiry_date,
+        days: domain.days,
+        registrar: domain.registrar,
+      }).catch(() => { /* fire-and-forget */ });
+    }
+
     return true;
   } catch (err) {
     logger.error('Failed to send expiration alert', { error: err });
@@ -336,6 +403,15 @@ export async function sendUptimeAlert(domain: string, failures: number, threshol
     });
 
     logger.info('Uptime alert sent', { domain, failures, recipients: settings.email_recipients });
+
+    // Fire webhook event for domain down alert
+    fireWebhookEvent('uptime.down', {
+      domain,
+      failures,
+      threshold,
+      error: error ?? '',
+    }).catch(() => { /* fire-and-forget */ });
+
     return true;
   } catch (err) {
     logger.error('Failed to send uptime alert', { domain, error: err });

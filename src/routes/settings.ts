@@ -5,9 +5,11 @@ import { validateBody } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { updateRefreshSchedule, getSchedulerStatus } from '../services/scheduler.js';
-import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError } from '../services/email.js';
+import { sendTestEmail, verifyEmailConnection, getEmailStatus, getLastVerifyError, reinitializeEmail } from '../services/email.js';
 import { restartUptimeMonitoring } from '../services/uptime.js';
 import { logAudit } from '../database/audit.js';
+import { sendSlackNotification } from '../services/slack.js';
+import { sendSignalNotification } from '../services/signal.js';
 import cron from 'node-cron';
 
 const router = Router();
@@ -138,6 +140,68 @@ router.get(
   asyncHandler(async (_req, res) => {
     const status = getSchedulerStatus();
     res.json(status);
+  })
+);
+
+// Re-initialize SMTP transporter with current settings (hot-reload)
+router.post(
+  '/email/reinit',
+  heavyOpLimiter,
+  asyncHandler(async (_req, res) => {
+    const success = await reinitializeEmail();
+    const status = getEmailStatus();
+    if (success) {
+      res.json({ success: true, message: 'SMTP reinitialized successfully', status });
+    } else {
+      res.status(500).json({ success: false, message: `SMTP reinit failed: ${status.reason || 'check settings'}`, status });
+    }
+  })
+);
+
+// Test Slack notification
+router.post(
+  '/slack/test',
+  heavyOpLimiter,
+  asyncHandler(async (_req, res) => {
+    const settings = getSettingsData();
+    if (!settings.slack_webhook_url) {
+      return res.status(400).json({ success: false, message: 'No Slack webhook URL configured' });
+    }
+    const sent = await sendSlackNotification(settings.slack_webhook_url, 'refresh.complete', {
+      message: 'Test notification from Domain Monitor',
+      test: true,
+    });
+    if (sent) {
+      res.json({ success: true, message: 'Test message sent to Slack' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to send Slack test message. Check the webhook URL.' });
+    }
+  })
+);
+
+// Test Signal notification
+router.post(
+  '/signal/test',
+  heavyOpLimiter,
+  asyncHandler(async (_req, res) => {
+    const settings = getSettingsData();
+    if (!settings.signal_api_url || !settings.signal_sender || !settings.signal_recipients?.length) {
+      return res.status(400).json({ success: false, message: 'Signal API URL, sender, and at least one recipient are required' });
+    }
+    const sent = await sendSignalNotification(
+      {
+        apiUrl: settings.signal_api_url,
+        sender: settings.signal_sender,
+        recipients: settings.signal_recipients,
+      },
+      'refresh.complete',
+      { message: 'Test notification from Domain Monitor', test: true },
+    );
+    if (sent) {
+      res.json({ success: true, message: 'Test message sent via Signal' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to send Signal test message. Check API URL and credentials.' });
+    }
   })
 );
 

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { getDomainById, getAllDomains } from '../database/domains.js';
 import { getHealthHistory, getHealthSummary, cleanupOldHealthRecords } from '../database/health.js';
 import { checkDomainHealth, checkAllDomainsHealth, getLatestHealthForDomain } from '../services/healthcheck.js';
@@ -6,8 +8,10 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import { heavyOpLimiter } from '../middleware/rateLimit.js';
 import { db } from '../database/db.js';
 import { wsService } from '../services/websocket.js';
+import { getEmailStatus } from '../services/email.js';
 import { createLogger } from '../utils/logger.js';
 import { auditHealthCheck, auditBulkHealthCheck } from '../database/audit.js';
+import { config } from '../config/index.js';
 
 const router = Router();
 const logger = createLogger('health-routes');
@@ -16,27 +20,44 @@ const logger = createLogger('health-routes');
 router.get(
   '/',
   asyncHandler(async (_req, res) => {
+    // Database check
     let dbStatus = 'ok';
+    let dbSizeBytes: number | null = null;
     try {
       db.prepare('SELECT 1').get();
+      try {
+        const stat = fs.statSync(path.resolve(config.dbPath));
+        dbSizeBytes = stat.size;
+      } catch { /* non-fatal */ }
     } catch {
       dbStatus = 'unavailable';
     }
 
-    if (dbStatus !== 'ok') {
-      return res.status(503).json({
-        status: 'unhealthy',
-        database: dbStatus,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    // Disk space check (warn if < 200 MB free on the DB volume)
+    let diskStatus = 'ok';
+    let diskFreeMb: number | null = null;
+    try {
+      const stat = fs.statfsSync(path.dirname(path.resolve(config.dbPath)));
+      diskFreeMb = Math.floor((stat.bfree * stat.bsize) / (1024 * 1024));
+      if (diskFreeMb < 200) diskStatus = 'low';
+    } catch { /* statfs not available on all platforms */ }
 
-    res.json({
-      status: 'healthy',
-      database: dbStatus,
+    // SMTP check (non-blocking — use cached result)
+    const emailSt = getEmailStatus();
+    const smtpStatus = emailSt.configured ? (emailSt.initialized ? 'ok' : 'unavailable') : 'not_configured';
+
+    const isUnhealthy = dbStatus !== 'ok';
+
+    const body = {
+      status: isUnhealthy ? 'unhealthy' : 'healthy',
       timestamp: new Date().toISOString(),
-      websocket_clients: wsService.getClientCount(),
-    });
+      database: { status: dbStatus, size_bytes: dbSizeBytes },
+      smtp: { status: smtpStatus },
+      disk: { status: diskStatus, free_mb: diskFreeMb },
+      websocket: { clients: wsService.getClientCount() },
+    };
+
+    return res.status(isUnhealthy ? 503 : 200).json(body);
   })
 );
 

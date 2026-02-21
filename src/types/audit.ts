@@ -1,4 +1,4 @@
-export type EntityType = 'domain' | 'group' | 'tag' | 'settings' | 'apikey' | 'health' | 'bulk' | 'system';
+export type EntityType = 'domain' | 'group' | 'tag' | 'settings' | 'apikey' | 'health' | 'bulk' | 'system' | 'user';
 export type AuditAction = 'create' | 'update' | 'delete' | 'refresh' | 'import' | 'login' | 'logout' | 'health_check' | 'bulk_refresh' | 'bulk_health' | 'scheduled';
 
 export interface AuditEntry {

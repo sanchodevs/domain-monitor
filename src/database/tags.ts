@@ -131,6 +131,17 @@ export function setDomainTags(domainId: number, tagIds: number[]): void {
   })();
 }
 
+export function setDomainTagsBatch(domainIds: number[], tagIds: number[]): void {
+  db.transaction(() => {
+    for (const domainId of domainIds) {
+      removeAllTagsFromDomain(domainId);
+      for (const tagId of tagIds) {
+        addTagToDomain(domainId, tagId);
+      }
+    }
+  })();
+}
+
 export function tagExists(name: string): boolean {
   const row = getStatements().getByName.get(name);
   return row !== undefined;

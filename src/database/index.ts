@@ -169,6 +169,96 @@ export function runMigrations(): void {
     CREATE INDEX IF NOT EXISTS idx_alerts_sent ON email_alerts(sent_at);
   `);
 
+
+  // Performance: covering indexes for common query patterns
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_domains_expiry_status ON domains(expiry_date, error);
+    CREATE INDEX IF NOT EXISTS idx_health_domain_date ON domain_health(domain_id, checked_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_uptime_domain_date ON uptime_checks(domain_id, checked_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_created_entity ON audit_log(created_at DESC, entity_type);
+  `);
+
+  // Migration: Add deleted_at column to domains if not exists
+  const domainCols = db.prepare("PRAGMA table_info(domains)").all() as { name: string }[];
+  if (!domainCols.some(c => c.name === 'deleted_at')) {
+    db.exec('ALTER TABLE domains ADD COLUMN deleted_at TEXT DEFAULT NULL');
+  }
+  // Index for soft-delete filter
+  db.exec('CREATE INDEX IF NOT EXISTS idx_domains_deleted ON domains(deleted_at)');
+
+  // Webhooks table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      events TEXT NOT NULL DEFAULT '[]',
+      enabled INTEGER DEFAULT 1,
+      last_triggered TEXT,
+      last_status INTEGER,
+      failure_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      webhook_id INTEGER NOT NULL,
+      event TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      response_status INTEGER,
+      response_body TEXT,
+      success INTEGER DEFAULT 0,
+      attempt INTEGER DEFAULT 1,
+      delivered_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id);
+    CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_event ON webhook_deliveries(event);
+  `);
+
+  // Alert rules table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alert_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      domain_id INTEGER,
+      event_type TEXT NOT NULL,
+      threshold_days INTEGER,
+      consecutive_failures INTEGER,
+      muted INTEGER DEFAULT 0,
+      muted_until TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_alert_rules_domain ON alert_rules(domain_id);
+  `);
+
+  // Users table for multi-user RBAC
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      last_login TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+  `);
+
+  // Migration: Add role column to sessions if not exists
+  const sessionCols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+  if (!sessionCols.some(c => c.name === 'user_role')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN user_role TEXT DEFAULT \'admin\'');
+  }
+  if (!sessionCols.some(c => c.name === 'username')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN username TEXT DEFAULT \'admin\'');
+  }
+
   logger.info('Database migrations completed');
 }
 
@@ -184,3 +274,4 @@ export * from './settings.js';
 export * from './sessions.js';
 export * from './apikeys.js';
 export * from './health.js';
+export * from './users.js';

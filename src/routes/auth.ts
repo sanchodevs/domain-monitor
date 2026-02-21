@@ -39,7 +39,9 @@ router.post(
     res.cookie('session', result.sessionId, {
       httpOnly: true,
       secure: config.isProduction,
-      sameSite: 'strict',
+      // 'strict' can cause cookies to be dropped on localhost in some browsers;
+      // use 'lax' in dev, 'strict' in production
+      sameSite: config.isProduction ? 'strict' : 'lax',
       maxAge: config.sessionMaxAge,
     });
 
@@ -78,13 +80,16 @@ router.get(
       return res.json({
         authenticated: true,
         authEnabled: false,
+        username: config.adminUsername,
+        role: 'admin',
       });
     }
 
     res.json({
       authenticated: authReq.isAuthenticated || false,
       authEnabled: true,
-      username: authReq.isAuthenticated ? config.adminUsername : undefined,
+      username: authReq.isAuthenticated ? authReq.username : undefined,
+      role: authReq.isAuthenticated ? authReq.userRole : undefined,
     });
   })
 );
