@@ -2,8 +2,10 @@
 /**
  * Documentation Generator
  *
- * Converts README.md to a styled HTML document at docs/index.html
- * Run: npm run docs:generate
+ * Converts DOCUMENTATION.md to docs/index.html (English)
+ * Converts DOCUMENTACION.md to docs/es/index.html (Spanish)
+ *
+ * Run:   npm run docs:generate
  * Watch: npm run docs:watch
  */
 
@@ -13,9 +15,37 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
-const README_PATH = join(ROOT_DIR, 'DOCUMENTATION.md');
 const DOCS_DIR = join(ROOT_DIR, 'docs');
-const OUTPUT_PATH = join(DOCS_DIR, 'index.html');
+const DOCS_ES_DIR = join(ROOT_DIR, 'docs', 'es');
+
+const SOURCES = [
+  {
+    input: join(ROOT_DIR, 'DOCUMENTATION.md'),
+    output: join(DOCS_DIR, 'index.html'),
+    lang: 'en',
+    title: 'Domain Monitor - Documentation',
+    description: 'Comprehensive technical documentation for Domain Monitor — a self-hosted domain management and monitoring system',
+    searchPlaceholder: 'Search documentation...',
+    themeLabel: 'Toggle theme',
+    footerNote: 'Auto-generated from DOCUMENTATION.md',
+    altLangLabel: 'Español',
+    altLangHref: './es/index.html',
+    authorLabel: 'Created by',
+  },
+  {
+    input: join(ROOT_DIR, 'DOCUMENTACION.md'),
+    output: join(DOCS_ES_DIR, 'index.html'),
+    lang: 'es',
+    title: 'Domain Monitor - Documentación',
+    description: 'Documentación técnica completa de Domain Monitor — sistema autoalojado de gestión y monitoreo de dominios',
+    searchPlaceholder: 'Buscar en la documentación...',
+    themeLabel: 'Cambiar tema',
+    footerNote: 'Generado automáticamente desde DOCUMENTACION.md',
+    altLangLabel: 'English',
+    altLangHref: '../index.html',
+    authorLabel: 'Creado por',
+  },
+];
 
 /**
  * Simple markdown to HTML converter
@@ -175,7 +205,7 @@ function extractToc(markdown) {
 /**
  * Generate the full HTML document
  */
-function generateHtml(markdown) {
+function generateHtml(markdown, opts) {
   const content = markdownToHtml(markdown);
   const toc = extractToc(markdown);
 
@@ -185,12 +215,12 @@ function generateHtml(markdown) {
   }).join('\n        ');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${opts.lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Domain Monitor - Documentation</title>
-  <meta name="description" content="Comprehensive documentation for Domain Monitor - a self-hosted domain management and monitoring system">
+  <title>${opts.title}</title>
+  <meta name="description" content="${opts.description}">
   <style>
     :root {
       --bg-primary: #ffffff;
@@ -221,15 +251,8 @@ function generateHtml(markdown) {
       --accent-hover: #93c5fd;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -242,9 +265,7 @@ function generateHtml(markdown) {
     /* Header */
     .header {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       height: var(--header-height);
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
@@ -255,11 +276,7 @@ function generateHtml(markdown) {
       z-index: 100;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
 
     .logo {
       font-size: 1.25rem;
@@ -276,15 +293,27 @@ function generateHtml(markdown) {
       border-radius: 12px;
     }
 
-    .header-right {
+    .lang-switcher {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 4px;
     }
 
-    .search-box {
-      position: relative;
+    .lang-switcher:hover {
+      background: var(--bg-code);
+      color: var(--accent-color);
+      text-decoration: none;
     }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .search-box { position: relative; }
 
     .search-box input {
       padding: 8px 12px 8px 36px;
@@ -320,9 +349,7 @@ function generateHtml(markdown) {
       color: var(--text-primary);
     }
 
-    .theme-toggle:hover {
-      background: var(--bg-code);
-    }
+    .theme-toggle:hover { background: var(--bg-code); }
 
     /* Sidebar */
     .sidebar {
@@ -347,10 +374,7 @@ function generateHtml(markdown) {
       transition: all 0.2s;
     }
 
-    .toc-link:hover {
-      color: var(--accent-color);
-      background: var(--bg-code);
-    }
+    .toc-link:hover { color: var(--accent-color); background: var(--bg-code); }
 
     .toc-link.active {
       color: var(--accent-color);
@@ -358,10 +382,7 @@ function generateHtml(markdown) {
       background: var(--bg-code);
     }
 
-    .toc-link.toc-sub {
-      padding-left: 40px;
-      font-size: 0.8125rem;
-    }
+    .toc-link.toc-sub { padding-left: 40px; font-size: 0.8125rem; }
 
     /* Main Content */
     .main {
@@ -384,24 +405,10 @@ function generateHtml(markdown) {
     h3 { font-size: 1.375rem; }
     h4 { font-size: 1.125rem; }
 
-    p {
-      margin-bottom: 1rem;
-      color: var(--text-secondary);
-    }
-
-    a {
-      color: var(--accent-color);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    strong {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent-color); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; color: var(--text-primary); }
 
     /* Code */
     code {
@@ -422,68 +429,29 @@ function generateHtml(markdown) {
       border: 1px solid var(--border-color);
     }
 
-    pre code {
-      background: none;
-      padding: 0;
-      font-size: 0.875rem;
-      color: var(--text-primary);
-    }
+    pre code { background: none; padding: 0; font-size: 0.875rem; color: var(--text-primary); }
 
     /* Tables */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-      font-size: 0.875rem;
-    }
-
-    th, td {
-      padding: 12px;
-      text-align: left;
-      border: 1px solid var(--border-color);
-    }
-
-    th {
-      background: var(--bg-secondary);
-      font-weight: 600;
-    }
-
-    tr:hover {
-      background: var(--bg-secondary);
-    }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { padding: 12px; text-align: left; border: 1px solid var(--border-color); }
+    th { background: var(--bg-secondary); font-weight: 600; }
+    tr:hover { background: var(--bg-secondary); }
 
     /* Lists */
-    ul, ol {
-      margin: 1rem 0;
-      padding-left: 2rem;
-    }
-
-    li {
-      margin-bottom: 0.5rem;
-      color: var(--text-secondary);
-    }
+    ul, ol { margin: 1rem 0; padding-left: 2rem; }
+    li { margin-bottom: 0.5rem; color: var(--text-secondary); }
 
     /* Badges */
-    .badge {
-      height: 20px;
-      vertical-align: middle;
-      margin-right: 4px;
-    }
+    .badge { height: 20px; vertical-align: middle; margin-right: 4px; }
 
-    /* Horizontal Rule */
-    hr {
-      border: none;
-      border-top: 1px solid var(--border-color);
-      margin: 2rem 0;
-    }
+    /* HR */
+    hr { border: none; border-top: 1px solid var(--border-color); margin: 2rem 0; }
 
     /* Search Results */
     .search-results {
       display: none;
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      top: 100%; left: 0; right: 0;
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
       border-radius: 6px;
@@ -493,9 +461,7 @@ function generateHtml(markdown) {
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
-    .search-results.active {
-      display: block;
-    }
+    .search-results.active { display: block; }
 
     .search-result-item {
       padding: 12px 16px;
@@ -503,48 +469,37 @@ function generateHtml(markdown) {
       border-bottom: 1px solid var(--border-color);
     }
 
-    .search-result-item:hover {
-      background: var(--bg-secondary);
+    .search-result-item:hover { background: var(--bg-secondary); }
+    .search-result-item:last-child { border-bottom: none; }
+
+    /* Author badge */
+    .author-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
     }
 
-    .search-result-item:last-child {
-      border-bottom: none;
-    }
+    .author-badge a { color: var(--accent-color); }
 
-    /* Mobile Responsive */
+    /* Mobile */
     @media (max-width: 768px) {
-      .sidebar {
-        display: none;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 24px;
-      }
-
-      .search-box input {
-        width: 150px;
-      }
-
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 24px; }
+      .search-box input { width: 150px; }
       h1 { font-size: 1.75rem; }
       h2 { font-size: 1.375rem; }
       h3 { font-size: 1.125rem; }
     }
 
-    /* Print Styles */
+    /* Print */
     @media print {
-      .header, .sidebar {
-        display: none;
-      }
-
-      .main {
-        margin: 0;
-        padding: 0;
-        max-width: 100%;
-      }
+      .header, .sidebar { display: none; }
+      .main { margin: 0; padding: 0; max-width: 100%; }
     }
 
-    /* Auto-generated notice */
+    /* Footer notice */
     .auto-generated {
       font-size: 0.75rem;
       color: var(--text-muted);
@@ -560,13 +515,15 @@ function generateHtml(markdown) {
     <div class="header-left">
       <a href="#" class="logo">📡 Domain Monitor</a>
       <span class="version">v2.0.0</span>
+      <span class="author-badge">${opts.authorLabel} <a href="https://github.com/sanchodevs" target="_blank">J.C. Sancho</a></span>
     </div>
     <div class="header-right">
+      <a href="${opts.altLangHref}" class="lang-switcher" title="Switch language">🌐 ${opts.altLangLabel}</a>
       <div class="search-box">
-        <input type="text" id="search" placeholder="Search documentation..." autocomplete="off">
+        <input type="text" id="search" placeholder="${opts.searchPlaceholder}" autocomplete="off">
         <div class="search-results" id="searchResults"></div>
       </div>
-      <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+      <button class="theme-toggle" id="themeToggle" title="${opts.themeLabel}">🌙</button>
     </div>
   </header>
 
@@ -579,7 +536,7 @@ function generateHtml(markdown) {
   <main class="main">
     ${content}
     <div class="auto-generated">
-      This documentation was auto-generated from DOCUMENTATION.md<br>
+      ${opts.footerNote}<br>
       Last updated: ${new Date().toISOString().split('T')[0]}
     </div>
   </main>
@@ -595,13 +552,11 @@ function generateHtml(markdown) {
       localStorage.setItem('theme', dark ? 'dark' : 'light');
     }
 
-    // Initialize theme
     const savedTheme = localStorage.getItem('theme');
     setTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
 
     themeToggle.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      setTheme(!isDark);
+      setTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
     });
 
     // Active section highlighting
@@ -610,29 +565,22 @@ function generateHtml(markdown) {
 
     function updateActiveSection() {
       const scrollPos = window.scrollY + 100;
-
       let current = '';
       sections.forEach(section => {
-        if (section.offsetTop <= scrollPos) {
-          current = section.getAttribute('id');
-        }
+        if (section.offsetTop <= scrollPos) current = section.getAttribute('id');
       });
-
       tocLinks.forEach(link => {
         link.classList.remove('active');
-        if (link.getAttribute('href') === '#' + current) {
-          link.classList.add('active');
-        }
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
       });
     }
 
     window.addEventListener('scroll', updateActiveSection);
     updateActiveSection();
 
-    // Search functionality
+    // Search
     const searchInput = document.getElementById('search');
     const searchResults = document.getElementById('searchResults');
-    const mainContent = document.querySelector('.main');
 
     const searchableContent = [];
     sections.forEach(section => {
@@ -649,24 +597,15 @@ function generateHtml(markdown) {
 
     searchInput.addEventListener('input', (e) => {
       const query = e.target.value.toLowerCase().trim();
-
-      if (query.length < 2) {
-        searchResults.classList.remove('active');
-        return;
-      }
+      if (query.length < 2) { searchResults.classList.remove('active'); return; }
 
       const results = searchableContent.filter(item =>
-        item.title.toLowerCase().includes(query) ||
-        item.content.includes(query)
+        item.title.toLowerCase().includes(query) || item.content.includes(query)
       ).slice(0, 8);
 
-      if (results.length === 0) {
-        searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
-      } else {
-        searchResults.innerHTML = results.map(item =>
-          \`<div class="search-result-item" data-id="\${item.id}">\${item.title}</div>\`
-        ).join('');
-      }
+      searchResults.innerHTML = results.length === 0
+        ? '<div class="search-result-item">No results found</div>'
+        : results.map(item => \`<div class="search-result-item" data-id="\${item.id}">\${item.title}</div>\`).join('');
 
       searchResults.classList.add('active');
     });
@@ -681,23 +620,12 @@ function generateHtml(markdown) {
     });
 
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-box')) {
-        searchResults.classList.remove('active');
-      }
+      if (!e.target.closest('.search-box')) searchResults.classList.remove('active');
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      // Cmd/Ctrl + K to focus search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInput.focus();
-      }
-      // Escape to close search
-      if (e.key === 'Escape') {
-        searchResults.classList.remove('active');
-        searchInput.blur();
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); }
+      if (e.key === 'Escape') { searchResults.classList.remove('active'); searchInput.blur(); }
     });
   </script>
 </body>
@@ -711,33 +639,41 @@ function main() {
   const args = process.argv.slice(2);
   const watchMode = args.includes('--watch') || args.includes('-w');
 
-  // Ensure docs directory exists
-  if (!existsSync(DOCS_DIR)) {
-    mkdirSync(DOCS_DIR, { recursive: true });
-    console.log('📁 Created docs/ directory');
-  }
+  // Ensure output directories exist
+  if (!existsSync(DOCS_DIR)) { mkdirSync(DOCS_DIR, { recursive: true }); console.log('📁 Created docs/'); }
+  if (!existsSync(DOCS_ES_DIR)) { mkdirSync(DOCS_ES_DIR, { recursive: true }); console.log('📁 Created docs/es/'); }
 
-  function generate() {
+  function generate(src) {
+    if (!existsSync(src.input)) {
+      console.warn(`⚠️  Source not found: ${src.input} — skipping`);
+      return;
+    }
     try {
-      const markdown = readFileSync(README_PATH, 'utf-8');
-      const html = generateHtml(markdown);
-      writeFileSync(OUTPUT_PATH, html, 'utf-8');
-      console.log(`✅ Generated docs/index.html (${(html.length / 1024).toFixed(1)} KB)`);
+      const markdown = readFileSync(src.input, 'utf-8');
+      const html = generateHtml(markdown, src);
+      writeFileSync(src.output, html, 'utf-8');
+      console.log(`✅ Generated ${src.output.replace(ROOT_DIR + '/', '')} (${(html.length / 1024).toFixed(1)} KB)`);
     } catch (error) {
-      console.error('❌ Error generating documentation:', error.message);
-      process.exit(1);
+      console.error(`❌ Error generating ${src.output}:`, error.message);
     }
   }
 
+  function generateAll() {
+    SOURCES.forEach(generate);
+  }
+
   // Initial generation
-  generate();
+  generateAll();
 
   // Watch mode
   if (watchMode) {
-    console.log('👀 Watching for changes to DOCUMENTATION.md...');
-    watchFile(README_PATH, { interval: 1000 }, () => {
-      console.log('📝 DOCUMENTATION.md changed, regenerating...');
-      generate();
+    SOURCES.forEach(src => {
+      if (!existsSync(src.input)) return;
+      console.log(`👀 Watching ${src.input.replace(ROOT_DIR + '/', '')}...`);
+      watchFile(src.input, { interval: 1000 }, () => {
+        console.log(`📝 ${src.input.replace(ROOT_DIR + '/', '')} changed, regenerating...`);
+        generate(src);
+      });
     });
   }
 }
