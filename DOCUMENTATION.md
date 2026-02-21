@@ -1,3421 +1,2228 @@
-# Domain Monitor - Technical Documentation
+# Domain Monitor — Complete Technical Documentation
+
+> **Last updated:** 2026-02-21
+> This document covers every part of the system: architecture, database schema, all API endpoints, every service, middleware, configuration option, frontend behavior, and operational FAQ.
+
+---
 
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Architecture](#2-architecture)
-3. [Configuration Files](#3-configuration-files)
-4. [Backend Source Code](#4-backend-source-code)
-5. [Frontend](#5-frontend)
-6. [Database Schema](#6-database-schema)
-7. [API Reference](#7-api-reference)
-8. [Services & Background Tasks](#8-services--background-tasks)
-9. [Security](#9-security)
-10. [Deployment](#10-deployment)
+2. [Technology Stack](#2-technology-stack)
+3. [Directory Structure](#3-directory-structure)
+4. [Configuration & Environment Variables](#4-configuration--environment-variables)
+5. [Server Startup & Lifecycle](#5-server-startup--lifecycle)
+6. [Database Layer](#6-database-layer)
+7. [Services](#7-services)
+8. [Middleware](#8-middleware)
+9. [API Routes — Full Reference](#9-api-routes--full-reference)
+10. [WebSocket Protocol](#10-websocket-protocol)
+11. [Validation Schemas](#11-validation-schemas)
+12. [TypeScript Types](#12-typescript-types)
+13. [Frontend (SPA)](#13-frontend-spa)
+14. [Public Status Page](#14-public-status-page)
+15. [Audit Log System](#15-audit-log-system)
+16. [Security Model](#16-security-model)
+17. [Logging System](#17-logging-system)
+18. [Docker Deployment](#18-docker-deployment)
+19. [Data Flow Diagrams](#19-data-flow-diagrams)
+20. [Frequently Asked Questions](#20-frequently-asked-questions)
 
 ---
 
 ## 1. Project Overview
 
-### What is Domain Monitor?
+**Domain Monitor** is a self-hosted Node.js/TypeScript application that gives you a single-pane-of-glass view over all your domain names. It fetches WHOIS registration data, checks DNS/HTTP/SSL health, monitors uptime, fires alerts before domains expire, and writes a full audit trail of every action taken.
 
-Domain Monitor is a self-hosted web application for tracking domain registrations. It helps you:
+The application is a **single-process Express server** backed by an embedded **SQLite** database. There is no separate frontend build step — the `public/` folder is served as static files directly. Real-time updates are pushed to browsers via a **WebSocket** connection. All background work (scheduled refreshes, uptime pings, log cleanup) runs as in-process timers and `node-cron` jobs.
 
-- **Track domain expiration dates** - Never let a domain expire unexpectedly
-- **Monitor WHOIS data** - See registrar, creation date, nameservers
-- **Check domain health** - DNS resolution, HTTP status, SSL certificates
-- **Receive email alerts** - Get notified before domains expire
-- **Organize domains** - Use groups and tags to categorize
-- **Bulk operations** - Import/export CSV, refresh multiple domains
-- **Dark/Light Theme** - Toggle between themes with persistent preference
-- **Activity Dashboard** - Real-time activity log with audit trail visualization
+---
 
-### Technology Stack
+## 2. Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| **Backend** | Node.js + Express.js + TypeScript |
-| **Database** | SQLite with better-sqlite3 |
-| **Frontend** | Vanilla JavaScript (no framework) |
-| **Real-time** | WebSocket (ws library) |
-| **Email** | Nodemailer with SMTP |
-| **Scheduling** | node-cron |
-| **Validation** | Zod schemas |
-| **Logging** | Pino (structured JSON logs) |
+| Layer | Library / Tool | Version | Purpose |
+|-------|---------------|---------|---------|
+| Runtime | Node.js | 18+ | JavaScript execution environment |
+| Language | TypeScript | 5.3+ | Static typing; compiled to ESM with `tsc` |
+| Web framework | Express | 4.x | HTTP routing, middleware pipeline |
+| Database | better-sqlite3 | 12.x | Synchronous SQLite bindings — zero async overhead |
+| HTTP client | Axios | 1.x | WHOIS API calls, webhook delivery, Slack/Signal |
+| Authentication | bcrypt | 6.x | Password hashing for local users |
+| Email | Nodemailer | 7.x | SMTP transport for expiration/uptime alerts |
+| Scheduling | node-cron | 3.x | Cron-syntax background jobs |
+| WHOIS fallback | whois-json | 2.x | Direct WHOIS socket queries when API is unavailable |
+| WebSocket | ws | 8.x | Real-time push from server to browser |
+| Input validation | Zod | 4.x | Schema-based request body/query validation |
+| Security headers | Helmet | 8.x | HTTP security headers (CSP, HSTS, etc.) |
+| Rate limiting | express-rate-limit | 8.x | Per-IP request throttling |
+| File upload | Multer | 2.x | CSV import multipart/form-data handling |
+| CSV parsing | csv-parse | 6.x | Parse imported CSV files |
+| Logging | Pino + pino-pretty + pino-roll | 10.x | Structured JSON logging with optional file rotation |
+| Charts | Chart.js | 4.x | Expiry timeline bar chart (loaded from CDN) |
+| Icons | Font Awesome 6 | CDN | UI icons throughout the interface |
+| Testing | Vitest | latest | Unit tests |
+| Dev runner | tsx | latest | TypeScript execution without a compile step |
 
-### Project Structure
+---
+
+## 3. Directory Structure
 
 ```
 domain-monitor/
-├── src/                    # TypeScript source code
-│   ├── config/             # Configuration and schemas
-│   ├── database/           # Database operations
-│   ├── middleware/         # Express middleware
-│   ├── routes/             # API route handlers
-│   ├── services/           # Business logic services
-│   ├── types/              # TypeScript interfaces
-│   ├── utils/              # Helper functions
-│   ├── index.ts            # Entry point
-│   └── server.ts           # Express app setup
-├── public/                 # Frontend files
-│   ├── index.html          # Single-page application
-│   ├── app.js              # Frontend JavaScript
-│   ├── styles.css          # CSS styling
-│   └── favicon.png         # Browser icon
-├── dist/                   # Compiled JavaScript (generated)
-├── .env                    # Environment variables
-├── package.json            # Dependencies and scripts
-├── tsconfig.json           # TypeScript configuration
-└── domains.db              # SQLite database (generated)
+├── src/                          # All TypeScript source (compiled → dist/)
+│   ├── index.ts                  # Re-exports server.ts (entry point)
+│   ├── server.ts                 # Express app wiring, startup, shutdown
+│   │
+│   ├── config/
+│   │   ├── index.ts              # Reads env vars, exports typed config object
+│   │   └── schema.ts             # Zod schemas for all request bodies & queries
+│   │
+│   ├── database/
+│   │   ├── db.ts                 # Opens SQLite connection (WAL mode, FK ON)
+│   │   ├── index.ts              # CREATE TABLE statements + all migrations
+│   │   ├── domains.ts            # Domain CRUD, pagination, soft-delete, restore
+│   │   ├── groups.ts             # Group CRUD with domain counts
+│   │   ├── tags.ts               # Tag CRUD and domain↔tag associations
+│   │   ├── audit.ts              # logAudit(), queryAuditLog(), helper functions
+│   │   ├── sessions.ts           # Session store and cleanup
+│   │   ├── settings.ts           # Key/value settings with in-memory cache
+│   │   ├── apikeys.ts            # API key storage with AES encryption
+│   │   ├── health.ts             # domain_health queries and batch helpers
+│   │   ├── users.ts              # Multi-user CRUD with bcrypt passwords
+│   │   ├── webhooks.ts           # Webhook config and delivery log
+│   │   └── alert_rules.ts        # Per-domain or global alert rule CRUD
+│   │
+│   ├── routes/
+│   │   ├── index.ts              # Mounts all sub-routers under /api
+│   │   ├── auth.ts               # /api/auth — login, logout, me, status
+│   │   ├── domains.ts            # /api/domains — full CRUD + bulk ops
+│   │   ├── groups.ts             # /api/groups
+│   │   ├── tags.ts               # /api/tags
+│   │   ├── refresh.ts            # /api/refresh — WHOIS refresh triggers
+│   │   ├── health.ts             # /api/health — domain + app health
+│   │   ├── uptime.ts             # /api/uptime — uptime monitoring + log retention
+│   │   ├── import.ts             # /api/import — CSV file upload
+│   │   ├── export.ts             # /api/export — CSV/JSON download
+│   │   ├── settings.ts           # /api/settings — read/write all settings
+│   │   ├── apikeys.ts            # /api/apikeys — WHOIS key management
+│   │   ├── users.ts              # /api/users — multi-user management (admin only)
+│   │   ├── audit.ts              # /api/audit — audit log queries
+│   │   ├── webhooks.ts           # /api/webhooks — webhook CRUD + delivery history
+│   │   ├── metrics.ts            # /api/metrics — operational metrics
+│   │   ├── rss.ts                # /api/feed.rss — RSS expiration feed
+│   │   └── status.ts             # /api/status — public unauthenticated status
+│   │
+│   ├── services/
+│   │   ├── whois.ts              # WHOIS lookups — APILayer → fallback → RDAP
+│   │   ├── healthcheck.ts        # DNS / HTTP / SSL checks per domain
+│   │   ├── uptime.ts             # Uptime monitoring loop + heartbeat data
+│   │   ├── scheduler.ts          # node-cron job initialization
+│   │   ├── email.ts              # Nodemailer SMTP, expiry/uptime email templates
+│   │   ├── websocket.ts          # WebSocketServer singleton, broadcast helpers
+│   │   ├── webhooks.ts           # Webhook dispatch with SSRF guard + retry
+│   │   ├── slack.ts              # Slack webhook notifications
+│   │   ├── signal.ts             # Signal messenger notifications
+│   │   └── cleanup.ts            # Log retention cleanup (auto + manual)
+│   │
+│   ├── middleware/
+│   │   ├── auth.ts               # Session auth, RBAC role guard, login/logout
+│   │   ├── rateLimit.ts          # Four rate-limit tiers (standard/heavy/login/delete)
+│   │   ├── logging.ts            # Request/response logging with request IDs
+│   │   ├── validation.ts         # validateBody() / validateQuery() Zod wrappers
+│   │   └── errorHandler.ts       # Global error handler, 404 handler, asyncHandler
+│   │
+│   ├── types/
+│   │   ├── domain.ts             # Domain, Group, Tag, DomainHealth interfaces
+│   │   ├── api.ts                # ApiResponse, PaginatedResponse, AuthenticatedRequest
+│   │   ├── audit.ts              # AuditEntry, AuditRow, EntityType, AuditAction
+│   │   └── whois-json.d.ts       # Ambient declarations for whois-json
+│   │
+│   └── utils/
+│       ├── logger.ts             # Pino wrapper with module child loggers
+│       └── helpers.ts            # normalizeDomain, getExpiryDays, escapeCSV, etc.
+│
+├── public/                       # Static frontend (served as-is, no build step)
+│   ├── index.html                # Main SPA shell with all modal markup
+│   ├── app.js                    # ~4,000-line vanilla JS application
+│   ├── status.html               # Self-contained public status page
+│   ├── favicon.png
+│   └── css/
+│       ├── tokens.css            # CSS custom properties (color, spacing, shadow)
+│       ├── base.css              # Reset, body, typography
+│       ├── layout.css            # Sidebar + main area grid
+│       ├── components.css        # Buttons, badges, alerts, cards
+│       ├── forms.css             # Inputs, labels, validation states
+│       ├── modals.css            # Modal overlay and dialog styles
+│       ├── notifications.css     # Toast notifications
+│       ├── table.css             # Domain table, pagination, sorting headers
+│       ├── dashboard.css         # Widget grid, chart cards, stat boxes
+│       ├── uptime.css            # Heartbeat bar visualization
+│       ├── pages.css             # Per-page overrides (audit, settings, etc.)
+│       └── webhooks.css          # Webhook form and delivery log UI
+│
+├── docs/
+│   └── index.html                # Auto-generated API docs (npm run docs:generate)
+│
+├── dist/                         # Compiled output of `npm run build`
+├── scripts/
+│   └── generate-docs.js          # Generates docs/index.html from route introspection
+├── .env                          # Local environment (gitignored)
+├── .env.example                  # Template for all environment variables
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+├── Dockerfile
+├── docker-compose.yml
+└── docker-compose.dev.yml
 ```
 
 ---
 
-## 2. Architecture
+## 4. Configuration & Environment Variables
 
-### How Data Flows
+All configuration is loaded in `src/config/index.ts` via `dotenv/config`. A `validateConfig()` function is called at startup and **terminates the process** if required values are missing or insecure.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                 │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-│  │  index.html │    │   app.js    │    │  styles.css │         │
-│  │   (UI/DOM)  │◄──►│  (Logic)    │    │  (Styling)  │         │
-│  └─────────────┘    └──────┬──────┘    └─────────────┘         │
-│                            │                                     │
-│         HTTP REST ─────────┼───────── WebSocket                 │
-└────────────────────────────┼────────────────────────────────────┘
-                             │
-┌────────────────────────────┼────────────────────────────────────┐
-│                         BACKEND                                  │
-│                            ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    EXPRESS SERVER                        │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │   │
-│  │  │  Middleware │  │   Routes    │  │  WebSocket  │      │   │
-│  │  │  (auth,log) │──►│  (API)     │  │  (real-time)│      │   │
-│  │  └─────────────┘  └──────┬──────┘  └─────────────┘      │   │
-│  └──────────────────────────┼──────────────────────────────┘   │
-│                             │                                    │
-│  ┌──────────────────────────┼──────────────────────────────┐   │
-│  │                     SERVICES                             │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐    │   │
-│  │  │  WHOIS  │  │  Email  │  │Scheduler│  │ Health  │    │   │
-│  │  │ Refresh │  │ Alerts  │  │  Cron   │  │ Checks  │    │   │
-│  │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘    │   │
-│  └───────┼────────────┼────────────┼────────────┼──────────┘   │
-│          │            │            │            │               │
-│  ┌───────┴────────────┴────────────┴────────────┴──────────┐   │
-│  │                     DATABASE                             │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐    │   │
-│  │  │ Domains │  │ Groups  │  │  Tags   │  │ Audit   │    │   │
-│  │  │ Health  │  │Sessions │  │ APIKeys │  │Settings │    │   │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘    │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     EXTERNAL SERVICES                            │
-│  ┌─────────────────┐              ┌─────────────────┐           │
-│  │   APILayer      │              │   SMTP Server   │           │
-│  │   WHOIS API     │              │   (Email)       │           │
-│  └─────────────────┘              └─────────────────┘           │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Environment Variables Reference
 
-### Request Lifecycle
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APILAYER_KEY` | **Yes** | — | API key for the APILayer WHOIS API. The primary WHOIS data source. Additional keys can be added through the UI. |
+| `PORT` | No | `3000` | TCP port the HTTP server binds to. |
+| `NODE_ENV` | No | `development` | Set to `production` to enable HSTS, stricter CSP, and production-safety checks. |
+| `DB_PATH` | No | `./domains.db` | Path to the SQLite database file. Created automatically on first run. |
+| `AUTH_ENABLED` | No | `false` | Set `true` to require login before accessing any API endpoint. |
+| `ADMIN_USERNAME` | No | `admin` | Username for the built-in admin account when `AUTH_ENABLED=true`. |
+| `ADMIN_PASSWORD` | No | — | Password for the built-in admin account. **Required** when `AUTH_ENABLED=true`. |
+| `SESSION_SECRET` | No | `change-this-secret-in-production` | Secret used to sign session cookies. Must be changed in production. |
+| `SMTP_HOST` | No | — | SMTP server hostname (e.g. `smtp.gmail.com`). Required for email alerts. |
+| `SMTP_PORT` | No | `587` | SMTP port. Use `587` for STARTTLS, `465` for implicit TLS. |
+| `SMTP_SECURE` | No | `false` | Set `true` for port 465 (implicit TLS). |
+| `SMTP_USER` | No | — | SMTP authentication username. |
+| `SMTP_PASS` | No | — | SMTP authentication password. For Gmail, use an App Password. |
+| `SMTP_FROM` | No | `Domain Monitor <noreply@example.com>` | The `From:` header on all outbound emails. |
+| `ENCRYPTION_KEY` | No | — | AES encryption key for API keys stored in the database. Strongly recommended in production. |
+| `LOG_LEVEL` | No | `info` | Pino log level: `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `LOG_TO_FILE` | No | `false` | Set `true` to write rotating log files to `LOG_DIR`. |
+| `LOG_DIR` | No | `./logs` | Directory for log files (created automatically if it doesn't exist). |
+| `HEALTH_CHECK_ENABLED` | No | `true` | Set `false` to globally disable scheduled health checks at startup. |
+| `HEALTH_CHECK_INTERVAL_HOURS` | No | `24` | How often automatic health checks run (overridable per-domain in settings). |
 
-1. **Request arrives** at Express server
-2. **Middleware chain** processes it:
-   - `requestLogger` - Logs method, path, timing
-   - `cookieParser` - Parses session cookies
-   - `authMiddleware` - Validates session (if auth enabled)
-   - `validateBody/Query/Params` - Validates input with Zod
-3. **Route handler** processes the request
-4. **Database operations** via database layer
-5. **Response** sent back to client
-6. **WebSocket broadcast** for real-time updates (if applicable)
+### Startup Validation
+
+`validateConfig()` calls `process.exit(1)` if:
+- `APILAYER_KEY` is not set
+- `AUTH_ENABLED=true` but `ADMIN_PASSWORD` is empty or missing
+- `NODE_ENV=production` but `SESSION_SECRET` is still the default placeholder value
+
+Non-fatal warnings are logged (but the server still starts) if:
+- `ENCRYPTION_KEY` is not set (API keys are stored with a weaker built-in fallback key)
+- `AUTH_ENABLED=false` in a production environment (all endpoints are publicly accessible)
+
+### In-App Settings (Database-Backed)
+
+Beyond environment variables, runtime settings are stored in the `settings` table and editable through the UI under **Settings**. All settings below can be changed without restarting the server.
+
+| Setting Key | Type | Default | Description |
+|------------|------|---------|-------------|
+| `refresh_schedule` | string (cron) | `0 2 * * 0` | Cron expression for automatic WHOIS refresh. Default: Sundays at 2 AM. |
+| `email_enabled` | boolean | `false` | Enable outbound expiry/uptime email alerts. |
+| `email_recipients` | string[] | `[]` | Email addresses that receive alert emails. |
+| `alert_days` | number[] | `[7, 14, 30]` | Days-before-expiry thresholds that trigger email alerts. |
+| `smtp_host` | string | — | Overrides the `SMTP_HOST` env var at runtime. |
+| `smtp_port` | number | — | Overrides `SMTP_PORT`. |
+| `smtp_secure` | boolean | — | Overrides `SMTP_SECURE`. |
+| `smtp_user` | string | — | Overrides `SMTP_USER`. |
+| `smtp_pass` | string | — | Overrides `SMTP_PASS`. |
+| `smtp_from` | string | — | Overrides `SMTP_FROM`. |
+| `uptime_enabled` | boolean | `false` | Enable the uptime monitoring loop. |
+| `uptime_interval_minutes` | number | `5` | How often to ping each domain (1–60 minutes). |
+| `uptime_alert_threshold` | number | `3` | Consecutive failures before sending a "domain down" alert. |
+| `health_check_enabled` | boolean | `true` | Enable scheduled domain health checks. |
+| `health_check_interval_hours` | number | `24` | Hours between automatic health check runs. |
+| `auto_cleanup_enabled` | boolean | `true` | Automatically purge old log records on the retention schedule. |
+| `audit_log_retention_days` | number | `90` | Days to keep audit log entries. |
+| `health_log_retention_days` | number | `30` | Days to keep health and uptime check records. |
+| `timezone` | string | `UTC` | Timezone used when formatting dates in email alerts. |
+| `slack_enabled` | boolean | `false` | Enable Slack notifications (hidden from UI; configured directly in DB or code). |
+| `slack_webhook_url` | string | — | Slack Incoming Webhook URL. |
+| `slack_events` | string[] | `[]` | Event types to send to Slack. Empty array = all events. |
+| `signal_enabled` | boolean | `false` | Enable Signal messenger notifications. |
+| `signal_api_url` | string | — | URL of a self-hosted signal-cli REST API instance. |
+| `signal_sender` | string | — | Phone number to send Signal messages from. |
+| `signal_recipients` | string[] | `[]` | Phone numbers to receive Signal messages. |
+| `signal_events` | string[] | `[]` | Event types to send via Signal. |
 
 ---
 
-## 3. Configuration Files
+## 5. Server Startup & Lifecycle
 
-### package.json
+### Startup Sequence (`src/server.ts`)
 
-**Purpose**: Defines project dependencies, scripts, and metadata.
+The server boots in this exact order:
 
-**Key Scripts**:
-```json
-{
-  "scripts": {
-    "dev": "tsx watch src/index.ts",      // Development with hot reload
-    "build": "tsc",                        // Compile TypeScript to JavaScript
-    "start": "node dist/index.js",         // Run production build
-    "start:legacy": "node server.js",      // Run legacy JavaScript version
-    "desktop": "electron main.js"          // Run as desktop app (Electron)
-  }
+```
+1. validateConfig()            — exits process if environment is broken
+2. runMigrations()             — creates/alters DB tables as needed (idempotent)
+3. initializeSettings()        — seeds default settings into the DB if absent
+4. Express app created         — JSON body parser, cookie-parser, requestLogger
+5. wsService.initialize()      — attaches WebSocketServer to the HTTP server at /ws
+6. onRefreshUpdate()           — wires WHOIS progress events to WebSocket broadcasts
+7. Helmet headers applied      — different CSP profiles for dev vs. production
+8. Static files mounted        — public/ served at /
+9. Routes mounted              — /api/auth (no auth gate), /api/* (auth gate if enabled)
+10. 404 + error handlers       — catch-all fallbacks
+11. initialize() called async:
+    a. initializeAuth()        — seeds built-in admin user if AUTH_ENABLED
+    b. initializeEmail()       — SMTP transporter created and verified
+    c. initializeScheduler()   — node-cron jobs registered (refresh + email check)
+    d. startSessionCleanup()   — expired sessions purged every 15 minutes
+    e. startUptimeMonitoring() — uptime ping interval loop started
+    f. startAutoCleanup()      — log retention cleanup scheduled daily
+12. server.listen(PORT)        — binds to PORT, logs startup info
+13. migrateFromJSON()          — one-time migration from legacy domains.json if present
+```
+
+### Graceful Shutdown
+
+On `SIGTERM` or `SIGINT`:
+1. Uptime monitoring loop stopped
+2. Auto-cleanup scheduler stopped
+3. HTTP server closed (no new connections accepted; in-flight requests finish)
+4. WebSocket server closed
+5. SQLite connection closed
+6. `process.exit(0)`
+
+---
+
+## 6. Database Layer
+
+### Why `better-sqlite3`?
+
+All database calls are **synchronous**. `better-sqlite3` uses a blocking C++ binding to SQLite which is faster than async SQLite wrappers for Node.js because it avoids event-loop overhead for the small, frequent queries typical of a monitoring application. The trade-off (blocking the event loop on heavy queries) is mitigated by keeping all queries indexed and lightweight.
+
+**WAL mode** (`PRAGMA journal_mode = WAL`) is enabled at startup. WAL allows concurrent readers while a single writer is active, which greatly improves throughput for the read-heavy monitoring workload.
+
+**Foreign keys** are enforced with `PRAGMA foreign_keys = ON`.
+
+**Prepared statements** are cached in module-level `_statements` objects and lazily initialized on first use. This avoids re-parsing SQL on every call while also avoiding initialization-order issues.
+
+---
+
+### Schema & Tables
+
+#### `domains`
+The core table. One row per domain name.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `domain` | TEXT | NOT NULL UNIQUE | Normalized domain name (lowercase, no trailing dot) |
+| `registrar` | TEXT | NOT NULL default `''` | Registrar name from WHOIS |
+| `created_date` | TEXT | NOT NULL default `''` | Domain registration date (ISO or raw WHOIS string) |
+| `expiry_date` | TEXT | NOT NULL default `''` | Domain expiration date |
+| `name_servers` | TEXT | NOT NULL default `'[]'` | JSON array of current nameservers |
+| `name_servers_prev` | TEXT | NOT NULL default `'[]'` | JSON array of previous nameservers (for NS change detection) |
+| `last_checked` | TEXT | nullable | ISO datetime of the last successful WHOIS fetch |
+| `error` | TEXT | nullable | Last WHOIS error message |
+| `group_id` | INTEGER | FK → groups(id) ON DELETE SET NULL | Group assignment |
+| `created_at` | TEXT | NOT NULL default `datetime('now')` | Row creation time |
+| `updated_at` | TEXT | NOT NULL default `datetime('now')` | Last update time |
+| `deleted_at` | TEXT | nullable | Soft-delete timestamp; non-null means the domain is in the trash |
+
+#### `groups`
+Named organizational buckets for domains (e.g., "Production", "Clients").
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `name` | TEXT | NOT NULL UNIQUE | Display name |
+| `color` | TEXT | NOT NULL | Hex color code for UI badge |
+| `description` | TEXT | nullable | Optional free-text description |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+| `updated_at` | TEXT | NOT NULL | Last update timestamp |
+
+#### `tags`
+Labels that can be applied to multiple domains independently of groups.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `name` | TEXT | NOT NULL UNIQUE | Display name |
+| `color` | TEXT | NOT NULL | Hex color code for UI badge |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+
+#### `domain_tags` (Junction Table)
+Many-to-many relationship between domains and tags.
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `domain_id` | INTEGER | FK → domains(id) ON DELETE CASCADE |
+| `tag_id` | INTEGER | FK → tags(id) ON DELETE CASCADE |
+| | | PRIMARY KEY (domain_id, tag_id) |
+
+#### `audit_log`
+Append-only record of every significant action in the system.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `entity_type` | TEXT | NOT NULL | `domain`, `group`, `tag`, `settings`, `apikey`, `user`, `system` |
+| `entity_id` | TEXT | NOT NULL | The ID or name of the affected entity |
+| `action` | TEXT | NOT NULL | `create`, `update`, `delete`, `refresh`, `import`, `login`, `logout`, `health_check`, `scheduled` |
+| `old_value` | TEXT | nullable | JSON snapshot of the entity before the action |
+| `new_value` | TEXT | nullable | JSON snapshot of the entity after the action |
+| `ip_address` | TEXT | nullable | Client IP address |
+| `user_agent` | TEXT | nullable | Client User-Agent string |
+| `performed_by` | TEXT | nullable | Username of the authenticated user who performed the action |
+| `created_at` | TEXT | NOT NULL | Timestamp of the action |
+
+#### `sessions`
+Server-side session store. The session ID is stored in an HTTP-only cookie named `session`.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PK | Randomly generated UUID session token |
+| `expires_at` | TEXT | NOT NULL | Expiry time (7 days from creation) |
+| `user_role` | TEXT | NOT NULL | `admin`, `manager`, or `viewer` |
+| `username` | TEXT | NOT NULL | The authenticated username |
+| `created_at` | TEXT | NOT NULL | Session creation time |
+
+#### `api_keys`
+Stores WHOIS API keys for the APILayer provider. Supports multiple keys with automatic failover.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `name` | TEXT | NOT NULL | Friendly label (e.g., "Primary Key") |
+| `key_encrypted` | TEXT | NOT NULL | AES-256-CBC encrypted API key value |
+| `provider` | TEXT | NOT NULL default `'apilayer'` | Provider identifier |
+| `priority` | INTEGER | NOT NULL default `0` | Lower number = tried first during failover |
+| `enabled` | INTEGER | NOT NULL default `1` | Boolean (0/1) |
+| `request_count` | INTEGER | NOT NULL default `0` | Cumulative usage counter |
+| `last_used` | TEXT | nullable | Last time this key was used successfully |
+| `last_error` | TEXT | nullable | Last error message received from this key |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+| `updated_at` | TEXT | NOT NULL | Last update timestamp |
+
+#### `domain_health`
+One row per health check run per domain. Accumulates over time (pruned by retention settings).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `domain_id` | INTEGER | NOT NULL FK → domains(id) | Parent domain |
+| `dns_resolved` | INTEGER | NOT NULL | Boolean: DNS A record lookup succeeded |
+| `dns_response_time_ms` | INTEGER | nullable | DNS lookup duration in milliseconds |
+| `dns_records` | TEXT | NOT NULL default `'[]'` | JSON array of resolved IP addresses |
+| `http_status` | INTEGER | nullable | HTTP response status code (e.g. 200, 404, 503) |
+| `http_response_time_ms` | INTEGER | nullable | HTTP HEAD request round-trip time in milliseconds |
+| `ssl_valid` | INTEGER | nullable | Boolean: SSL certificate is present, valid, and not expired |
+| `ssl_expires` | TEXT | nullable | SSL certificate expiry date |
+| `ssl_issuer` | TEXT | nullable | SSL certificate issuer name |
+| `checked_at` | TEXT | NOT NULL | Timestamp of the check |
+
+#### `uptime_checks`
+One row per uptime ping per domain. Accumulates over time.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `domain_id` | INTEGER | NOT NULL FK → domains(id) | Parent domain |
+| `status` | TEXT | NOT NULL | `up` or `down` |
+| `response_time_ms` | INTEGER | nullable | HTTP response time in milliseconds |
+| `status_code` | INTEGER | nullable | HTTP status code received |
+| `error` | TEXT | nullable | Error message if the check failed |
+| `checked_at` | TEXT | NOT NULL | Timestamp of the check |
+
+#### `email_alerts`
+Tracks which expiration alerts have already been sent to prevent duplicate emails.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `domain_id` | INTEGER | NOT NULL FK → domains(id) | Domain this alert is for |
+| `alert_type` | TEXT | NOT NULL | e.g. `expiry_30d`, `expiry_7d` |
+| `sent_at` | TEXT | nullable | Timestamp when the email was sent |
+| `scheduled_for` | TEXT | nullable | When the alert was due |
+| `status` | TEXT | NOT NULL | `pending`, `sent`, or `failed` |
+| `error` | TEXT | nullable | Error message if sending failed |
+
+#### `webhooks`
+Outbound webhook endpoint configurations.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `name` | TEXT | NOT NULL | Friendly label |
+| `url` | TEXT | NOT NULL | Destination URL for HTTP POST |
+| `secret` | TEXT | NOT NULL | HMAC-SHA256 signing secret |
+| `events` | TEXT | NOT NULL | JSON array of subscribed event types |
+| `enabled` | INTEGER | NOT NULL default `1` | Boolean (0/1) |
+| `last_triggered` | TEXT | nullable | When the webhook last fired |
+| `last_status` | INTEGER | nullable | HTTP status code from the last delivery attempt |
+| `failure_count` | INTEGER | NOT NULL default `0` | Cumulative delivery failure count |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+| `updated_at` | TEXT | NOT NULL | Last update timestamp |
+
+#### `webhook_deliveries`
+Delivery history log for every webhook invocation attempt.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `webhook_id` | INTEGER | NOT NULL FK → webhooks(id) ON DELETE CASCADE | Parent webhook |
+| `event` | TEXT | NOT NULL | Event type that triggered delivery |
+| `payload` | TEXT | NOT NULL | Full JSON payload sent |
+| `response_status` | INTEGER | nullable | HTTP response status code |
+| `response_body` | TEXT | nullable | First 500 characters of the response body |
+| `success` | INTEGER | NOT NULL | Boolean: delivery received a 2xx status |
+| `attempt` | INTEGER | NOT NULL | Attempt number (1, 2, or 3) |
+| `delivered_at` | TEXT | NOT NULL | Delivery timestamp |
+
+#### `alert_rules`
+Configurable alert rules per domain or globally.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `domain_id` | INTEGER | nullable FK → domains(id) | null = global rule |
+| `event_type` | TEXT | NOT NULL | Type of event the rule applies to |
+| `threshold_days` | INTEGER | nullable | Days threshold for expiry-type rules |
+| `consecutive_failures` | INTEGER | nullable | Failure count threshold for uptime rules |
+| `muted` | INTEGER | NOT NULL default `0` | Boolean: alert is silenced |
+| `muted_until` | TEXT | nullable | Silence expires at this datetime |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+| `updated_at` | TEXT | NOT NULL | Last update timestamp |
+
+#### `users`
+Application user accounts for multi-user RBAC authentication.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PK AUTOINCREMENT | Internal identifier |
+| `username` | TEXT | NOT NULL UNIQUE | Login username |
+| `password_hash` | TEXT | NOT NULL | bcrypt hash (cost factor 12) |
+| `role` | TEXT | NOT NULL | `admin`, `manager`, or `viewer` |
+| `enabled` | INTEGER | NOT NULL default `1` | Boolean: account is active |
+| `created_at` | TEXT | NOT NULL | Creation timestamp |
+| `updated_at` | TEXT | NOT NULL | Last update timestamp |
+| `last_login` | TEXT | nullable | Timestamp of the last successful login |
+
+#### `settings`
+Key/value store for all in-app configuration.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `key` | TEXT | PK | Setting name |
+| `value` | TEXT | NOT NULL | JSON-encoded value |
+| `updated_at` | TEXT | NOT NULL | Last modification timestamp |
+
+---
+
+### Indexes
+
+| Index | Table | Columns | Purpose |
+|-------|-------|---------|---------|
+| `idx_domain` | domains | `domain` | Fast single-domain lookup |
+| `idx_expiry_date` | domains | `expiry_date` | Expiry range queries |
+| `idx_domains_group` | domains | `group_id` | Group filter queries |
+| `idx_domains_deleted` | domains | `deleted_at` | Soft-delete filter (WHERE deleted_at IS NULL) |
+| `idx_audit_entity` | audit_log | `entity_type, entity_id` | Per-entity audit history |
+| `idx_audit_created` | audit_log | `created_at` | Date range queries |
+| `idx_audit_action` | audit_log | `action` | Action type filter |
+| `idx_health_domain` | domain_health | `domain_id` | Domain health history |
+| `idx_health_checked` | domain_health | `checked_at` | Time range queries |
+| `idx_health_domain_checked` | domain_health | `domain_id, checked_at DESC` | Latest health record per domain |
+| `idx_uptime_domain` | uptime_checks | `domain_id` | Domain uptime history |
+| `idx_uptime_domain_checked` | uptime_checks | `domain_id, checked_at DESC` | Latest uptime record per domain |
+
+---
+
+### Migrations
+
+All migrations run on every startup via `runMigrations()` in `src/database/index.ts`. The approach is fully **idempotent**:
+
+- Tables use `CREATE TABLE IF NOT EXISTS`.
+- Column additions check `PRAGMA table_info(table_name)` first and only run `ALTER TABLE` if the column is absent.
+
+This means you can upgrade the server by replacing the binary and restarting — migrations apply automatically without any migration runner tool.
+
+**Example safe column addition pattern:**
+```typescript
+const cols = db.prepare("PRAGMA table_info(audit_log)").all() as { name: string }[];
+if (!cols.some(c => c.name === 'performed_by')) {
+  db.exec('ALTER TABLE audit_log ADD COLUMN performed_by TEXT');
 }
 ```
 
-**Core Dependencies**:
-- `express` - Web framework
-- `better-sqlite3` - SQLite database driver (synchronous, fast)
-- `axios` - HTTP client for WHOIS API calls
-- `whois-json` - Direct WHOIS lookups for fallback (used for .biz and other problematic TLDs)
-- `nodemailer` - SMTP email sending
-- `ws` - WebSocket server
-- `node-cron` - Task scheduling
-- `zod` - Runtime schema validation
-- `bcrypt` - Password hashing
-- `pino` / `pino-pretty` - Structured logging
-
 ---
 
-### tsconfig.json
-
-**Purpose**: Configures the TypeScript compiler.
-
-**Key Settings**:
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",           // Modern JavaScript output
-    "module": "NodeNext",         // Node.js ESM modules
-    "outDir": "./dist",           // Compiled files go here
-    "strict": true,               // Strict type checking
-    "esModuleInterop": true,      // CommonJS/ESM interop
-    "skipLibCheck": true          // Skip type checking node_modules
-  }
-}
-```
-
----
-
-### .env (Environment Variables)
-
-**Purpose**: Configuration that varies between environments (development, production).
-
-**Complete Reference**:
-
-```bash
-# =============================================================================
-# REQUIRED
-# =============================================================================
-
-# APILayer WHOIS API key - Get from https://apilayer.com/marketplace/whois-api
-APILAYER_KEY=your_api_key_here
-
-# =============================================================================
-# SERVER
-# =============================================================================
-
-PORT=3000                          # HTTP server port
-NODE_ENV=development               # 'development' or 'production'
-DB_PATH=./domains.db               # SQLite database file location
-
-# =============================================================================
-# AUTHENTICATION (Optional but recommended)
-# =============================================================================
-
-AUTH_ENABLED=true                  # Enable login requirement
-ADMIN_USERNAME=admin               # Login username
-ADMIN_PASSWORD=your_secure_pass    # Login password (required if AUTH_ENABLED)
-SESSION_SECRET=generate_random_hex # Session encryption key (32+ chars)
-
-# Generate a secure secret:
-# node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-
-# =============================================================================
-# EMAIL NOTIFICATIONS (Optional)
-# =============================================================================
-
-SMTP_HOST=smtp.example.com         # SMTP server hostname
-SMTP_PORT=465                      # Port (465 for SSL, 587 for STARTTLS)
-SMTP_SECURE=true                   # true for port 465, false for 587
-SMTP_USER=user@example.com         # SMTP username
-SMTP_PASS=smtp_password            # SMTP password
-SMTP_FROM=Domain Monitor <noreply@example.com>  # From address
-
-# =============================================================================
-# LOGGING (Optional)
-# =============================================================================
-
-LOG_LEVEL=info                     # debug, info, warn, error
-LOG_TO_FILE=false                  # Write logs to files
-LOG_DIR=./logs                     # Log file directory
-
-# =============================================================================
-# HEALTH CHECKS (Optional)
-# =============================================================================
-
-HEALTH_CHECK_ENABLED=true          # Enable DNS/HTTP/SSL checks
-HEALTH_CHECK_INTERVAL_HOURS=24     # Hours between automatic checks
-
-# =============================================================================
-# SECURITY (Optional)
-# =============================================================================
-
-ENCRYPTION_KEY=                    # 32-byte hex key for API key encryption
-                                   # If not set, uses SESSION_SECRET
-```
-
----
-
-## 4. Backend Source Code
-
-### 4.1 Entry Points
-
-#### `src/index.ts`
-```typescript
-import './server.js';
-```
-The simplest file - just imports the server to start it.
-
-#### `src/server.ts`
-
-**Purpose**: Main application setup and initialization.
-
-**What it does**:
-
-1. **Validates configuration** - Checks required env vars exist
-2. **Initializes database** - Creates tables, runs migrations
-3. **Creates Express app** - Sets up HTTP server
-4. **Initializes WebSocket** - Real-time communication on `/ws`
-5. **Configures middleware** - JSON parsing, cookies, logging
-6. **Mounts routes** - All API endpoints under `/api`
-7. **Starts services** - Auth, email, scheduler, session cleanup
-8. **Handles shutdown** - Graceful cleanup on SIGTERM/SIGINT
-
-**Key code sections**:
-
-```typescript
-// Database initialization
-const db = initializeDatabase();
-runMigrations();
-initializeSettings();
-
-// WebSocket setup
-const wss = initializeWebSocket(server);
-
-// Middleware stack
-app.use(express.json());
-app.use(cookieParser());
-app.use(requestLogger);
-
-// API routes with authentication
-app.use('/api/auth', authRouter);  // Auth routes (no middleware)
-app.use('/api', authMiddleware, routes);  // Protected routes
-
-// Service initialization
-await initializeAuth();
-await initializeEmail();
-initializeScheduler();
-startSessionCleanup();
-```
-
----
-
-### 4.2 Configuration Layer (`src/config/`)
-
-#### `src/config/index.ts`
-
-**Purpose**: Centralizes all configuration in one typed object.
-
-**How it works**: Reads environment variables, provides defaults, and exports a typed `config` object.
-
-```typescript
-export const config = {
-  // Server
-  port: parseInt(process.env.PORT || '3000', 10),
-  nodeEnv: process.env.NODE_ENV || 'development',
-
-  // Database
-  dbPath: path.resolve(process.env.DB_PATH || './domains.db'),
-
-  // WHOIS API
-  whoisApiUrl: 'https://api.apilayer.com/whois/query',
-  apiLayerKey: process.env.APILAYER_KEY || '',
-  whoisDelayMs: 2000,  // Rate limiting
-  maxRetries: 3,
-
-  // Authentication
-  authEnabled: process.env.AUTH_ENABLED === 'true',
-  adminUsername: process.env.ADMIN_USERNAME || 'admin',
-  adminPassword: process.env.ADMIN_PASSWORD || '',
-  sessionSecret: process.env.SESSION_SECRET || 'change-this',
-  sessionMaxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
-
-  // SMTP
-  smtp: {
-    host: process.env.SMTP_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_SECURE === 'true',
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-    from: process.env.SMTP_FROM || 'Domain Monitor <noreply@example.com>',
-  },
-
-  // ... more settings
-};
-```
-
-**Why this pattern?**:
-- Single source of truth for configuration
-- Type safety - TypeScript knows the shape
-- Default values - App works without every env var
-- Validation at startup - Fails fast if misconfigured
-
----
-
-#### `src/config/schema.ts`
-
-**Purpose**: Defines validation schemas using Zod for all API inputs.
-
-**What is Zod?**: A TypeScript-first schema validation library. It validates data at runtime and provides type inference.
-
-**Key schemas**:
-
-```typescript
-// Domain name validation (RFC-compliant)
-export const domainSchema = z.object({
-  domain: z.string()
-    .min(1, 'Domain is required')
-    .max(253, 'Domain too long')
-    .regex(
-      /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/,
-      'Invalid domain format'
-    )
-    .transform(d => d.toLowerCase().trim()),
-});
-
-// Group creation
-export const groupSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-});
-
-// Tag creation
-export const tagSchema = z.object({
-  name: z.string().min(1).max(50),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
-});
-
-// Login credentials
-export const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
-});
-
-// CSV row during import
-export const csvRowSchema = z.object({
-  domain: z.string().min(1),
-  group: z.string().optional(),
-  tags: z.string().optional(),  // Comma-separated
-});
-```
-
-**Why validate inputs?**:
-- Security - Prevents injection attacks
-- Data integrity - Ensures clean database data
-- Better errors - Users get helpful error messages
-- Type safety - TypeScript knows the validated shape
-
----
-
-### 4.3 Database Layer (`src/database/`)
+### Database Modules
 
 #### `src/database/db.ts`
-
-**Purpose**: Creates and manages the SQLite database connection.
-
-```typescript
-import Database from 'better-sqlite3';
-
-const db = new Database(config.dbPath);
-
-// Enable Write-Ahead Logging for better concurrency
-db.pragma('journal_mode = WAL');
-
-// Enforce foreign key constraints
-db.pragma('foreign_keys = ON');
-
-export { db };
-```
-
-**Why better-sqlite3?**:
-- Synchronous API - Simpler code, no callbacks/promises for DB operations
-- Fast - Native C++ bindings
-- WAL mode - Better concurrent read/write performance
-- Prepared statements - Protection against SQL injection
-
----
-
-#### `src/database/index.ts`
-
-**Purpose**: Runs database migrations to create/update schema.
-
-**How migrations work**: On every startup, checks if tables exist and creates them if not. Also adds new columns/indexes to existing tables.
-
-```typescript
-export function runMigrations(): void {
-  logger.info('Running database migrations...');
-
-  // Create domains table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS domains (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      domain TEXT UNIQUE NOT NULL,
-      registrar TEXT,
-      creation_date TEXT,
-      expiry_date TEXT,
-      name_servers TEXT,           -- JSON array
-      previous_name_servers TEXT,  -- JSON array
-      last_checked TEXT,
-      status TEXT DEFAULT 'unknown',
-      error_message TEXT,
-      group_id INTEGER,
-      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
-    )
-  `);
-
-  // Create groups table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS groups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      description TEXT,
-      color TEXT DEFAULT '#6366f1',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Create tags table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS tags (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      color TEXT DEFAULT '#6366f1'
-    )
-  `);
-
-  // Junction table for many-to-many domain-tag relationship
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS domain_tags (
-      domain_id INTEGER NOT NULL,
-      tag_id INTEGER NOT NULL,
-      PRIMARY KEY (domain_id, tag_id),
-      FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE,
-      FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Create indexes for fast lookups
-  db.exec('CREATE INDEX IF NOT EXISTS idx_domain ON domains(domain)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_expiry_date ON domains(expiry_date)');
-
-  // ... more tables: audit_log, settings, sessions, api_keys, domain_health
-}
-```
-
----
+Opens the SQLite file at `DB_PATH`, enables WAL mode and foreign key enforcement, and exports the `db` singleton used by every other database module.
 
 #### `src/database/domains.ts`
+Key functions:
+- `getDomainsPaginated(page, limit, sortBy, sortOrder, search?, status?, groupId?, registrar?)` — returns `{ data, total, page, limit, totalPages }`. Supports full-text search over domain + registrar + nameservers, status filters (`expired`, `expiring_15`, `expiring_30`, `expiring_90`, `expiring_180`, `error`, `unchecked`), group filter (including `'none'` for ungrouped), and registrar exact-match filter.
+- `addDomain(domain)` — inserts a new domain row, returns the new `id`.
+- `softDeleteDomain(domain)` / `softDeleteDomainById(id)` — sets `deleted_at` to current time.
+- `restoreDomain(id)` — clears `deleted_at`.
+- `permanentDeleteDomain(id)` — hard DELETE (only works for already-trashed domains).
+- `setDomainGroup(id, groupId)` / `setDomainsGroup(ids[], groupId)` — group assignment (bulk version uses a single transaction).
+- `validateNsChange(domainId)` — copies current `name_servers` into `name_servers_prev` to acknowledge a nameserver change.
+- `getLatestHealthBatch(domainIds[])` — single SQL query returning a `Map<id, DomainHealth>` to avoid N+1 queries when enriching paginated results.
 
-**Purpose**: All database operations for domains.
-
-**Key functions**:
-
-```typescript
-// Get all domains
-export function getAllDomains(): Domain[] {
-  const stmt = db.prepare('SELECT * FROM domains ORDER BY domain');
-  const rows = stmt.all() as DomainRow[];
-  return rows.map(rowToDomain);  // Parse JSON fields
-}
-
-// Get single domain by name (case-insensitive)
-export function getDomain(domainName: string): Domain | undefined {
-  const stmt = db.prepare('SELECT * FROM domains WHERE LOWER(domain) = LOWER(?)');
-  const row = stmt.get(domainName) as DomainRow | undefined;
-  return row ? rowToDomain(row) : undefined;
-}
-
-// Add new domain
-export function addDomain(domain: Partial<Domain>): number {
-  const stmt = db.prepare(`
-    INSERT INTO domains (domain, registrar, creation_date, expiry_date,
-                         name_servers, status, group_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  const result = stmt.run(
-    domain.domain,
-    domain.registrar || null,
-    domain.creation_date || null,
-    domain.expiry_date || null,
-    JSON.stringify(domain.name_servers || []),
-    domain.status || 'pending',
-    domain.group_id || null
-  );
-  return result.lastInsertRowid as number;
-}
-
-// Update domain with new WHOIS data
-export function updateDomain(domain: Partial<Domain>): void {
-  const stmt = db.prepare(`
-    UPDATE domains SET
-      registrar = ?, creation_date = ?, expiry_date = ?,
-      name_servers = ?, previous_name_servers = ?,
-      last_checked = ?, status = ?, error_message = ?
-    WHERE LOWER(domain) = LOWER(?)
-  `);
-  stmt.run(/* ... */);
-}
-
-// Bulk operations for efficiency
-export function addDomains(domains: Partial<Domain>[]): number[] {
-  const insertMany = db.transaction((domains) => {
-    return domains.map(d => addDomain(d));
-  });
-  return insertMany(domains);
-}
-```
-
-**Why transactions for bulk operations?**:
-- Atomicity - All succeed or all fail
-- Performance - Much faster than individual inserts
-- Consistency - No partial states
-
----
-
-#### `src/database/groups.ts` & `src/database/tags.ts`
-
-**Purpose**: CRUD operations for organizing domains.
-
-**Groups**: Hierarchical organization (one domain = one group)
-**Tags**: Flexible labeling (one domain = many tags)
-
-```typescript
-// Groups - one-to-many relationship
-export function setDomainGroup(domainId: number, groupId: number | null): void {
-  const stmt = db.prepare('UPDATE domains SET group_id = ? WHERE id = ?');
-  stmt.run(groupId, domainId);
-}
-
-// Tags - many-to-many relationship via junction table
-export function setDomainTags(domainId: number, tagIds: number[]): void {
-  const transaction = db.transaction(() => {
-    // Remove all existing tags
-    db.prepare('DELETE FROM domain_tags WHERE domain_id = ?').run(domainId);
-
-    // Add new tags
-    const insert = db.prepare(
-      'INSERT INTO domain_tags (domain_id, tag_id) VALUES (?, ?)'
-    );
-    for (const tagId of tagIds) {
-      insert.run(domainId, tagId);
-    }
-  });
-  transaction();
-}
-```
-
----
-
-#### `src/database/audit.ts`
-
-**Purpose**: Records all changes for compliance and debugging.
-
-**What gets logged**:
-- Domain create/update/delete/refresh
-- Group/tag create/update/delete
-- Settings changes
-- Login/logout events
-- Health checks
-
-```typescript
-export function logAudit(entry: Omit<AuditEntry, 'id' | 'created_at'>): void {
-  const stmt = db.prepare(`
-    INSERT INTO audit_log
-    (entity_type, entity_id, action, old_value, new_value, ip_address, user_agent)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(
-    entry.entity_type,
-    entry.entity_id,
-    entry.action,
-    JSON.stringify(entry.old_value),
-    JSON.stringify(entry.new_value),
-    entry.ip_address,
-    entry.user_agent
-  );
-}
-
-// Query with filters
-export function queryAuditLog(options: AuditQueryOptions): AuditEntry[] {
-  let sql = 'SELECT * FROM audit_log WHERE 1=1';
-  const params: any[] = [];
-
-  if (options.entity_type) {
-    sql += ' AND entity_type = ?';
-    params.push(options.entity_type);
-  }
-  if (options.action) {
-    sql += ' AND action = ?';
-    params.push(options.action);
-  }
-  if (options.start_date) {
-    sql += ' AND created_at >= ?';
-    params.push(options.start_date);
-  }
-  // ... more filters
-
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(options.limit || 100, options.offset || 0);
-
-  return db.prepare(sql).all(...params);
-}
-```
-
----
-
-#### `src/database/sessions.ts`
-
-**Purpose**: Manages user login sessions.
-
-```typescript
-// Create a new session after successful login
-export function createSession(expiresAt: Date): string {
-  const sessionId = crypto.randomBytes(32).toString('hex');
-  const stmt = db.prepare(
-    'INSERT INTO sessions (id, expires_at) VALUES (?, ?)'
-  );
-  stmt.run(sessionId, expiresAt.toISOString());
-  return sessionId;
-}
-
-// Validate session on each request
-export function getSession(sessionId: string): Session | null {
-  const stmt = db.prepare('SELECT * FROM sessions WHERE id = ?');
-  const session = stmt.get(sessionId) as Session | undefined;
-
-  if (!session) return null;
-  if (new Date(session.expires_at) < new Date()) {
-    deleteSession(sessionId);  // Expired
-    return null;
-  }
-  return session;
-}
-
-// Cleanup job runs hourly
-export function cleanupExpiredSessions(): number {
-  const stmt = db.prepare(
-    'DELETE FROM sessions WHERE expires_at < datetime("now")'
-  );
-  return stmt.run().changes;
-}
-```
-
----
+#### `src/database/settings.ts`
+Settings are cached in-memory after the first load. `getSettingsData()` returns a fully-typed `SettingsData` object. `saveSettingsData(partial)` deep-merges the partial update, persists to the DB, and invalidates the cache. The cache is never stale longer than one request cycle.
 
 #### `src/database/apikeys.ts`
+API keys are stored AES-256-CBC encrypted. The encryption key comes from `ENCRYPTION_KEY` env var with a built-in fallback. `getEnabledApiKeys()` returns keys ordered by priority (ascending); the WHOIS service cycles through them when one fails.
 
-**Purpose**: Stores and manages WHOIS API keys with encryption.
-
-**Why multiple API keys?**:
-- Rate limit distribution across keys
-- Failover if one key has issues
-- Priority-based selection
-
-```typescript
-// Encrypt API key before storing
-export function addAPIKey(name: string, key: string, priority: number = 0): number {
-  const encrypted = encrypt(key);  // AES-256-GCM
-  const stmt = db.prepare(`
-    INSERT INTO api_keys (name, encrypted_key, priority, enabled)
-    VALUES (?, ?, ?, 1)
-  `);
-  return stmt.run(name, encrypted, priority).lastInsertRowid as number;
-}
-
-// API Key Manager - round-robin selection
-class APIKeyManager {
-  private keys: APIKeyInfo[] = [];
-  private currentIndex = 0;
-
-  getNextKey(): string | null {
-    const enabledKeys = this.keys.filter(k => k.enabled);
-    if (enabledKeys.length === 0) return null;
-
-    // Round-robin selection
-    const key = enabledKeys[this.currentIndex % enabledKeys.length];
-    this.currentIndex++;
-
-    return decrypt(key.encrypted_key);
-  }
-
-  recordUsage(keyId: number, success: boolean): void {
-    const stmt = db.prepare(`
-      UPDATE api_keys SET
-        request_count = request_count + 1,
-        last_used_at = datetime('now'),
-        error_count = error_count + ?
-      WHERE id = ?
-    `);
-    stmt.run(success ? 0 : 1, keyId);
-  }
-}
-```
+#### `src/database/audit.ts`
+- `logAudit(entry)` — inserts a row into `audit_log`. All 13+ call sites across routes and middleware pass `performed_by` from `(req as AuthenticatedRequest).username`.
+- Helper functions (`auditDomainCreate`, `auditDomainUpdate`, `auditDomainDelete`, `auditBulkRefresh`, `auditBulkHealthCheck`, `auditImport`) provide structured wrappers for common audit events.
+- `queryAuditLog({ entityType, entityId, action, startDate, endDate, limit, offset })` — returns paginated results with a total count.
 
 ---
 
-#### `src/database/health.ts`
+## 7. Services
 
-**Purpose**: Stores domain health check results (DNS, HTTP, SSL).
+### WHOIS Service
+**File:** `src/services/whois.ts`
 
-```typescript
-export function saveHealthCheck(
-  domainId: number,
-  dns: DNSCheckResult,
-  http: HTTPCheckResult,
-  ssl: SSLCheckResult
-): number {
-  const stmt = db.prepare(`
-    INSERT INTO domain_health (
-      domain_id, dns_resolved, dns_response_time_ms, dns_records,
-      http_status, http_response_time_ms,
-      ssl_valid, ssl_expires_at, ssl_issuer,
-      checked_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
+The primary source of domain registration data.
 
-  return stmt.run(
-    domainId,
-    dns.resolved ? 1 : 0,
-    dns.responseTimeMs,
-    JSON.stringify(dns.records),
-    http.statusCode,
-    http.responseTimeMs,
-    ssl.valid ? 1 : 0,
-    ssl.expiresAt,
-    ssl.issuer
-  ).lastInsertRowid as number;
-}
+#### Provider Chain
 
-// Get health summary for dashboard
-export function getHealthSummary(): HealthSummary {
-  const stmt = db.prepare(`
-    SELECT
-      COUNT(DISTINCT domain_id) as total_checked,
-      SUM(CASE WHEN dns_resolved THEN 1 ELSE 0 END) as dns_ok,
-      SUM(CASE WHEN http_status >= 200 AND http_status < 400 THEN 1 ELSE 0 END) as http_ok,
-      SUM(CASE WHEN ssl_valid THEN 1 ELSE 0 END) as ssl_ok
-    FROM domain_health
-    WHERE checked_at > datetime('now', '-24 hours')
-  `);
-  return stmt.get() as HealthSummary;
-}
-```
+Requests fall through providers in order until one returns usable data:
+
+1. **APILayer WHOIS API** (`https://api.apilayer.com/whois/query`) — Structured JSON. Requires `APILAYER_KEY` or stored DB keys.
+2. **whois-json** — Direct WHOIS socket connection. Less reliable for some TLDs but works without an API key.
+3. **RDAP** (`https://rdap.org/domain/{domain}`) — Used for TLDs (like `.info`) where socket WHOIS returns unstructured data.
+
+#### Key Functions
+
+- `refreshDomain(domain, options?)` — Fetches WHOIS for a single domain, normalizes data, updates the DB, optionally runs a health check after.
+- `refreshAllDomains(domains?, options?)` — Iterates all (or a provided subset of) domains with a 2-second delay between calls to respect API rate limits. Broadcasts `refresh_progress` WebSocket messages throughout.
+- `getRefreshStatus()` — Returns `{ isRefreshing, total, completed, startTime, currentDomain }`.
+- `onRefreshUpdate(callback)` — Registers a listener called after each domain completes (wired to WebSocket in `server.ts`).
+
+#### WHOIS Data Normalization
+
+Date formats from different registrars vary widely. The WHOIS service normalizes all recognized formats into ISO 8601 strings. Nameserver arrays are deduplicated and lowercased. Registrar names are trimmed of whitespace.
+
+#### Nameserver Change Detection
+
+After each refresh, if `name_servers` differs from `name_servers_prev`, the domain is flagged with an `nsChanged` indicator in the UI. The user acknowledges the change via `POST /api/domains/:id/validate-ns`, which copies current nameservers to previous and clears the flag.
 
 ---
 
-### 4.4 Middleware Layer (`src/middleware/`)
+### Health Check Service
+**File:** `src/services/healthcheck.ts`
 
-#### `src/middleware/auth.ts`
+Performs three independent checks per domain:
 
-**Purpose**: Handles user authentication and session management.
+| Check | Method | What It Detects |
+|-------|--------|----------------|
+| **DNS** | `dns.resolve4(domain)` | Domain resolves to at least one IPv4 address |
+| **HTTP** | `axios.head('http://domain', { timeout: 5000 })` | Server responds with any HTTP status code |
+| **SSL** | TLS socket on port 443 | Certificate is present, valid, and not expired |
 
-```typescript
-// Initialize by hashing the admin password
-export async function initializeAuth(): Promise<void> {
-  if (config.authEnabled && config.adminPassword) {
-    passwordHash = await bcrypt.hash(config.adminPassword, 10);
-    logger.info('Authentication initialized');
-  }
-}
+Each check records its response time in milliseconds. Results are stored in `domain_health`. After each individual domain check, a `health_update` WebSocket message is broadcast so the UI updates in real-time without a page refresh.
 
-// Middleware that requires authentication
-export function authMiddleware(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void {
-  if (!config.authEnabled) {
-    req.isAuthenticated = true;
-    return next();
-  }
-
-  const sessionId = req.cookies?.session;
-  if (!sessionId) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-
-  const session = getSession(sessionId);
-  if (!session) {
-    return res.status(401).json({ message: 'Invalid or expired session' });
-  }
-
-  req.isAuthenticated = true;
-  next();
-}
-
-// Login handler
-export async function login(
-  username: string,
-  password: string,
-  res: Response
-): Promise<boolean> {
-  if (username !== config.adminUsername) return false;
-
-  const valid = await bcrypt.compare(password, passwordHash);
-  if (!valid) return false;
-
-  // Create session
-  const expiresAt = new Date(Date.now() + config.sessionMaxAge);
-  const sessionId = createSession(expiresAt);
-
-  // Set cookie
-  res.cookie('session', sessionId, {
-    httpOnly: true,      // JavaScript can't access
-    secure: config.isProduction,
-    maxAge: config.sessionMaxAge,
-    sameSite: 'strict',
-  });
-
-  return true;
-}
-```
+`checkAllDomainsHealth()` runs checks for every non-deleted domain concurrently in batches.
 
 ---
 
-#### `src/middleware/errorHandler.ts`
+### Uptime Monitoring Service
+**File:** `src/services/uptime.ts`
 
-**Purpose**: Centralized error handling for all routes.
+Runs a continuous HTTP ping loop to track whether domains are reachable over time.
 
-```typescript
-// Async handler wrapper - catches Promise rejections
-export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
-): RequestHandler {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
+#### How It Works
+
+1. `startUptimeMonitoring()` creates a `setInterval` using `uptime_interval_minutes` from settings.
+2. Each tick calls `checkAllDomainsUptime()` which loops over all non-deleted domains.
+3. For each domain an HTTP GET is sent with a 10-second timeout.
+4. The result (`up`/`down`, response time, status code, error) is written to `uptime_checks`.
+5. If a domain has failed `uptime_alert_threshold` consecutive checks, `sendUptimeAlert()` fires an email and a `uptime.down` webhook event.
+6. When a domain recovers after being down, a `uptime.recovered` webhook event fires.
+
+#### Heartbeat Visualization
+
+`getAllHeartbeatData(buckets)` divides the last N hours into equal time buckets and returns the up/down aggregate per bucket for each domain. This powers the heartbeat bar visualization in the Uptime page.
+
+#### Statistics
+
+`getUptimeStats()` returns per-domain: `uptime_percentage`, `avg_response_time_ms`, `total_checks`, `successful_checks`, `current_status` (`up`/`down`/`unknown`).
+
+`getDomainUptimeSummaryBatch(domainIds, hours)` fetches uptime summaries for a batch of domains in a single query (used to enrich paginated domain results without N+1 queries).
+
+---
+
+### Scheduler Service
+**File:** `src/services/scheduler.ts`
+
+Uses `node-cron` to register recurring background jobs.
+
+| Job | Default Schedule | Action |
+|-----|----------------|--------|
+| WHOIS refresh | `0 2 * * 0` (Sunday 2 AM) | `refreshAllDomains()` |
+| Email expiry check | `0 9 * * *` (daily 9 AM) | `checkExpiringDomains()` |
+
+When settings are saved with a new `refresh_schedule` cron expression, the scheduler destroys the old cron job and creates a new one immediately — no restart required.
+
+---
+
+### Email Service
+**File:** `src/services/email.ts`
+
+Sends dark-themed HTML emails via Nodemailer SMTP.
+
+#### Configuration Priority
+
+`getSmtpConfig()` reads DB settings first, then falls back to environment variables. This means SMTP can be fully configured through the UI without touching `.env`.
+
+#### SMTP Initialization
+
+`initializeEmail()`:
+1. Resolves the SMTP hostname to an IP via `dns.lookup()` (avoids Node.js DNS resolver issues with some mail hosts).
+2. Creates the Nodemailer transporter with a 15-second connection timeout.
+3. Attempts `transporter.verify()` with a 15-second timeout. If verify fails, the transporter is kept — delivery may still work depending on the SMTP server.
+
+`reinitializeEmail()` is called automatically after settings are saved to reconnect with new credentials.
+
+#### Email Types
+
+- **Expiration Alert** — Sent by `checkExpiringDomains()` when domains fall within the configured `alert_days` window. HTML table sorted by days remaining, color-coded (red ≤7, orange ≤14, yellow ≤30).
+- **Uptime Alert** — Sent when a domain exceeds the consecutive failure threshold. Shows domain name, failure count, and last error.
+- **Test Email** — Triggered manually via `POST /api/settings/email/test`. Simple confirmation email.
+
+After sending an expiration alert, a `domain.expiring` webhook event is also fired for each domain in the alert.
+
+---
+
+### WebSocket Service
+**File:** `src/services/websocket.ts`
+
+A singleton `WebSocketService` wrapping the `ws` library's `WebSocketServer`.
+
+#### Connection Management
+
+- The WebSocket server attaches to the existing HTTP server at path `/ws` — no separate port needed.
+- Connected clients are tracked in a `Set<WebSocket>`.
+- A heartbeat ping/pong runs every 30 seconds. Clients that fail to respond are terminated and removed.
+- All `broadcast()` calls serialize the message once and send to all connected clients.
+
+#### Message Types
+
+| Type | Payload | Sent When |
+|------|---------|-----------|
+| `connected` | `{ timestamp, message }` | Immediately on new connection |
+| `refresh_progress` | `RefreshStatus` | After each domain is processed during bulk refresh |
+| `refresh_complete` | `{ total, duration, timestamp }` | When bulk refresh finishes |
+| `domain_updated` | Full `Domain` object | After any domain data changes |
+| `domain_added` | `{ domainId, domain, timestamp }` | When a new domain is created |
+| `health_update` | `{ domainId, health }` | After a health check completes |
+| `error` | `{ message, timestamp }` | When a background task fails |
+
+---
+
+### Webhook Service
+**File:** `src/services/webhooks.ts`
+
+Dispatches signed HTTP POST payloads to registered endpoints when domain events occur.
+
+#### Event Types
+
+| Event | Fired When |
+|-------|-----------|
+| `domain.created` | A new domain is added via the API |
+| `domain.deleted` | A domain is soft-deleted |
+| `domain.expiring` | Expiration alert email is sent |
+| `domain.expired` | Domain expiry date has passed |
+| `health.failed` | A health check fails |
+| `uptime.down` | Domain fails consecutive uptime checks past the threshold |
+| `uptime.recovered` | Domain recovers after a down period |
+| `refresh.complete` | A bulk WHOIS refresh finishes |
+
+#### Delivery Mechanics
+
+1. Payload signed with `HMAC-SHA256(body, secret)` → `X-Domain-Monitor-Signature: sha256=...` header.
+2. POST sent with a 10-second timeout and `validateStatus: () => true` (non-2xx does not throw).
+3. On failure: retried up to 3 times — immediately, after 30 seconds, after 5 minutes.
+4. Every attempt logged to `webhook_deliveries`.
+5. `failure_count` on the webhook record incremented after all retries fail.
+
+#### SSRF Protection
+
+Before any delivery, the webhook URL is checked against a blocklist:
+- Loopback: `127.x.x.x`, `::1`, `localhost`
+- Private ranges: `10.x.x.x`, `172.16–31.x.x`, `192.168.x.x`
+- Catch-all: `0.0.0.0`
+
+Requests to blocked addresses are silently rejected with a warning log entry.
+
+#### Slack & Signal
+
+`fireWebhookEvent()` also checks if Slack or Signal are enabled and dispatches notifications via `slack.ts` and `signal.ts` (both fire-and-forget, errors logged but not re-thrown).
+
+---
+
+### Slack Service
+**File:** `src/services/slack.ts`
+
+Sends formatted messages to a Slack Incoming Webhook URL. Message format includes event type, domain name, and relevant context (days remaining, error message, etc.).
+
+---
+
+### Signal Service
+**File:** `src/services/signal.ts`
+
+Sends text notifications via a self-hosted [signal-cli REST API](https://github.com/bbernhard/signal-cli-rest-api). Requires `signal_sender` (phone number) and `signal_recipients` (array of phone numbers) in settings.
+
+---
+
+### Cleanup Service
+**File:** `src/services/cleanup.ts`
+
+Manages log retention to prevent the SQLite database from growing without bound.
+
+#### Auto Cleanup Schedule
+
+`startAutoCleanup()` runs `runAutoCleanup()` once 60 seconds after startup (to not slow boot), then every 24 hours. `runAutoCleanup()` checks `auto_cleanup_enabled` in settings before doing anything.
+
+#### What Gets Pruned
+
+- `audit_log` rows older than `audit_log_retention_days` (default 90)
+- `domain_health` rows older than `health_log_retention_days` (default 30)
+- `uptime_checks` rows older than `health_log_retention_days` (same setting)
+
+#### Manual Cleanup
+
+Individual endpoints allow on-demand cleanup with custom day thresholds:
+- `POST /api/uptime/retention/cleanup` — runs full auto-cleanup now
+- `DELETE /api/uptime/retention/audit?days=N`
+- `DELETE /api/uptime/retention/health?days=N`
+- `DELETE /api/uptime/retention/uptime?days=N`
+
+All manual cleanup calls write an entry to the audit log.
+
+---
+
+## 8. Middleware
+
+### Authentication Middleware
+**File:** `src/middleware/auth.ts`
+
+#### Session Flow
+
+1. Browser sends the `session` cookie (HTTP-only, SameSite=Strict) on every request.
+2. `authMiddleware` reads the cookie value and looks it up in the `sessions` table.
+3. If the session exists and `expires_at > now`, the request is enriched with `req.username`, `req.userRole`, and `req.isAuthenticated = true`.
+4. If no valid session: HTTP 401 `{ success: false, message: 'Unauthorized' }`.
+
+#### Login (`POST /api/auth/login`)
+
+1. Validates body with `loginSchema`.
+2. If `AUTH_ENABLED=false` — grants an admin session automatically (useful for development).
+3. Checks the env-var admin credentials first (constant-time comparison).
+4. Falls back to the `users` table using `bcrypt.compare()`.
+5. Creates a session row with a 7-day expiry, sets the `session` HTTP-only cookie.
+6. Writes a `login` audit event with `performed_by: username`.
+
+#### Logout (`POST /api/auth/logout`)
+
+1. Reads the session record to retrieve the username for the audit trail.
+2. Deletes the session from the DB.
+3. Clears the `session` cookie.
+4. Writes a `logout` audit event.
+
+#### RBAC Guard
+
+`requireRole('admin', 'manager')` is a middleware factory that reads `req.userRole` and returns HTTP 403 if the role is not in the allowed list.
+
+| Role | Access Level |
+|------|-------------|
+| `admin` | Full access including user management |
+| `manager` | Modify domains, settings, groups, tags, API keys, webhooks |
+| `viewer` | Read-only access to all data |
+
+---
+
+### Rate Limiting Middleware
+**File:** `src/middleware/rateLimit.ts`
+
+Uses `express-rate-limit` with in-memory per-IP tracking. All limits are **disabled in development** (`NODE_ENV !== 'production'`) to avoid friction during local testing.
+
+| Limiter | Window | Max Requests | Applied To |
+|---------|--------|-------------|-----------|
+| `standardLimiter` | 15 min | 2,000 | All `/api/*` routes |
+| `heavyOpLimiter` | 15 min | 20 | Bulk refresh, check-all health, uptime check-all |
+| `loginLimiter` | 15 min | 50 | `POST /api/auth/login` |
+| `deleteOpLimiter` | 1 hour | 20 | All `DELETE /api/domains/*` routes |
+
+Rate limit violations return HTTP 429 with a `Retry-After` header.
+
+---
+
+### Request Logging Middleware
+**File:** `src/middleware/logging.ts`
+
+Logs every HTTP request using the `http` child logger. Each log entry includes the method, path, response status code, duration in milliseconds, and a unique request ID for correlation.
+
+---
+
+### Validation Middleware
+**File:** `src/middleware/validation.ts`
+
+`validateBody(schema)` and `validateQuery(schema)` are Express middleware factories:
+
+1. Parse `req.body` or `req.query`.
+2. Run through the Zod schema with `.safeParse()`.
+3. On failure → HTTP 400 with structured Zod error messages.
+4. On success → replace `req.body`/`req.query` with the Zod-coerced (typed and transformed) data.
+
+Using `.safeParse()` instead of `.parse()` means validation errors are caught and formatted as JSON responses rather than thrown as unhandled exceptions.
+
+---
+
+### Error Handling Middleware
+**File:** `src/middleware/errorHandler.ts`
+
+- `asyncHandler(fn)` — wraps an async route handler so any rejection automatically calls `next(err)`. Eliminates try/catch boilerplate in every route.
+- `createError(message, statusCode)` — creates an `Error` with an attached `statusCode` property.
+- `errorHandler` — global Express error handler. Logs the error and returns `{ success: false, error: message }` with the appropriate HTTP status code.
+- `notFoundHandler` — 404 fallback that returns `{ success: false, message: 'Not found' }`.
+
+---
+
+## 9. API Routes — Full Reference
+
+All routes are prefixed with `/api`. When `AUTH_ENABLED=true`, all routes except `/api/auth/*` and `/api/status` require a valid session cookie.
+
+---
+
+### Authentication (`/api/auth/*`)
+
+Mounted before the auth gate — always publicly accessible.
+
+#### `GET /api/auth/status`
+Returns whether authentication is enabled and if the current request is authenticated.
+
+```json
+{ "authEnabled": true, "authenticated": false }
+```
+
+#### `POST /api/auth/login`
+Authenticates and creates a session. Sets an HTTP-only `session` cookie valid for 7 days.
+
+**Body:** `{ "username": "admin", "password": "secret" }`
+
+**Response:** `{ "success": true, "username": "admin", "role": "admin" }`
+
+Rate limited: 50 attempts per 15 minutes per IP.
+
+#### `POST /api/auth/logout`
+Destroys the session and clears the cookie.
+
+**Response:** `{ "success": true }`
+
+#### `GET /api/auth/me`
+Returns current user information.
+
+**Response:** `{ "username": "admin", "role": "admin", "authenticated": true }`
+
+---
+
+### Domains (`/api/domains/*`)
+
+#### `GET /api/domains`
+Returns a paginated list of domains.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | number | `1` | Page number (1-based) |
+| `limit` | number | `50` | Rows per page (max 200) |
+| `include` | string | — | Data to enrich: `tags`, `health`, `uptime`, or `all` |
+| `sortBy` | string | `domain` | Sort field: `domain`, `expiry_date`, `registrar`, `last_checked` |
+| `sortOrder` | string | `asc` | `asc` or `desc` |
+| `search` | string | — | Full-text filter across domain name, registrar, and nameservers |
+| `status` | string | — | `expired`, `expiring_15`, `expiring_30`, `expiring_90`, `expiring_180`, `error`, `unchecked` |
+| `group` | string | — | Group ID number, or `none` for ungrouped domains |
+| `registrar` | string | — | Exact registrar name filter |
+
+**Response:**
+```json
+{
+  "data": [/* Domain objects */],
+  "total": 150,
+  "page": 1,
+  "limit": 50,
+  "totalPages": 3
 }
+```
 
-// Global error handler (4 params = error middleware)
-export function errorHandler(
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  logger.error('Request error', {
-    method: req.method,
-    path: req.path,
-    error: err.message,
-    stack: err.stack,
-  });
+With `include=all`, each domain object includes `tags` (Tag[]), `health` (DomainHealth | null), and `uptime` (UptimeStats | null). These are fetched with batch queries to avoid N+1.
 
-  const statusCode = (err as any).statusCode || 500;
+#### `GET /api/domains/trash`
+Returns all soft-deleted domains.
 
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    // Only include stack trace in development
-    ...(config.nodeEnv === 'development' && { stack: err.stack }),
-  });
+**Response:** `{ "success": true, "data": [/* Domain objects */] }`
+
+#### `GET /api/domains/:domain`
+Returns a single domain by name (URL-encode the domain). Includes `tags` array.
+
+#### `POST /api/domains`
+Adds a new domain. Responds immediately, then runs WHOIS + health + uptime checks in the background.
+
+**Body:** `{ "domain": "example.com", "group_id": 1 }` (`group_id` optional)
+
+**Response:** `{ "success": true, "id": 42 }`
+
+**Webhook fired:** `domain.created`
+
+#### `DELETE /api/domains/:domain`
+Soft-deletes a domain by name. Rate limited: 20/hour.
+
+#### `DELETE /api/domains/id/:id`
+Soft-deletes a domain by numeric ID. Rate limited: 20/hour.
+
+#### `POST /api/domains/:id/restore`
+Restores a soft-deleted domain from the trash.
+
+#### `DELETE /api/domains/:id/permanent`
+Permanently (hard) deletes a domain. Only works on already-trashed domains.
+
+#### `POST /api/domains/:id/validate-ns`
+Acknowledges a nameserver change. Copies `name_servers` → `name_servers_prev`, clearing the NS change warning.
+
+#### `POST /api/domains/:id/group`
+Assigns the domain to a group.
+
+**Body:** `{ "group_id": 1 }` (or `{ "group_id": null }` to remove from group)
+
+#### `GET /api/domains/:id/tags`
+Returns all tags assigned to a domain.
+
+#### `PUT /api/domains/:id/tags`
+Replaces the domain's entire tag list.
+
+**Body:** `{ "tag_ids": [1, 2, 3] }`
+
+#### `POST /api/domains/:id/tags/:tagId`
+Adds a single tag to a domain.
+
+#### `DELETE /api/domains/:id/tags/:tagId`
+Removes a single tag from a domain.
+
+#### `DELETE /api/domains/bulk`
+Soft-deletes multiple domains.
+
+**Body:** `{ "domain_ids": [1, 2, 3] }`
+
+**Response:** `{ "success": true, "deleted": 3 }`
+
+#### `POST /api/domains/bulk/group`
+Assigns multiple domains to a group (or removes their group with `null`).
+
+**Body:** `{ "domain_ids": [1, 2, 3], "group_id": 5 }`
+
+#### `POST /api/domains/bulk/tags`
+Assigns a set of tags to multiple domains simultaneously.
+
+**Body:** `{ "domain_ids": [1, 2, 3], "tag_ids": [4, 5] }`
+
+#### `POST /api/domains/bulk/refresh`
+Queues a WHOIS refresh for a specific set of domains. Returns immediately; refresh runs in the background.
+
+**Body:** `{ "domain_ids": [1, 2, 3] }`
+
+**Response:** `{ "success": true, "queued": 3 }`
+
+Heavy op: rate limited to 20 per 15 minutes.
+
+---
+
+### Groups (`/api/groups/*`)
+
+#### `GET /api/groups`
+Returns all groups with their domain count.
+
+**Response:** Array of `{ id, name, color, description, domain_count, created_at, updated_at }`
+
+#### `GET /api/groups/:id`
+Returns a single group.
+
+#### `GET /api/groups/:id/domains`
+Returns all non-deleted domains assigned to the group.
+
+#### `POST /api/groups`
+Creates a group.
+
+**Body:** `{ "name": "Production", "color": "#6366f1", "description": "Optional" }`
+
+#### `PUT /api/groups/:id`
+Updates a group's name, color, or description.
+
+#### `DELETE /api/groups/:id`
+Deletes a group. Affected domain `group_id` values are set to `null`.
+
+---
+
+### Tags (`/api/tags/*`)
+
+#### `GET /api/tags`
+Returns all tags with their usage count.
+
+#### `GET /api/tags/:id`
+Returns a single tag.
+
+#### `POST /api/tags`
+Creates a tag.
+
+**Body:** `{ "name": "production", "color": "#22c55e" }`
+
+#### `PUT /api/tags/:id`
+Updates a tag's name or color.
+
+#### `DELETE /api/tags/:id`
+Deletes a tag and removes all domain associations.
+
+---
+
+### WHOIS Refresh (`/api/refresh/*`)
+
+#### `GET /api/refresh/status`
+Returns the current refresh operation state.
+
+```json
+{
+  "isRefreshing": true,
+  "total": 150,
+  "completed": 42,
+  "startTime": 1700000000000,
+  "currentDomain": "example.com"
 }
 ```
 
-**Why wrap async handlers?**: Express doesn't catch Promise rejections by default. Without the wrapper, unhandled rejections would crash the server.
+#### `POST /api/refresh`
+Starts a full WHOIS refresh for all domains. Returns HTTP 409 if a refresh is already running.
+
+**Query:** `?withHealth=true` — also runs health checks after each WHOIS update.
+
+**Response:** `{ "success": true, "message": "Refreshing 150 domain(s)...", "total": 150 }`
+
+Heavy op: rate limited.
+
+#### `POST /api/refresh/:domain`
+Refreshes WHOIS data for a single domain by name.
+
+**Query:** `?withHealth=true` — run health check after.
 
 ---
 
-#### `src/middleware/validation.ts`
+### Health Checks (`/api/health/*`)
 
-**Purpose**: Validates request data using Zod schemas.
+#### `GET /api/health`
+**Application** health check (for Docker health checks and external monitoring). Not domain health.
 
-```typescript
-// Validate request body
-export function validateBody<T extends z.ZodType>(schema: T) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const result = schema.safeParse(req.body);
-
-    if (!result.success) {
-      const errors = result.error.errors.map(e => ({
-        field: e.path.join('.'),
-        message: e.message,
-      }));
-
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors,
-      });
-    }
-
-    req.body = result.data;  // Replace with validated/transformed data
-    next();
-  };
-}
-
-// Usage in routes:
-router.post('/', validateBody(domainSchema), async (req, res) => {
-  // req.body is now typed and validated
-  const { domain } = req.body;  // TypeScript knows this is a string
-});
-```
-
----
-
-#### `src/middleware/logging.ts`
-
-**Purpose**: Logs all HTTP requests with timing.
-
-```typescript
-export function requestLogger(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  const start = Date.now();
-
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    const level = res.statusCode >= 500 ? 'error'
-                : res.statusCode >= 400 ? 'warn'
-                : 'info';
-
-    logger[level]('Request completed', {
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-    });
-  });
-
-  next();
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-02-21T12:00:00.000Z",
+  "database": { "status": "ok", "size_bytes": 4096000 },
+  "smtp": { "status": "ok" },
+  "disk": { "status": "ok", "free_mb": 45000 },
+  "websocket": { "clients": 3 }
 }
 ```
 
+Returns HTTP 503 if the database is unreachable.
+
+#### `GET /api/health/summary`
+Returns aggregate counts of health check pass/fail results across all domains.
+
+#### `GET /api/health/domain/:id`
+Returns health check history for a domain.
+
+**Query:** `?limit=100` (max 1000)
+
+#### `GET /api/health/domain/:id/latest`
+Returns only the most recent health check result for a domain.
+
+#### `POST /api/health/domain/:id`
+Triggers an immediate health check for a specific domain.
+
+**Response:** `{ "success": true, "health": { /* DomainHealth */ } }`
+
+#### `POST /api/health/check-all`
+Triggers health checks for all non-deleted domains in the background.
+
+Heavy op: rate limited.
+
+#### `DELETE /api/health/cleanup`
+Deletes old health records.
+
+**Query:** `?days=30` (default 30, max 365)
+
 ---
 
-### 4.5 Routes Layer (`src/routes/`)
+### Uptime Monitoring (`/api/uptime/*`)
 
-#### Route Structure
+#### `GET /api/uptime/status`
+Returns the uptime service state: enabled, interval, domains monitored, last run time.
 
-Each route file follows a consistent pattern:
+#### `GET /api/uptime/stats`
+Returns uptime statistics for all monitored domains. Each entry includes uptime percentage, average response time, total checks, and current status.
 
-```typescript
-import { Router } from 'express';
-import { validateBody } from '../middleware/validation.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
-import { someSchema } from '../config/schema.js';
-import { dbOperation } from '../database/module.js';
+#### `GET /api/uptime/heartbeat`
+Returns time-bucketed heartbeat data for all domains.
 
-const router = Router();
+**Query:** `?buckets=45` (default 45, max 90) — number of time buckets for the visualization bar.
 
-router.get('/', asyncHandler(async (req, res) => {
-  const data = dbOperation();
-  res.json(data);
-}));
+#### `GET /api/uptime/domain/:id`
+Returns raw uptime check history for a specific domain.
 
-router.post('/',
-  validateBody(someSchema),
-  asyncHandler(async (req, res) => {
-    const result = dbOperation(req.body);
-    res.json({ success: true, data: result });
-  })
-);
+**Query:** `?limit=100` (max 1000)
 
-export default router;
+#### `POST /api/uptime/domain/:id`
+Triggers an immediate uptime check for a specific domain.
+
+#### `POST /api/uptime/check-all`
+Triggers uptime checks for all non-deleted domains immediately.
+
+#### `POST /api/uptime/restart`
+Restarts the uptime monitoring loop. Useful after changing the interval setting.
+
+#### `GET /api/uptime/retention/stats`
+Returns log retention statistics: total record counts, oldest/newest entries, and counts broken down by age buckets.
+
+#### `POST /api/uptime/retention/cleanup`
+Runs the auto-cleanup immediately (ignoring the normal daily schedule).
+
+#### `DELETE /api/uptime/retention/audit?days=90`
+Deletes audit log entries older than N days (min 1, max 365).
+
+#### `DELETE /api/uptime/retention/health?days=30`
+Deletes domain_health records older than N days.
+
+#### `DELETE /api/uptime/retention/uptime?days=30`
+Deletes uptime_checks records older than N days.
+
+---
+
+### Import / Export
+
+#### `GET /api/import/template`
+Downloads a CSV template file showing the expected import format.
+
+#### `POST /api/import/csv`
+Uploads and imports domains from a CSV file.
+
+**Content-Type:** `multipart/form-data` with field name `file`.
+
+**CSV Format:**
+```csv
+domain,group,tags
+example.com,Production,"critical,client"
+mysite.org,Staging,
 ```
 
+- `group` column: group is created automatically if it doesn't exist.
+- `tags` column: comma-separated tag names; tags are created if they don't exist.
+- Domains already in the database are skipped (not overwritten).
+
+**Response:** `{ "success": true, "imported": 45, "skipped": 5, "errors": [] }`
+
+#### `GET /api/export/csv`
+Downloads all non-deleted domains as a CSV attachment. Includes domain, registrar, created_date, expiry_date, nameservers, group name, and tags.
+
+#### `GET /api/export/json`
+Downloads all non-deleted domains as a JSON array attachment.
+
 ---
 
-#### `src/routes/domains.ts`
+### Settings (`/api/settings/*`)
 
-**Key endpoints**:
+#### `GET /api/settings`
+Returns all current settings as a flat JSON object.
 
-```typescript
-// GET /api/domains - List all domains
-// Query params: include=tags|health|all
-router.get('/', asyncHandler(async (req, res) => {
-  const include = req.query.include as string;
-  const domains = getAllDomains();
+#### `PUT /api/settings`
+Updates settings. Accepts a partial object — only provided keys are changed.
 
-  const result = domains.map(domain => ({
-    ...domain,
-    tags: include.includes('tags') ? getTagsForDomain(domain.id) : undefined,
-    health: include.includes('health') ? getLatestHealth(domain.id) : undefined,
-  }));
+Side effects when specific settings change:
+- SMTP settings changed → `reinitializeEmail()` called automatically
+- Uptime interval changed → `restartUptimeMonitoring()` called automatically
+- Refresh schedule changed → the cron job is rescheduled immediately
 
-  res.json(result);
-}));
+#### `POST /api/settings/email/test`
+Sends a test email to verify SMTP is working.
 
-// POST /api/domains - Create domain
-router.post('/',
-  validateBody(domainSchema),
-  asyncHandler(async (req, res) => {
-    const { domain } = req.body;
+**Body:** `{ "to": "test@example.com" }`
 
-    if (domainExists(domain)) {
-      return res.status(409).json({
-        success: false,
-        message: 'Domain already exists'
-      });
-    }
+#### `POST /api/settings/email/verify`
+Calls `transporter.verify()` and returns success/failure with the specific error if any.
 
-    const id = addDomain({ domain, status: 'pending' });
+#### `GET /api/settings/email/status`
+Returns the current email service state (initialized, configured, host, port, etc.).
 
-    // Audit log
-    logAudit({
-      entity_type: 'domain',
-      entity_id: domain,
-      action: 'create',
-      ip_address: req.ip,
-      user_agent: req.get('User-Agent'),
-    });
+#### `POST /api/settings/slack/test`
+Sends a test Slack notification to the configured webhook URL.
 
-    res.status(201).json({ success: true, id });
-  })
-);
+#### `POST /api/settings/signal/test`
+Sends a test Signal message to all configured recipients.
 
-// PUT /api/domains/:id/tags - Set domain's tags
-router.put('/:id/tags',
-  validateBody(assignTagsSchema),
-  asyncHandler(async (req, res) => {
-    const domainId = parseInt(req.params.id);
-    const { tag_ids } = req.body;
+---
 
-    setDomainTags(domainId, tag_ids);
+### API Keys (`/api/apikeys/*`)
 
-    res.json({ success: true });
-  })
-);
+WHOIS provider API keys. Stored AES-encrypted in the database.
+
+#### `GET /api/apikeys`
+Returns all API keys. The actual key value is **masked** (shown as `****...`).
+
+#### `POST /api/apikeys`
+Adds a new API key.
+
+**Body:** `{ "name": "Primary Key", "key": "actual_api_key_value", "provider": "apilayer", "priority": 0 }`
+
+#### `PUT /api/apikeys/:id`
+Updates a key's name, priority, or enabled status.
+
+#### `PUT /api/apikeys/:id/toggle`
+Toggles a key between enabled and disabled.
+
+#### `DELETE /api/apikeys/:id`
+Permanently deletes an API key.
+
+---
+
+### Users (`/api/users/*`)
+
+**Admin role required** for all endpoints.
+
+#### `GET /api/users`
+Returns all user accounts. Password hashes are never included in the response.
+
+#### `POST /api/users`
+Creates a new user account.
+
+**Body:** `{ "username": "alice", "password": "secure_password", "role": "manager" }`
+
+Roles: `admin`, `manager`, `viewer`.
+
+#### `PUT /api/users/:id`
+Updates a user. Supported fields: `role`, `enabled`, `password`.
+
+#### `DELETE /api/users/:id`
+Deletes a user account. Safeguard: cannot delete the last remaining admin account.
+
+---
+
+### Audit Log (`/api/audit/*`)
+
+#### `GET /api/audit`
+Returns paginated audit log entries with optional filters.
+
+**Query Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `entity_type` | `domain`, `group`, `tag`, `settings`, `apikey`, `user`, `system` |
+| `entity_id` | Specific entity identifier |
+| `action` | `create`, `update`, `delete`, `refresh`, `import`, `login`, `logout`, `health_check`, `scheduled` |
+| `start_date` | ISO date range start |
+| `end_date` | ISO date range end |
+| `page` | Page number |
+| `limit` | Results per page (max 500) |
+
+**Response:**
+```json
+{
+  "entries": [/* AuditEntry objects with performed_by */],
+  "total": 1234,
+  "page": 1,
+  "limit": 50,
+  "totalPages": 25
+}
 ```
 
+#### `GET /api/audit/:entityType/:entityId`
+Returns the complete audit trail for a specific entity (e.g. all events for `domain` / `example.com`).
+
+#### `DELETE /api/audit/cleanup?days=90`
+Deletes audit entries older than N days (min 7, max 365).
+
 ---
 
-#### `src/routes/refresh.ts`
+### Webhooks (`/api/webhooks/*`)
 
-**Purpose**: Handles WHOIS data refresh operations.
+#### `GET /api/webhooks`
+Returns all configured webhooks.
 
-```typescript
-// GET /api/refresh/status - Check refresh progress
-router.get('/status', (req, res) => {
-  const status = getRefreshStatus();
-  res.json(status);
-  // Returns: { isRefreshing, total, completed, currentDomain, errors }
-});
+#### `GET /api/webhooks/:id`
+Returns a single webhook.
 
-// POST /api/refresh - Refresh all domains
-router.post('/', asyncHandler(async (req, res) => {
-  const status = getRefreshStatus();
+#### `GET /api/webhooks/:id/deliveries`
+Returns the last 100 delivery attempts for a webhook.
 
-  if (status.isRefreshing) {
-    return res.status(409).json({
-      success: false,
-      message: 'Refresh already in progress',
-    });
-  }
+#### `POST /api/webhooks`
+Creates a webhook.
 
-  // Start refresh in background (don't await)
-  refreshAllDomains();
-
-  const domains = getAllDomains();
-  res.json({
-    success: true,
-    message: 'Refresh started',
-    total: domains.length
-  });
-}));
-
-// POST /api/refresh/:domain - Refresh single domain
-router.post('/:domain', asyncHandler(async (req, res) => {
-  const { domain } = req.params;
-
-  const existing = getDomain(domain);
-  if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: 'Domain not found',
-    });
-  }
-
-  await refreshDomain(domain);
-
-  const updated = getDomain(domain);
-  res.json({ success: true, domain: updated });
-}));
+**Body:**
+```json
+{
+  "name": "Alert Receiver",
+  "url": "https://hooks.example.com/receive",
+  "secret": "my-hmac-secret",
+  "events": ["domain.expiring", "uptime.down", "uptime.recovered"]
+}
 ```
 
+Available events: `domain.expiring`, `domain.expired`, `health.failed`, `uptime.down`, `uptime.recovered`, `refresh.complete`, `domain.created`, `domain.deleted`.
+
+#### `PUT /api/webhooks/:id`
+Updates a webhook's name, URL, secret, events, or enabled status.
+
+#### `DELETE /api/webhooks/:id`
+Deletes a webhook and its full delivery history.
+
+#### `POST /api/webhooks/test/:id`
+Sends a test payload to the webhook endpoint immediately.
+
 ---
 
-#### `src/routes/import.ts`
+### Metrics (`/api/metrics`)
 
-**Purpose**: CSV file import with validation and error handling.
+#### `GET /api/metrics`
+Returns operational metrics for monitoring dashboards, Prometheus exporters, or uptime checkers.
 
-```typescript
-// Multer configuration for file upload
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },  // 5MB
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype !== 'text/csv') {
-      cb(new Error('Only CSV files allowed'));
-    }
-    cb(null, true);
+```json
+{
+  "timestamp": "2026-02-21T12:00:00Z",
+  "domains": {
+    "total": 150, "error": 3, "expired": 1,
+    "expiring_30d": 8, "unchecked": 0, "healthy": 146
   },
-});
-
-// POST /api/import/csv
-router.post('/csv', upload.single('file'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: 'No file uploaded' });
-  }
-
-  const content = req.file.buffer.toString('utf-8');
-  const records = parse(content, { columns: true, skip_empty_lines: true });
-
-  let imported = 0;
-  let skipped = 0;
-  const errors: string[] = [];
-
-  for (const row of records) {
-    try {
-      // Flexible column detection
-      const domain = row.domain || row.Domain || row.DOMAIN || row.name;
-
-      if (!domain) {
-        errors.push(`Row missing domain column`);
-        continue;
-      }
-
-      // Validate domain format
-      const validation = domainSchema.safeParse({ domain });
-      if (!validation.success) {
-        errors.push(`Invalid domain: ${domain}`);
-        continue;
-      }
-
-      // Skip if exists
-      if (domainExists(domain)) {
-        skipped++;
-        continue;
-      }
-
-      // Create domain
-      const id = addDomain({ domain, status: 'pending' });
-
-      // Handle group
-      if (row.group) {
-        let group = getGroupByName(row.group);
-        if (!group) {
-          const groupId = createGroup({ name: row.group });
-          group = getGroupById(groupId);
-        }
-        setDomainGroup(id, group.id);
-      }
-
-      // Handle tags (comma-separated)
-      if (row.tags) {
-        const tagNames = row.tags.split(',').map(t => t.trim());
-        const tagIds: number[] = [];
-        for (const name of tagNames) {
-          const tag = getOrCreateTag(name);
-          tagIds.push(tag.id);
-        }
-        setDomainTags(id, tagIds);
-      }
-
-      imported++;
-    } catch (err) {
-      errors.push(`Error processing row: ${err.message}`);
-    }
-  }
-
-  res.json({ success: true, imported, skipped, errors });
-}));
+  "health_checks_24h": { "total": 150, "up": 147, "down": 3, "avg_response_time_ms": 245 },
+  "uptime_checks_24h": { "total": 4320, "up": 4300, "down": 20, "uptime_pct": 99.54 },
+  "audit_events_24h": 42,
+  "websocket": { "connected_clients": 2 },
+  "refresh": { "is_running": false, "completed": 150, "total": 150 },
+  "email": { "configured": true, "initialized": true },
+  "database": { "size_bytes": 4194304 }
+}
 ```
 
 ---
 
-### 4.6 Services Layer (`src/services/`)
+### RSS Feed (`/api/feed.rss`)
 
-#### `src/services/whois.ts`
+#### `GET /api/feed.rss`
+Returns an RSS 2.0 feed of domains expiring within the next 90 days, sorted by expiry date ascending. Suitable for subscribing in an RSS reader to receive passive expiration reminders.
 
-**Purpose**: Fetches WHOIS data from multiple sources (APILayer, direct WHOIS, RDAP) and updates domains.
+---
 
-**Multi-Source Lookup Strategy**:
+### Public Status (`/api/status`)
 
-The WHOIS service uses a tiered approach to handle different TLDs:
+**No authentication required.** Subject to standard rate limiting.
 
-1. **APILayer** (default) - Primary WHOIS API for most TLDs
-2. **Direct WHOIS** - Fallback using `whois-json` library for problematic TLDs
-3. **RDAP** (Registration Data Access Protocol) - For TLDs that block traditional WHOIS
+#### `GET /api/status`
+Returns aggregate health and expiry status for the public status page.
 
-```typescript
-// TLDs with special handling
-const PROBLEMATIC_TLDS = ['biz'];  // Use direct WHOIS
-const RDAP_TLDS: Record<string, string> = {
-  'info': 'https://rdap.donuts.co/rdap/domain/',  // Use RDAP protocol
+```json
+{
+  "total": 150,
+  "healthy": 142,
+  "expired": 1,
+  "expiring_30d": 8,
+  "has_errors": 3,
+  "groups": [
+    {
+      "id": 1, "name": "Production", "color": "#6366f1",
+      "domain_count": 25, "expiring_30d_count": 2,
+      "expiry": { "expiring_30d": 2, "expired": 0 },
+      "health": {
+        "dns_ok": 24, "dns_fail": 1,
+        "http_ok": 23, "http_fail": 2,
+        "ssl_ok": 22, "ssl_fail": 3
+      }
+    }
+  ],
+  "uptime": { "total": 150, "up": 147, "down": 3, "unknown": 0 }
+}
+```
+
+Per-group health is computed by a correlated subquery that selects the latest `domain_health` row per domain, then aggregates DNS/HTTP/SSL pass/fail counts per group.
+
+---
+
+## 10. WebSocket Protocol
+
+Connect to `ws://hostname:port/ws` (same host and port as the HTTP server, no separate port).
+
+### Client Connection Example
+
+```javascript
+const ws = new WebSocket(`ws://${location.host}/ws`);
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  switch (msg.type) {
+    case 'refresh_progress': updateProgressBar(msg.payload); break;
+    case 'refresh_complete': reloadDomainTable(); break;
+    case 'domain_updated':   updateTableRow(msg.payload); break;
+    case 'health_update':    updateHealthDots(msg.payload); break;
+    case 'error':            showToast(msg.payload.message); break;
+  }
 };
 
-// Main lookup function with smart routing
-async function fetchWhois(domain: string, retryCount = 0): Promise<WHOISResult> {
-  const tld = domain.split('.').pop()?.toLowerCase();
-
-  // Route to RDAP for TLDs that block traditional WHOIS (e.g., .info)
-  if (tld && RDAP_TLDS[tld]) {
-    logger.info(`Using RDAP for ${domain} (TLD: ${tld})`);
-    return fetchWhoisRDAP(domain);
-  }
-
-  // Route to direct WHOIS for problematic TLDs (e.g., .biz)
-  if (PROBLEMATIC_TLDS.includes(tld || '')) {
-    logger.info(`Using direct WHOIS for ${domain} (problematic TLD: ${tld})`);
-    return fetchWhoisDirect(domain);
-  }
-
-  // Default: Use APILayer with fallback to direct WHOIS
-  const apiKey = apiKeyManager.getNextKey();
-  // ... APILayer call with retry logic
-
-  // If APILayer returns no expiration date, try direct WHOIS fallback
-  if (!normalized.expiration_date) {
-    return await fetchWhoisDirect(domain);
-  }
-}
+ws.onclose = () => setTimeout(connectWebSocket, 2000); // auto-reconnect
 ```
 
-**RDAP Lookup** (for .info and similar TLDs):
+### Message Reference
 
-```typescript
-async function fetchWhoisRDAP(domain: string): Promise<WHOISResult> {
-  const rdapUrl = RDAP_TLDS[tld];
-  const res = await axios.get(`${rdapUrl}${domain}`, {
-    headers: { 'Accept': 'application/rdap+json' },
-  });
+| `type` | `payload` shape | Purpose |
+|--------|----------------|---------|
+| `connected` | `{ timestamp: number, message: string }` | Confirms connection established |
+| `refresh_progress` | `{ isRefreshing, total, completed, currentDomain, timestamp }` | Update progress bar during bulk refresh |
+| `refresh_complete` | `{ total: number, duration: number, timestamp: number }` | Hide progress bar, reload table |
+| `domain_updated` | Full `Domain` object | Update a specific row without full reload |
+| `domain_added` | `{ domainId: number, domain: string, timestamp: number }` | Reload table to show new domain |
+| `health_update` | `{ domainId: number, health: DomainHealth }` | Update health status dots for one domain |
+| `error` | `{ message: string, timestamp: number }` | Show error toast notification |
 
-  // Parse RDAP JSON response
-  const result: WHOISResult = { registrar: '', creation_date: '', expiration_date: '', name_servers: [] };
-
-  // Extract dates from events array
-  if (Array.isArray(data.events)) {
-    for (const event of data.events) {
-      if (event.eventAction === 'expiration') result.expiration_date = event.eventDate;
-      if (event.eventAction === 'registration') result.creation_date = event.eventDate;
-    }
-  }
-
-  // Extract nameservers
-  if (Array.isArray(data.nameservers)) {
-    result.name_servers = data.nameservers.map(ns => ns.ldhName).filter(Boolean);
-  }
-
-  // Extract registrar from entities with 'registrar' role
-  // Uses vCard format to find 'fn' (formatted name) field
-
-  return result;
-}
-```
-
-**Direct WHOIS Lookup** (for .biz and fallback):
-
-```typescript
-async function fetchWhoisDirect(domain: string): Promise<WHOISResult> {
-  const result = await whoisJson(domain);  // Uses whois-json library
-  return normalizeWhoisResult(result, domain);
-}
-```
-
-**Field Normalization**:
-
-Different registries return different field names. The service normalizes them:
-
-```typescript
-const expirationFields = [
-  'expiration_date', 'expiry_date', 'registry_expiry_date',
-  'expirationDate', 'registryExpiryDate',  // whois-json camelCase
-  'registrarRegistrationExpirationDate',    // .biz specific
-  // ... 20+ field name variations
-];
-
-const normalized = {
-  registrar: findField(registrarFields),
-  creation_date: findField(creationFields),
-  expiration_date: findField(expirationFields),
-  name_servers: findArrayField(nameserverFields),
-};
-```
-
-**Standard Fetch with Retry Logic**:
-
-```typescript
-// Fetch WHOIS data with retry logic
-async function fetchWhois(domain: string): Promise<WHOISResult> {
-  const apiKey = apiKeyManager.getNextKey() || config.apiLayerKey;
-
-  for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
-    try {
-      const response = await axios.get(config.whoisApiUrl, {
-        params: { domain },
-        headers: { 'apikey': apiKey },
-        timeout: config.requestTimeoutMs,
-      });
-
-      return response.data;
-    } catch (err) {
-      if (attempt === config.maxRetries) throw err;
-
-      // Exponential backoff
-      await sleep(config.retryDelayMs * attempt);
-    }
-  }
-}
-
-// Refresh single domain
-export async function refreshDomain(domainName: string): Promise<void> {
-  const domain = getDomain(domainName);
-  if (!domain) throw new Error('Domain not found');
-
-  try {
-    const whois = await fetchWhois(domainName);
-
-    // Detect nameserver changes
-    const currentNS = domain.name_servers || [];
-    const newNS = whois.name_servers || [];
-    const hasNSChange = JSON.stringify(currentNS.sort()) !==
-                        JSON.stringify(newNS.sort());
-
-    updateDomain({
-      domain: domainName,
-      registrar: whois.registrar,
-      creation_date: whois.creation_date,
-      expiry_date: whois.expiration_date,
-      name_servers: newNS,
-      previous_name_servers: hasNSChange ? currentNS : domain.previous_name_servers,
-      last_checked: new Date().toISOString(),
-      status: 'active',
-      error_message: null,
-    });
-
-    // Broadcast update via WebSocket
-    wsService.broadcast('domain_updated', getDomain(domainName));
-
-  } catch (err) {
-    updateDomain({
-      domain: domainName,
-      status: 'error',
-      error_message: err.message,
-      last_checked: new Date().toISOString(),
-    });
-  }
-}
-
-// Refresh all domains with progress tracking
-export async function refreshAllDomains(): Promise<void> {
-  const domains = getAllDomains();
-  refreshStatus = {
-    isRefreshing: true,
-    total: domains.length,
-    completed: 0,
-    currentDomain: null,
-    errors: [],
-  };
-
-  for (const domain of domains) {
-    refreshStatus.currentDomain = domain.domain;
-
-    // Broadcast progress
-    wsService.broadcast('refresh_progress', refreshStatus);
-
-    try {
-      await refreshDomain(domain.domain);
-    } catch (err) {
-      refreshStatus.errors.push({ domain: domain.domain, error: err.message });
-    }
-
-    refreshStatus.completed++;
-
-    // Rate limiting - wait between requests
-    await sleep(config.whoisDelayMs);
-  }
-
-  refreshStatus.isRefreshing = false;
-  wsService.broadcast('refresh_complete', refreshStatus);
-}
-```
+The server pings clients every 30 seconds. Clients that don't pong within the interval are terminated. The `app.js` frontend reconnects automatically on any disconnect with a 2-second delay.
 
 ---
 
-#### `src/services/email.ts`
+## 11. Validation Schemas
 
-**Purpose**: SMTP email sending for alerts.
+All defined in `src/config/schema.ts` using Zod 4. Used exclusively via `validateBody()` / `validateQuery()` middleware.
 
-```typescript
-// Initialize with DNS resolution (avoids Node.js resolver issues)
-export async function initializeEmail(): Promise<boolean> {
-  if (!config.smtp.host || !config.smtp.user) {
-    logger.warn('Email not configured');
-    return false;
-  }
-
-  // Resolve hostname to IP using OS resolver
-  const smtpHost = await resolveHostToIP(config.smtp.host);
-
-  transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    auth: {
-      user: config.smtp.user,
-      pass: config.smtp.pass,
-    },
-    connectionTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false,  // Allow self-signed certs
-      servername: config.smtp.host,  // Original hostname for TLS
-    },
-  });
-
-  return true;
-}
-
-// Check for expiring domains and send alerts
-export async function checkExpiringDomains(): Promise<void> {
-  const settings = getSettingsData();
-  if (!settings.email_enabled) return;
-
-  const domains = getAllDomains();
-  const alertDays = settings.alert_days || [7, 14, 30];
-  const maxDays = Math.max(...alertDays);
-
-  const expiring = domains.filter(d => {
-    const days = getExpiryDays(d.expiry_date);
-    return days !== null && days > 0 && days <= maxDays;
-  });
-
-  if (expiring.length > 0) {
-    await sendExpirationAlert(expiring);
-  }
-}
-
-// Build HTML email with domain table
-function buildExpirationEmailHTML(domains: ExpiringDomain[]): string {
-  const rows = domains
-    .sort((a, b) => a.days - b.days)
-    .map(d => `
-      <tr>
-        <td>${d.domain}</td>
-        <td>${d.expiry_date}</td>
-        <td style="color: ${d.days <= 7 ? '#ef4444' : d.days <= 14 ? '#f97316' : '#eab308'}">
-          ${d.days} days
-        </td>
-        <td>${d.registrar || 'N/A'}</td>
-      </tr>
-    `).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <body style="font-family: sans-serif; background: #1a1a2e; color: #e5e7eb;">
-        <h1>Domain Expiration Alert</h1>
-        <p>${domains.length} domain(s) expiring soon:</p>
-        <table>
-          <thead>
-            <tr><th>Domain</th><th>Expires</th><th>Days Left</th><th>Registrar</th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </body>
-    </html>
-  `;
-}
-```
+| Schema | Used For | Key Rules |
+|--------|---------|-----------|
+| `domainSchema` | `POST /api/domains` | RFC-compliant domain regex, lowercase normalization |
+| `groupSchema` | `POST /api/groups` | name 1–100 chars, color must be valid hex |
+| `updateGroupSchema` | `PUT /api/groups/:id` | All fields optional |
+| `tagSchema` | `POST /api/tags` | Same rules as group |
+| `settingsSchema` | `PUT /api/settings` | Validates every possible settings key with its correct type |
+| `loginSchema` | `POST /api/auth/login` | username and password required strings |
+| `apiKeySchema` | `POST /api/apikeys` | key string required, priority 0–100 |
+| `assignGroupSchema` | `POST /api/domains/:id/group` | group_id: number or null |
+| `assignTagsSchema` | `PUT /api/domains/:id/tags` | tag_ids: number[] |
+| `bulkIdsSchema` | Bulk delete, bulk refresh | domain_ids: non-empty number[] |
+| `bulkAssignGroupSchema` | `POST /api/domains/bulk/group` | domain_ids[] + group_id |
+| `bulkAssignTagsSchema` | `POST /api/domains/bulk/tags` | domain_ids[] + tag_ids[] |
+| `paginationSchema` | Reused across paginated GET endpoints | page ≥ 1, limit 1–200 |
+| `auditQuerySchema` | `GET /api/audit` | Optional entity_type, action, date range, pagination |
 
 ---
 
-#### `src/services/healthcheck.ts`
+## 12. TypeScript Types
 
-**Purpose**: Checks DNS, HTTP, and SSL health for domains.
-
-```typescript
-// DNS check with fallback
-async function checkDNS(domain: string): Promise<DNSCheckResult> {
-  const start = Date.now();
-
-  try {
-    // Try DNS resolver first
-    const records = await dns.resolve4(domain);
-    return {
-      resolved: true,
-      responseTimeMs: Date.now() - start,
-      records,
-    };
-  } catch {
-    // Fallback to OS resolver (dns.lookup)
-    try {
-      const result = await dns.lookup(domain, { all: true });
-      return {
-        resolved: result.length > 0,
-        responseTimeMs: Date.now() - start,
-        records: result.map(r => r.address),
-      };
-    } catch {
-      return { resolved: false, responseTimeMs: Date.now() - start, records: [] };
-    }
-  }
-}
-
-// HTTP check (tries HTTPS first, falls back to HTTP)
-async function checkHTTP(domain: string): Promise<HTTPCheckResult> {
-  const start = Date.now();
-
-  for (const protocol of ['https', 'http']) {
-    try {
-      const response = await axios.get(`${protocol}://${domain}`, {
-        timeout: 5000,
-        maxRedirects: 5,
-        validateStatus: () => true,  // Accept any status
-      });
-
-      return {
-        statusCode: response.status,
-        responseTimeMs: Date.now() - start,
-      };
-    } catch {
-      continue;  // Try next protocol
-    }
-  }
-
-  return { statusCode: null, responseTimeMs: Date.now() - start };
-}
-
-// SSL certificate check
-async function checkSSL(domain: string): Promise<SSLCheckResult> {
-  return new Promise((resolve) => {
-    const socket = tls.connect(443, domain, { servername: domain }, () => {
-      const cert = socket.getPeerCertificate();
-      socket.end();
-
-      resolve({
-        valid: socket.authorized,
-        expiresAt: cert.valid_to,
-        issuer: cert.issuer?.O,
-      });
-    });
-
-    socket.on('error', () => {
-      resolve({ valid: false, expiresAt: null, issuer: null });
-    });
-
-    socket.setTimeout(5000, () => {
-      socket.destroy();
-      resolve({ valid: false, expiresAt: null, issuer: null });
-    });
-  });
-}
-
-// Full health check for a domain
-export async function performHealthCheck(domainId: number): Promise<void> {
-  const domain = getDomainById(domainId);
-  if (!domain) return;
-
-  // Run checks in parallel
-  const [dns, http, ssl] = await Promise.all([
-    checkDNS(domain.domain),
-    checkHTTP(domain.domain),
-    checkSSL(domain.domain),
-  ]);
-
-  // Save to database
-  saveHealthCheck(domainId, dns, http, ssl);
-
-  // Broadcast via WebSocket
-  wsService.broadcast('health_update', {
-    domainId,
-    domain: domain.domain,
-    dns, http, ssl,
-    checkedAt: new Date().toISOString(),
-  });
-}
-```
-
----
-
-#### `src/services/websocket.ts`
-
-**Purpose**: Real-time communication with the frontend.
+### `src/types/domain.ts`
 
 ```typescript
-class WebSocketService {
-  private wss: WebSocketServer;
-  private clients: Set<WebSocket> = new Set();
-
-  initialize(server: http.Server): void {
-    this.wss = new WebSocketServer({ server, path: '/ws' });
-
-    this.wss.on('connection', (ws) => {
-      this.clients.add(ws);
-      logger.info('WebSocket client connected', { total: this.clients.size });
-
-      // Send welcome message
-      ws.send(JSON.stringify({ type: 'connected' }));
-
-      // Handle disconnect
-      ws.on('close', () => {
-        this.clients.delete(ws);
-        logger.info('WebSocket client disconnected', { total: this.clients.size });
-      });
-
-      // Heartbeat
-      ws.on('pong', () => {
-        (ws as any).isAlive = true;
-      });
-    });
-
-    // Ping clients every 30 seconds
-    setInterval(() => {
-      this.clients.forEach(ws => {
-        if ((ws as any).isAlive === false) {
-          this.clients.delete(ws);
-          return ws.terminate();
-        }
-        (ws as any).isAlive = false;
-        ws.ping();
-      });
-    }, 30000);
-  }
-
-  broadcast(type: string, data: any): void {
-    const message = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
-
-    this.clients.forEach(ws => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
-      }
-    });
-  }
-}
-
-export const wsService = new WebSocketService();
-```
-
----
-
-#### `src/services/scheduler.ts`
-
-**Purpose**: Schedules automatic tasks using cron.
-
-```typescript
-import cron from 'node-cron';
-
-let refreshTask: cron.ScheduledTask | null = null;
-let emailTask: cron.ScheduledTask | null = null;
-
-export function initializeScheduler(): void {
-  const schedule = getRefreshSchedule();
-
-  // Schedule domain refresh
-  if (cron.validate(schedule)) {
-    refreshTask = cron.schedule(schedule, async () => {
-      logger.info('Starting scheduled refresh');
-      await refreshAllDomains();
-    });
-    logger.info('Scheduler initialized', { schedule });
-  }
-
-  // Schedule daily email check at 9 AM
-  emailTask = cron.schedule('0 9 * * *', async () => {
-    logger.info('Checking for expiring domains');
-    await checkExpiringDomains();
-  });
-}
-
-export function updateRefreshSchedule(newSchedule: string): void {
-  if (!cron.validate(newSchedule)) {
-    throw new Error('Invalid cron expression');
-  }
-
-  // Stop existing task
-  if (refreshTask) {
-    refreshTask.stop();
-  }
-
-  // Start new task
-  refreshTask = cron.schedule(newSchedule, async () => {
-    await refreshAllDomains();
-  });
-
-  // Save to database
-  setSetting('refresh_schedule', newSchedule);
-
-  logger.info('Refresh schedule updated', { schedule: newSchedule });
-}
-```
-
----
-
-### 4.7 Type Definitions (`src/types/`)
-
-#### `src/types/domain.ts`
-
-```typescript
-// Main domain entity
-export interface Domain {
+interface Domain {
   id?: number;
   domain: string;
   registrar: string;
-  creation_date: string | null;
-  expiry_date: string | null;
+  created_date: string;
+  expiry_date: string;
   name_servers: string[];
-  previous_name_servers?: string[];
+  name_servers_prev: string[];
   last_checked: string | null;
-  status: 'pending' | 'active' | 'error' | 'expired';
-  error_message?: string | null;
+  error: string | null;
   group_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
 }
 
-// Database row (JSON fields are strings)
-export interface DomainRow {
-  id: number;
-  domain: string;
-  registrar: string;
-  name_servers: string;  // JSON string
-  // ... etc
-}
-
-// Domain with related data
-export interface DomainWithRelations extends Domain {
-  group?: Group;
+interface DomainWithRelations extends Domain {
+  group?: Group | null;
   tags?: Tag[];
-  health?: DomainHealth;
+  health?: DomainHealth | null;
+  uptime?: UptimeStats | null;
 }
 
-// Health check result
-export interface DomainHealth {
+interface Group {
+  id?: number;
+  name: string;
+  color: string;
+  description?: string | null;
+  domain_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface Tag {
+  id?: number;
+  name: string;
+  color: string;
+  created_at?: string;
+}
+
+interface DomainHealth {
+  id?: number;
+  domain_id: number;
   dns_resolved: boolean;
-  dns_response_time_ms: number;
+  dns_response_time_ms: number | null;
   dns_records: string[];
   http_status: number | null;
-  http_response_time_ms: number;
-  ssl_valid: boolean;
-  ssl_expires_at: string | null;
+  http_response_time_ms: number | null;
+  ssl_valid: boolean | null;
+  ssl_expires: string | null;
   ssl_issuer: string | null;
   checked_at: string;
 }
 ```
 
----
-
-### 4.8 Utilities (`src/utils/`)
-
-#### `src/utils/helpers.ts`
+### `src/types/api.ts`
 
 ```typescript
-// Normalize domain for consistent storage
-export function normalizeDomain(domain: string): string {
-  return domain.toLowerCase().trim();
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
 }
 
-// Promise-based delay
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages?: number;
 }
 
-// Calculate domain age
-export function calculateAge(creationDate: string): string {
-  const created = new Date(creationDate);
-  const now = new Date();
-
-  let years = now.getFullYear() - created.getFullYear();
-  let months = now.getMonth() - created.getMonth();
-
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
-
-  const parts = [];
-  if (years > 0) parts.push(`${years} yr${years > 1 ? 's' : ''}`);
-  if (months > 0) parts.push(`${months} month${months > 1 ? 's' : ''}`);
-
-  return parts.join(' ') || 'Less than a month';
+interface RefreshStatus {
+  isRefreshing: boolean;
+  total: number;
+  completed: number;
+  startTime: number | null;
+  currentDomain?: string;
 }
 
-// Days until expiration
-export function getExpiryDays(expiryDate: string | null): number | null {
-  if (!expiryDate) return null;
-
-  const expiry = new Date(expiryDate);
-  const now = new Date();
-  const diffMs = expiry.getTime() - now.getTime();
-
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+interface UptimeStats {
+  domain_id: number;
+  domain: string;
+  uptime_percentage: number;
+  avg_response_time_ms: number;
+  total_checks: number;
+  successful_checks: number;
+  last_check: string | null;
+  current_status: 'up' | 'down' | 'unknown';
 }
 
-// Validate cron expression
-export function isValidCronExpression(expr: string): boolean {
-  const parts = expr.split(' ');
-  if (parts.length !== 5) return false;
+type UserRole = 'admin' | 'manager' | 'viewer';
 
-  // Basic validation - check for valid characters
-  const validChars = /^[\d,\-\*\/]+$/;
-  return parts.every(part => validChars.test(part));
+// Express Request with authentication properties attached by auth middleware
+interface AuthenticatedRequest extends Request {
+  username?: string;
+  userRole?: UserRole;
+  isAuthenticated?: boolean;
 }
 ```
 
-#### `src/utils/logger.ts`
+### `src/types/audit.ts`
 
 ```typescript
-import pino from 'pino';
+type EntityType = 'domain' | 'group' | 'tag' | 'settings' | 'apikey' | 'user' | 'system';
+type AuditAction = 'create' | 'update' | 'delete' | 'refresh' | 'import'
+                 | 'login' | 'logout' | 'health_check' | 'scheduled';
 
-// Create base logger
-const baseLogger = pino({
-  level: config.logLevel,
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-    },
-  },
-});
-
-// Create module-specific logger
-export function createLogger(module: string) {
-  const child = baseLogger.child({ module });
-
-  // Wrapper for flexible API
-  return {
-    debug: (msg: string, data?: object) => child.debug(data, msg),
-    info: (msg: string, data?: object) => child.info(data, msg),
-    warn: (msg: string, data?: object) => child.warn(data, msg),
-    error: (msg: string, data?: object) => child.error(data, msg),
-  };
+interface AuditEntry {
+  id?: number;
+  entity_type: EntityType;
+  entity_id: string;
+  action: AuditAction;
+  old_value?: string | null;
+  new_value?: string | null;
+  ip_address?: string;
+  user_agent?: string;
+  performed_by?: string;   // Username of the actor; null for background/system actions
+  created_at?: string;
 }
-
-// Usage:
-// const logger = createLogger('whois');
-// logger.info('Domain refreshed', { domain: 'example.com' });
 ```
 
 ---
 
-## 5. Frontend
+## 13. Frontend (SPA)
 
-### 5.1 `public/index.html`
+The frontend is a **vanilla JavaScript single-page application** with no build step, no framework, and no bundler. All files in `public/` are served as-is by Express's static middleware.
 
-**Purpose**: The single-page application structure.
+### `app.js` Overview
 
-**Key sections**:
+`app.js` is ~4,000 lines organized into these functional areas:
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <title>Domain Monitor</title>
-  <link rel="stylesheet" href="styles.css">
-  <!-- Font Awesome for icons -->
-  <!-- Chart.js for visualizations -->
-</head>
-<body>
-  <!-- Error Boundary -->
-  <div id="error-boundary" style="display:none">...</div>
-
-  <!-- Login Modal -->
-  <div id="loginModal" class="modal">...</div>
-
-  <!-- Settings Modal (tabs: General, Schedule, Email, API Keys) -->
-  <div id="settingsModal" class="modal">...</div>
-
-  <!-- Groups Modal -->
-  <div id="groupsModal" class="modal">...</div>
-
-  <!-- Tags Modal -->
-  <div id="tagsModal" class="modal">...</div>
-
-  <!-- Domain Details Modal -->
-  <div id="domainDetailsModal" class="modal">...</div>
-
-  <!-- CSV Import Modal -->
-  <div id="importModal" class="modal">...</div>
-
-  <!-- Main Header -->
-  <header>
-    <div class="logo">Domain Monitor</div>
-    <div class="connection-status" id="wsStatus">
-      <span class="status-dot"></span> Connected
-    </div>
-    <nav>
-      <!-- Theme Toggle Button -->
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
-        <i class="fa-solid fa-sun"></i>
-        <i class="fa-solid fa-moon"></i>
-      </button>
-      <button id="refreshAllBtn">Refresh All</button>
-      <button id="importBtn">Import</button>
-      <button id="exportBtn">Export</button>
-      <div class="dropdown">More...</div>
-    </nav>
-  </header>
-
-  <!-- Dashboard Section (Enhanced Grid Layout) -->
-  <section class="dashboard-section">
-    <!-- Left Column: Stat Cards -->
-    <div class="dashboard-left">
-      <!-- Stat Cards Row -->
-      <div class="stat-cards">
-        <div class="stat-card">
-          <div class="stat-icon"><i class="fa-solid fa-globe"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="totalCount">0</span>
-            <span class="stat-label">Total Domains</span>
-          </div>
-        </div>
-        <div class="stat-card danger">
-          <div class="stat-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="expiredCount">0</span>
-            <span class="stat-label">Expired</span>
-          </div>
-        </div>
-        <div class="stat-card warning">
-          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="criticalCount">0</span>
-            <span class="stat-label">Within 30 Days</span>
-          </div>
-        </div>
-        <div class="stat-card mild-warning">
-          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="warningCount">0</span>
-            <span class="stat-label">Within 90 Days</span>
-          </div>
-        </div>
-        <div class="stat-card safe">
-          <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="safeCount">0</span>
-            <span class="stat-label">Within 6 Months</span>
-          </div>
-        </div>
-        <div class="stat-card success">
-          <div class="stat-icon"><i class="fa-solid fa-check-circle"></i></div>
-          <div class="stat-content">
-            <span class="stat-value" id="healthyCount">0</span>
-            <span class="stat-label">6+ Months</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row -->
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Expiration Distribution</h3>
-          <canvas id="expiryPieChart"></canvas>
-        </div>
-        <div class="chart-card">
-          <h3>Tags Distribution</h3>
-          <canvas id="tagsChart"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right Column: Activity Log -->
-    <div class="dashboard-right">
-      <div class="activity-log">
-        <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h3>
-        <div class="log-entries" id="activityLog">
-          <!-- Dynamic activity log entries -->
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Add Domain Form -->
-  <section class="add-domain">
-    <input type="text" id="newDomain" placeholder="example.com">
-    <button id="addDomainBtn">Add Domain</button>
-  </section>
-
-  <!-- Filters -->
-  <section class="filters">
-    <input type="search" id="searchInput" placeholder="Search...">
-    <select id="statusFilter">...</select>
-    <select id="groupFilter">...</select>
-    <select id="sortBy">...</select>
-  </section>
-
-  <!-- Bulk Actions Bar (appears when domains selected) -->
-  <section id="bulkActionsBar" class="bulk-actions-bar">
-    <span><span id="selectedCount">0</span> selected</span>
-    <button id="bulkRefreshBtn">Refresh Selected</button>
-    <button id="bulkDeleteBtn">Delete Selected</button>
-    <button id="bulkGroupBtn">Assign Group</button>
-  </section>
-
-  <!-- Domain Table -->
-  <table id="domainsTable">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="selectAll"></th>
-        <th>Domain</th>
-        <th>Registrar</th>
-        <th>Created</th>
-        <th>Expires</th>
-        <th>Days Left</th>
-        <th>Name Servers</th>
-        <th>Health</th>
-        <th>Tags</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="domainsBody"></tbody>
-  </table>
-
-  <script src="app.js"></script>
-</body>
-</html>
-```
-
----
-
-### 5.2 `public/app.js`
-
-**Purpose**: All frontend JavaScript logic.
-
-**Key components**:
+#### Global State
 
 ```javascript
-// ======================
-// STATE MANAGEMENT
-// ======================
 const state = {
-  domains: [],
-  groups: [],
-  tags: [],
-  filters: {
-    search: '',
-    status: 'all',
-    group: 'all',
-    sortBy: 'domain',
-    sortOrder: 'asc',
-  },
-  selected: new Set(),
-  isAuthenticated: false,
-  authRequired: false,
+  domains: [],      // Full unfiltered domain list (used for alerts and widgets)
+  groups: [],       // All groups
+  tags: [],         // All tags
+  settings: {},     // Current settings
+  page: 1,          // Current pagination page
+  limit: 50,        // Rows per page
+  filters: {},      // Active filter set (search, status, group, etc.)
+  sort: {},         // Active sort column and direction
 };
+```
 
-// ======================
-// WEBSOCKET CONNECTION
-// ======================
-let ws = null;
+#### Main Data Load (`load()`)
 
-function connectWebSocket() {
-  ws = new WebSocket(`ws://${window.location.host}/ws`);
+Called on page load and after any data-changing operation:
+1. Fetches `GET /api/domains?include=all` with current filters and pagination.
+2. Fetches `GET /api/groups` and `GET /api/tags`.
+3. Renders the domain table rows.
+4. Updates all stat counters (total, expiring, expired, errors).
+5. Updates dashboard widgets: `updateGroupsStatusWidget()`, `updateMammothWidget()`, `updateUptimeWidget()`, `updateCriticalAlerts()`, `updateCharts()`.
 
-  ws.onopen = () => {
-    document.getElementById('wsStatus').classList.add('connected');
-  };
+#### WebSocket Connection
 
-  ws.onmessage = (event) => {
-    const { type, data } = JSON.parse(event.data);
+Connects to `ws://host/ws` on load. On message:
+- `domain_updated` → finds the matching table row and updates it in place (or full reload if not currently visible).
+- `domain_added` → triggers `load()`.
+- `refresh_progress` → updates the refresh progress bar and current-domain label in the header.
+- `refresh_complete` → hides the progress bar, calls `load()`.
+- `health_update` → updates the DNS/HTTP/SSL status dots on the matching domain row.
+- `error` → shows a toast notification.
 
-    switch (type) {
-      case 'refresh_progress':
-        updateRefreshProgress(data);
-        break;
-      case 'refresh_complete':
-        loadDomains();  // Reload all data
-        break;
-      case 'domain_updated':
-        updateDomainInTable(data);
-        break;
-      case 'health_update':
-        updateHealthInTable(data);
-        break;
-    }
-  };
+Reconnects automatically with a 2-second delay on any disconnect.
 
-  ws.onclose = () => {
-    document.getElementById('wsStatus').classList.remove('connected');
-    // Reconnect after 3 seconds
-    setTimeout(connectWebSocket, 3000);
-  };
-}
+#### Audit Log Rendering
 
-// ======================
-// API WRAPPER
-// ======================
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    credentials: 'include',  // Send cookies
-  });
+`formatAuditLog(log)` converts a raw audit entry into a human-readable object with `{ message, details, icon, className }`:
 
-  if (res.status === 401) {
-    state.authRequired = true;
-    state.isAuthenticated = false;
-    openModal('loginModal');
-    throw new Error('Authentication required');
-  }
+| Action + Entity | Example Output |
+|----------------|---------------|
+| `create` + `domain` | "Domain example.com added" |
+| `delete` + `domain` | "Domain example.com deleted" |
+| `refresh` + `system` | "Bulk WHOIS refresh: 150 domains" |
+| `login` + `system` | "User logged in" |
+| `import` + `system` | "45 domains imported (2 skipped)" |
+| `create` + `group` | "Group Production created" |
+| `health_check` + `domain` | "Health check for example.com" |
 
-  return res;
-}
+The `performed_by` field renders as a user chip: `<span class="audit-performer"><i class="fa-solid fa-user"></i> admin</span>`.
 
-// ======================
-// DATA LOADING
-// ======================
-async function loadDomains() {
-  const res = await apiFetch('/api/domains?include=all');
-  state.domains = await res.json();
-  renderDomains();
-  updateDashboard();
-}
+#### Alert Deduplication
 
-async function loadGroups() {
-  const res = await apiFetch('/api/groups');
-  state.groups = await res.json();
-  populateGroupFilters();
-}
+`updateCriticalAlerts()` always computes alerts from `alertSource`, which is `state.domains` (the full unfiltered domain list) — never from the currently displayed page. A `seenAlerts = new Set()` keyed by `${domain}:${type}` prevents duplicates within a single render pass. Alert types:
 
-async function loadTags() {
-  const res = await apiFetch('/api/tags');
-  state.tags = await res.json();
-}
+| Alert | Condition |
+|-------|-----------|
+| `expired` | `expiry_date` is in the past |
+| `expiring` | `expiry_date` is within 15 days |
+| `down` | `uptime.current_status === 'down'` |
+| `ns_changed` | `name_servers` differs from `name_servers_prev` |
+| `dns_fail` | `health.dns_resolved === false` |
+| `ssl_fail` | `health.ssl_valid === false` |
 
-// ======================
-// RENDERING
-// ======================
-function renderDomains() {
-  const filtered = applyFilters(state.domains);
-  const tbody = document.getElementById('domainsBody');
+Each alert is a clickable link that applies a filter to show the relevant domain in the table.
 
-  tbody.innerHTML = filtered.map(domain => `
-    <tr data-id="${domain.id}">
-      <td>
-        <input type="checkbox" class="row-checkbox"
-               ${state.selected.has(domain.id) ? 'checked' : ''}>
-      </td>
-      <td>
-        <a href="#" onclick="openDomainDetails(${domain.id})">${escapeHTML(domain.domain)}</a>
-      </td>
-      <td>${escapeHTML(domain.registrar || '-')}</td>
-      <td>${formatDate(domain.creation_date)}</td>
-      <td>${formatDate(domain.expiry_date)}</td>
-      <td class="${getExpiryClass(domain.expiry_date)}">
-        ${getExpiryDays(domain.expiry_date)}
-      </td>
-      <td>${formatNameServers(domain.name_servers)}</td>
-      <td>${renderHealthStatus(domain.health)}</td>
-      <td>${renderTags(domain.tags)}</td>
-      <td>
-        <button onclick="refreshDomain('${domain.domain}')">
-          <i class="fa fa-refresh"></i>
-        </button>
-        <button onclick="deleteDomain('${domain.domain}')">
-          <i class="fa fa-trash"></i>
-        </button>
-      </td>
-    </tr>
-  `).join('');
-}
+---
 
-function applyFilters(domains) {
-  return domains
-    .filter(d => {
-      // Search filter
-      if (state.filters.search) {
-        const search = state.filters.search.toLowerCase();
-        if (!d.domain.toLowerCase().includes(search)) return false;
-      }
+### CSS Architecture
 
-      // Status filter
-      if (state.filters.status !== 'all') {
-        const days = getExpiryDays(d.expiry_date);
-        if (state.filters.status === 'expired' && days > 0) return false;
-        if (state.filters.status === 'expiring' && (days <= 0 || days > 30)) return false;
-        if (state.filters.status === 'ok' && days <= 30) return false;
-      }
+CSS is split into 12 focused files, all loaded via `<link>` tags in `index.html`. There is no CSS preprocessor or build step.
 
-      // Group filter
-      if (state.filters.group !== 'all') {
-        if (d.group_id !== parseInt(state.filters.group)) return false;
-      }
+| File | Responsibility |
+|------|---------------|
+| `tokens.css` | All CSS custom properties: `--bg-primary`, `--accent`, `--text-muted`, `--shadow-md`, etc. Edit this file to retheme the entire app. |
+| `base.css` | Universal box-sizing, body font, scrollbar styling, link colors |
+| `layout.css` | Left sidebar + main content area grid, responsive breakpoints |
+| `components.css` | `.btn`, `.badge`, `.alert`, `.card`, `.stat-card` |
+| `forms.css` | `input`, `select`, `textarea`, `.form-group`, validation state styles |
+| `modals.css` | `.modal-overlay`, `.modal`, close button, modal animations |
+| `notifications.css` | `.toast` slide-in/out notification system |
+| `table.css` | Domain table, `.th-sortable` sort indicators, `.pagination` controls |
+| `dashboard.css` | `.charts-area` widget grid, `.chart-card`, groups-status widget, mammoth widget, stat widgets |
+| `uptime.css` | `.heartbeat-bar`, `.heartbeat-cell`, `.uptime-status-dot` |
+| `pages.css` | Page-specific overrides for audit log (`.audit-performer`, `.audit-details`), settings, health views |
+| `webhooks.css` | Webhook configuration form rows, delivery status chips |
 
-      return true;
-    })
-    .sort((a, b) => {
-      const aVal = a[state.filters.sortBy];
-      const bVal = b[state.filters.sortBy];
-      const order = state.filters.sortOrder === 'asc' ? 1 : -1;
+---
 
-      if (aVal < bVal) return -1 * order;
-      if (aVal > bVal) return 1 * order;
-      return 0;
-    });
-}
+### Dashboard Widgets
 
-// ======================
-// DOMAIN OPERATIONS
-// ======================
-async function addDomain() {
-  const input = document.getElementById('newDomain');
-  const domain = input.value.trim();
+The dashboard has four draggable widget cards (`div.chart-card[data-widget-id]`) that can be reordered by drag-and-drop. Order is persisted in `localStorage`.
 
-  if (!domain) {
-    showNotification('Please enter a domain', 'error');
-    return;
-  }
+#### Site Status (`data-widget-id="uptime"`)
+Three large counters: **Up** / **Down** / **Unknown**. Counts derived from `uptime.current_status` across all domains. Updated by `updateUptimeWidget(domains)`.
 
-  const res = await apiFetch('/api/domains', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ domain }),
-  });
+#### Critical Alerts (`data-widget-id="alerts"`)
+Actionable alert list. Updated by `updateCriticalAlerts(domains)`. Always computed from the full domain list (not the current page). Deduplicated by `domain:type` key. Each alert links to a filtered view of the domain table.
 
-  if (res.ok) {
-    input.value = '';
-    await loadDomains();
-    showNotification(`Added ${domain}`, 'success');
+#### Sites per Group (`data-widget-id="groups-status"`)
+One row per named group (empty groups and "ungrouped" excluded). Each row shows:
+- Colored group indicator dot
+- Group name
+- Domain count
+- Status pill: **Issues** (red) if any domain in the group has an error or expired status, **OK** (green) otherwise
 
-    // Auto-refresh the new domain
-    await refreshDomain(domain);
-  } else {
-    const data = await res.json();
-    showNotification(data.message, 'error');
-  }
-}
+Updated by `updateGroupsStatusWidget(domains)`.
 
-async function deleteDomain(domain) {
-  if (!confirm(`Delete ${domain}?`)) return;
+#### Mammoth (`data-widget-id="mammoth"`)
+Scoped to the group named "Mammoth" (case-insensitive). Shows:
+- **Up / Down / Unknown** counts from `uptime.current_status`
+- **DNS / HTTP / SSL** health chips with ok/fail counts from the latest health check per domain
 
-  const res = await apiFetch(`/api/domains/${encodeURIComponent(domain)}`, {
-    method: 'DELETE',
-  });
+Updated by `updateMammothWidget(domains)`.
 
-  if (res.ok) {
-    await loadDomains();
-    showNotification(`Deleted ${domain}`, 'success');
-  }
-}
+#### Expiry Timeline (non-draggable, bottom)
+A Chart.js grouped bar chart showing how many domains expire in each of the next 6 months. Updated by `updateCharts(domains)`.
 
-async function refreshDomain(domain) {
-  showNotification(`Refreshing ${domain}...`, 'info');
+---
 
-  const res = await apiFetch(`/api/refresh/${encodeURIComponent(domain)}`, {
-    method: 'POST',
-  });
+### Pages & Navigation
 
-  if (res.ok) {
-    await loadDomains();
-    showNotification(`Refreshed ${domain}`, 'success');
-  } else {
-    const data = await res.json();
-    showNotification(data.message, 'error');
-  }
-}
+The left sidebar links switch between "pages" (shown/hidden `<section>` elements within the SPA — no actual navigation):
 
-// ======================
-// BULK OPERATIONS
-// ======================
-async function bulkDelete() {
-  if (!confirm(`Delete ${state.selected.size} domains?`)) return;
+| Sidebar Link | Section ID | Content |
+|-------------|-----------|---------|
+| Dashboard | `#dashboard` | Stat widgets + domain table |
+| Domains | `#domains` | Full domain table with all filters |
+| Uptime | `#uptime` | Heartbeat bars for all monitored domains |
+| Audit Log | `#audit` | Filterable paginated audit event log |
+| Settings | `#settings` | Tabbed settings panels |
 
-  for (const id of state.selected) {
-    const domain = state.domains.find(d => d.id === id);
-    await apiFetch(`/api/domains/${encodeURIComponent(domain.domain)}`, {
-      method: 'DELETE',
-    });
-  }
+---
 
-  state.selected.clear();
-  await loadDomains();
-  updateBulkActionsBar();
-}
+## 14. Public Status Page
 
-// ======================
-// MODALS
-// ======================
-function openModal(id) {
-  document.getElementById(id).style.display = 'flex';
-}
+**File:** `public/status.html`
 
-function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
-}
+A fully self-contained HTML page with embedded CSS and JavaScript. No build step. No authentication required. Calls `GET /api/status` on load and auto-refreshes every 60 seconds.
 
-// ======================
-// THEME MANAGEMENT
-// ======================
+### Structure
 
-// Initialize theme from localStorage (called before DOM ready)
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-}
+1. **Header** — Application title and "Last updated" timestamp
+2. **Status Banner** — Prominent "All Systems Operational" (green) or "Issues Detected" (amber/red)
+3. **5-Card Stats Grid** — Total Domains · Healthy · Expiring ≤30 Days · Expired · Errors
+4. **Uptime Section** — Sites Up / Down / Unknown counts (only rendered if uptime data is present)
+5. **Per-Group Cards** — One card per group with:
+   - Group name + color dot
+   - Domain count + status pill (OK / Issues)
+   - DNS / HTTP / SSL health chips (pass and fail counts)
+   - Expiry warning row if any domains are expiring ≤30 days or already expired
+6. **App Navigation Links** — Deep links into the main app: `/#dashboard`, `/#domains`, `/#audit`, `/#settings`
+7. **Footer** — Domain Monitor branding + build timestamp
 
-// Get theme-appropriate colors for charts
-function getThemeColors() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  return {
-    textPrimary: isDark ? '#f9f9f9' : '#1a1d21',
-    textSecondary: isDark ? '#b5b5b5' : '#4a5568',
-    chartColors: isDark
-      ? ['#851130', '#a84803', '#a8a503', '#00905b', '#384b86']
-      : ['#dc2626', '#d97706', '#ca8a04', '#059669', '#3b82f6'],
-    gridColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-  };
-}
+### XSS Safety
 
-// Toggle between dark and light theme
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+All API response text is passed through `escHtml()` before being inserted into the DOM. No `innerHTML` is used with raw API data anywhere on the page.
 
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+---
 
-  // Update chart colors to match new theme
-  updateChartColors();
-}
+## 15. Audit Log System
 
-// Update all charts with theme-appropriate colors
-function updateChartColors() {
-  const colors = getThemeColors();
+Every significant action in the system writes a row to `audit_log` via `logAudit()` in `src/database/audit.ts`.
 
-  if (state.charts.expiration) {
-    state.charts.expiration.data.datasets[0].backgroundColor = colors.chartColors;
-    state.charts.expiration.options.plugins.legend.labels.color = colors.textSecondary;
-    state.charts.expiration.update('none');
-  }
+### What Gets Logged
 
-  if (state.charts.timeline) {
-    state.charts.timeline.data.datasets[0].backgroundColor = colors.chartColors;
-    state.charts.timeline.options.scales.x.ticks.color = colors.textSecondary;
-    state.charts.timeline.options.scales.y.ticks.color = colors.textSecondary;
-    state.charts.timeline.update('none');
-  }
-}
+| Trigger | Action | Entity Type |
+|---------|--------|------------|
+| `POST /api/auth/login` | `login` | `system` |
+| `POST /api/auth/logout` | `logout` | `system` |
+| `POST /api/domains` | `create` | `domain` |
+| `DELETE /api/domains/*` | `delete` | `domain` |
+| `POST /api/refresh` (all) | `refresh` | `system` |
+| `POST /api/import/csv` | `import` | `system` + per `domain` |
+| `POST /api/health/domain/:id` | `health_check` | `domain` |
+| `POST /api/health/check-all` | `health_check` | `system` |
+| `POST /api/groups` | `create` | `group` |
+| `PUT /api/groups/:id` | `update` | `group` |
+| `DELETE /api/groups/:id` | `delete` | `group` |
+| `POST /api/tags` | `create` | `tag` |
+| `PUT /api/tags/:id` | `update` | `tag` |
+| `DELETE /api/tags/:id` | `delete` | `tag` |
+| `PUT /api/settings` | `update` | `settings` |
+| `POST /api/apikeys` | `create` | `apikey` |
+| `DELETE /api/apikeys/:id` | `delete` | `apikey` |
+| `POST /api/users` | `create` | `user` |
+| `PUT /api/users/:id` | `update` | `user` |
+| `DELETE /api/users/:id` | `delete` | `user` |
+| `POST /api/uptime/retention/cleanup` | `scheduled` | `system` |
+| `DELETE /api/uptime/retention/*` | `delete` | `system` |
 
-// Initialize theme immediately (before DOM ready)
-initTheme();
+### `performed_by` Field
 
-// ======================
-// INITIALIZATION
-// ======================
-document.addEventListener('DOMContentLoaded', async () => {
-  connectWebSocket();
+Every audit entry stores the `username` of the authenticated actor. For background/system-triggered events (scheduler, auto-cleanup), `performed_by` is `null`.
 
-  // Check auth status
-  const authRes = await fetch('/api/auth/me');
-  const auth = await authRes.json();
+For async operations (bulk refresh, check-all), the username is captured **before** the async call begins so it remains available in the `.then()` callback after the HTTP response has been sent:
 
-  if (auth.authEnabled && !auth.authenticated) {
-    openModal('loginModal');
-  } else {
-    await Promise.all([loadDomains(), loadGroups(), loadTags()]);
-  }
-
-  // Setup event listeners
-  document.getElementById('addDomainBtn').onclick = addDomain;
-  document.getElementById('refreshAllBtn').onclick = refreshAll;
-  document.getElementById('searchInput').oninput = handleSearch;
-  // ... more listeners
+```typescript
+const refreshedBy = (req as AuthenticatedRequest).username;
+refreshAllDomains().then(() => {
+  auditBulkRefresh(count, domainNames, refreshedBy); // refreshedBy captured safely
 });
 ```
 
 ---
 
-### 5.3 `public/styles.css`
-
-**Purpose**: Complete styling for the application with dark/light theme support.
-
-**Theme System**:
-
-The application uses CSS custom properties with `data-theme` attribute for theming:
-
-```css
-/* ======================
-   THEME SYSTEM
-   ====================== */
-:root {
-  --font-primary: 'Urbanist', sans-serif;
-
-  /* Shared values */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --transition-fast: 0.15s ease;
-  --transition: 0.25s ease;
-}
-
-/* ======================
-   DARK THEME (Default)
-   ====================== */
-[data-theme="dark"] {
-  /* Backgrounds */
-  --bg: #0a0a0b;
-  --bg-header: #0d0d0f;
-  --bg-card: #111113;
-  --bg-surface: #141416;
-  --bg-input: #121214;
-
-  /* Borders */
-  --border-subtle: rgba(255,255,255,0.04);
-  --border-soft: rgba(255,255,255,0.07);
-  --border-strong: rgba(255,255,255,0.12);
-
-  /* Text */
-  --text-primary: #f9f9f9;
-  --text-secondary: #b5b5b5;
-  --text-muted: #8a8a8a;
-
-  /* Status colors */
-  --success: #00905b;
-  --warning: #a84803;
-  --mild-warning: #a8a503;
-  --danger: #851130;
-  --safe: #384b86;
-  --primary: #6366f1;
-
-  /* Shadows */
-  --shadow-sm: 0 4px 14px rgba(0,0,0,0.55);
-  --shadow-md: 0 12px 40px rgba(0,0,0,0.75);
-}
-
-/* ======================
-   LIGHT THEME
-   ====================== */
-[data-theme="light"] {
-  /* Backgrounds */
-  --bg: #f5f7fa;
-  --bg-header: #ffffff;
-  --bg-card: #ffffff;
-  --bg-surface: #f0f2f5;
-  --bg-input: #f8f9fb;
-
-  /* Borders */
-  --border-subtle: rgba(0,0,0,0.06);
-  --border-soft: rgba(0,0,0,0.10);
-  --border-strong: rgba(0,0,0,0.15);
-
-  /* Text */
-  --text-primary: #1a1d21;
-  --text-secondary: #4a5568;
-  --text-muted: #718096;
-
-  /* Status colors - Adjusted for light mode visibility */
-  --success: #059669;
-  --warning: #d97706;
-  --mild-warning: #ca8a04;
-  --danger: #dc2626;
-  --safe: #3b82f6;
-  --primary: #4f46e5;
-
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-md: 0 8px 24px rgba(0,0,0,0.12);
-}
-```
-
-**Theme Toggle Button**:
-
-```css
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  background: var(--btn-bg);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-soft);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-/* Show sun icon in dark mode, moon icon in light mode */
-[data-theme="dark"] .theme-toggle .fa-sun { display: none; }
-[data-theme="dark"] .theme-toggle .fa-moon { display: block; }
-[data-theme="light"] .theme-toggle .fa-sun { display: block; }
-[data-theme="light"] .theme-toggle .fa-moon { display: none; }
-```
-
-**Theme Transitions**:
-
-All interactive elements have smooth color transitions:
-
-```css
-header, .modal-content, .card, .btn, input, select {
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-}
-```
-
-**Key sections**:
-
-/* ======================
-   LAYOUT
-   ====================== */
-body {
-  background: var(--bg);
-  color: var(--text-primary);
-  font-family: 'Urbanist', sans-serif;
-}
-
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-/* ======================
-   COMPONENTS
-   ====================== */
-
-/* Cards */
-.card {
-  background: var(--bg-card);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-/* Buttons */
-.btn {
-  padding: 10px 20px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid rgba(255,255,255,0.1);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-.btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-/* Modals */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.8);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-/* Tables */
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-/* Status indicators */
-.status-ok { color: var(--success); }
-.status-warn { color: var(--warning); }
-.status-bad { color: var(--danger); }
-
-/* Health dots */
-.health-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.health-dot.ok { background: var(--success); }
-.health-dot.warn { background: var(--warning); }
-.health-dot.bad { background: var(--danger); }
-```
-
----
-
-## 6. Database Schema
-
-### Entity Relationship Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│  ┌──────────┐       ┌──────────┐       ┌──────────┐        │
-│  │  groups  │       │ domains  │       │   tags   │        │
-│  ├──────────┤       ├──────────┤       ├──────────┤        │
-│  │ id (PK)  │◄──────│ group_id │       │ id (PK)  │        │
-│  │ name     │   1:N │ id (PK)  │ N:M   │ name     │        │
-│  │ color    │       │ domain   │───────│ color    │        │
-│  └──────────┘       │ registrar│       └──────────┘        │
-│                     │ expiry   │              │            │
-│                     └────┬─────┘              │            │
-│                          │                    │            │
-│                          │               ┌────┴────┐       │
-│                          │               │domain_  │       │
-│                          │               │  tags   │       │
-│                          │               ├─────────┤       │
-│                          └───────────────│domain_id│       │
-│                                    (FK)  │tag_id   │       │
-│                                          └─────────┘       │
-│                                                             │
-│  ┌──────────┐    ┌───────────┐    ┌──────────┐            │
-│  │ sessions │    │ audit_log │    │ settings │            │
-│  ├──────────┤    ├───────────┤    ├──────────┤            │
-│  │ id (PK)  │    │ id (PK)   │    │ key (PK) │            │
-│  │ expires  │    │ entity    │    │ value    │            │
-│  └──────────┘    │ action    │    └──────────┘            │
-│                  │ timestamp │                             │
-│                  └───────────┘                             │
-│                                                             │
-│  ┌──────────────┐    ┌─────────────┐                       │
-│  │ domain_health│    │  api_keys   │                       │
-│  ├──────────────┤    ├─────────────┤                       │
-│  │ id (PK)      │    │ id (PK)     │                       │
-│  │ domain_id(FK)│    │ name        │                       │
-│  │ dns_*        │    │ encrypted   │                       │
-│  │ http_*       │    │ priority    │                       │
-│  │ ssl_*        │    │ usage_count │                       │
-│  │ checked_at   │    └─────────────┘                       │
-│  └──────────────┘                                          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Table Definitions
-
-#### `domains`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key, auto-increment |
-| domain | TEXT | Domain name (unique, indexed) |
-| registrar | TEXT | Domain registrar |
-| creation_date | TEXT | ISO date of domain creation |
-| expiry_date | TEXT | ISO date of expiration (indexed) |
-| name_servers | TEXT | JSON array of nameservers |
-| previous_name_servers | TEXT | Previous nameservers (for change detection) |
-| last_checked | TEXT | Last WHOIS refresh timestamp |
-| status | TEXT | 'pending', 'active', 'error', 'expired' |
-| error_message | TEXT | Last error message |
-| group_id | INTEGER | Foreign key to groups.id |
-
-#### `groups`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| name | TEXT | Group name (unique) |
-| description | TEXT | Optional description |
-| color | TEXT | Hex color code |
-| created_at | TEXT | Creation timestamp |
-
-#### `tags`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| name | TEXT | Tag name (unique) |
-| color | TEXT | Hex color code |
-
-#### `domain_tags`
-| Column | Type | Description |
-|--------|------|-------------|
-| domain_id | INTEGER | FK to domains.id (CASCADE DELETE) |
-| tag_id | INTEGER | FK to tags.id (CASCADE DELETE) |
-| PRIMARY KEY | | (domain_id, tag_id) |
-
-#### `audit_log`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| entity_type | TEXT | 'domain', 'group', 'tag', etc. |
-| entity_id | TEXT | ID of the entity |
-| action | TEXT | 'create', 'update', 'delete', etc. |
-| old_value | TEXT | JSON of previous state |
-| new_value | TEXT | JSON of new state |
-| ip_address | TEXT | Client IP |
-| user_agent | TEXT | Client User-Agent |
-| created_at | TEXT | Timestamp (indexed) |
-
-#### `settings`
-| Column | Type | Description |
-|--------|------|-------------|
-| key | TEXT | Setting key (primary key) |
-| value | TEXT | Setting value |
-
-#### `sessions`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT | Session ID (primary key, random hex) |
-| expires_at | TEXT | Expiration timestamp (indexed) |
-| created_at | TEXT | Creation timestamp |
-
-#### `api_keys`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| name | TEXT | Key name/description |
-| encrypted_key | TEXT | AES-256-GCM encrypted API key |
-| priority | INTEGER | Selection priority (higher = preferred) |
-| enabled | INTEGER | 0 or 1 |
-| request_count | INTEGER | Total requests made |
-| error_count | INTEGER | Total errors |
-| last_used_at | TEXT | Last usage timestamp |
-
-#### `domain_health`
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| domain_id | INTEGER | FK to domains.id (indexed) |
-| dns_resolved | INTEGER | 0 or 1 |
-| dns_response_time_ms | INTEGER | DNS lookup time |
-| dns_records | TEXT | JSON array of IP addresses |
-| http_status | INTEGER | HTTP status code |
-| http_response_time_ms | INTEGER | HTTP request time |
-| ssl_valid | INTEGER | 0 or 1 |
-| ssl_expires_at | TEXT | SSL expiration date |
-| ssl_issuer | TEXT | SSL certificate issuer |
-| checked_at | TEXT | Check timestamp (indexed) |
-
----
-
-## 7. API Reference
+## 16. Security Model
 
 ### Authentication
 
-#### `GET /api/auth/status`
-Check if authentication is enabled and current auth state.
-
-**Response**:
-```json
-{
-  "authEnabled": true,
-  "authenticated": false
-}
-```
-
-#### `POST /api/auth/login`
-Authenticate with username and password.
-
-**Request**:
-```json
-{
-  "username": "admin",
-  "password": "secret"
-}
-```
-
-**Response** (success):
-```json
-{
-  "success": true,
-  "message": "Login successful"
-}
-```
-
-**Response** (failure):
-```json
-{
-  "success": false,
-  "message": "Invalid credentials"
-}
-```
-
-#### `POST /api/auth/logout`
-End the current session.
-
-#### `GET /api/auth/me`
-Get current user info.
-
----
-
-### Domains
-
-#### `GET /api/domains`
-List all domains.
-
-**Query Parameters**:
-- `include` - Comma-separated: `tags`, `health`, `all`
-
-**Response**:
-```json
-[
-  {
-    "id": 1,
-    "domain": "example.com",
-    "registrar": "GoDaddy",
-    "creation_date": "2020-01-15",
-    "expiry_date": "2025-01-15",
-    "name_servers": ["ns1.example.com", "ns2.example.com"],
-    "last_checked": "2024-01-20T10:30:00Z",
-    "status": "active",
-    "group_id": 2,
-    "tags": [
-      { "id": 1, "name": "Production", "color": "#22c55e" }
-    ],
-    "health": {
-      "dns_resolved": true,
-      "http_status": 200,
-      "ssl_valid": true,
-      "checked_at": "2024-01-20T10:30:00Z"
-    }
-  }
-]
-```
-
-#### `POST /api/domains`
-Create a new domain.
-
-**Request**:
-```json
-{
-  "domain": "newdomain.com"
-}
-```
-
-#### `DELETE /api/domains/:domain`
-Delete domain by name.
-
-#### `POST /api/domains/:id/group`
-Assign domain to a group.
-
-**Request**:
-```json
-{
-  "group_id": 2
-}
-```
-
-#### `PUT /api/domains/:id/tags`
-Set domain's tags (replaces all).
-
-**Request**:
-```json
-{
-  "tag_ids": [1, 3, 5]
-}
-```
-
----
-
-### Refresh
-
-#### `GET /api/refresh/status`
-Get current refresh progress.
-
-**Response**:
-```json
-{
-  "isRefreshing": true,
-  "total": 100,
-  "completed": 45,
-  "currentDomain": "example.com",
-  "errors": [
-    { "domain": "bad.com", "error": "API error" }
-  ]
-}
-```
-
-#### `POST /api/refresh`
-Start refreshing all domains.
-
-#### `POST /api/refresh/:domain`
-Refresh a single domain.
-
----
-
-### Groups
-
-#### `GET /api/groups`
-List all groups with domain counts.
-
-**Response**:
-```json
-[
-  {
-    "id": 1,
-    "name": "Production",
-    "description": "Production domains",
-    "color": "#22c55e",
-    "domain_count": 15
-  }
-]
-```
-
-#### `POST /api/groups`
-Create a group.
-
-**Request**:
-```json
-{
-  "name": "Staging",
-  "description": "Staging domains",
-  "color": "#f59e0b"
-}
-```
-
-#### `PUT /api/groups/:id`
-Update a group.
-
-#### `DELETE /api/groups/:id`
-Delete a group (domains become ungrouped).
-
----
-
-### Tags
-
-#### `GET /api/tags`
-List all tags with usage counts.
-
-#### `POST /api/tags`
-Create a tag.
-
-**Request**:
-```json
-{
-  "name": "Important",
-  "color": "#ef4444"
-}
-```
-
----
-
-### Import/Export
-
-#### `POST /api/import/csv`
-Upload and import a CSV file.
-
-**Form Data**:
-- `file`: CSV file
-
-**CSV Format**:
-```csv
-domain,group,tags
-example.com,Production,"important,client-a"
-test.com,Staging,internal
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "imported": 10,
-  "skipped": 2,
-  "errors": ["Row 5: Invalid domain format"]
-}
-```
-
-#### `GET /api/export/csv`
-Download all domains as CSV.
-
-#### `GET /api/export/json`
-Download all domains as JSON.
-
----
-
-### Settings
-
-#### `GET /api/settings`
-Get all application settings.
-
-**Response**:
-```json
-{
-  "refresh_schedule": "0 2 * * 0",
-  "email_enabled": true,
-  "email_recipients": ["admin@example.com"],
-  "alert_days": [7, 14, 30],
-  "scheduler_running": true
-}
-```
-
-#### `PUT /api/settings`
-Update settings.
-
-**Request**:
-```json
-{
-  "refresh_schedule": "0 3 * * *",
-  "email_enabled": true,
-  "email_recipients": ["admin@example.com", "team@example.com"],
-  "alert_days": [7, 14, 30]
-}
-```
-
-#### `POST /api/settings/email/test`
-Send a test email.
-
-**Request**:
-```json
-{
-  "email": "test@example.com"
-}
-```
-
----
-
-### Health Checks
-
-#### `GET /api/health`
-Application health status.
-
-**Response**:
-```json
-{
-  "status": "healthy",
-  "websocket_clients": 3
-}
-```
-
-#### `GET /api/health/summary`
-Health summary across all domains.
-
-**Response**:
-```json
-{
-  "total_checked": 50,
-  "dns_ok": 48,
-  "http_ok": 45,
-  "ssl_ok": 40
-}
-```
-
-#### `POST /api/health/domain/:id`
-Trigger health check for a domain.
-
-#### `GET /api/health/domain/:id`
-Get health history for a domain.
-
-**Query Parameters**:
-- `limit` - Number of records (default 100)
-
----
-
-### Audit Log
-
-#### `GET /api/audit`
-Query audit log.
-
-**Query Parameters**:
-- `entity_type` - Filter by type
-- `entity_id` - Filter by ID
-- `action` - Filter by action
-- `start_date` - ISO date
-- `end_date` - ISO date
-- `limit` - Number of records
-- `offset` - Pagination offset
-
-**Response**:
-```json
-{
-  "entries": [
-    {
-      "id": 100,
-      "entity_type": "domain",
-      "entity_id": "example.com",
-      "action": "refresh",
-      "old_value": null,
-      "new_value": { "expiry_date": "2025-01-15" },
-      "ip_address": "192.168.1.1",
-      "user_agent": "Mozilla/5.0...",
-      "created_at": "2024-01-20T10:30:00Z"
-    }
-  ],
-  "total": 500
-}
-```
-
----
-
-## 8. Services & Background Tasks
-
-### Scheduled Tasks
-
-| Task | Schedule | Description |
-|------|----------|-------------|
-| Domain Refresh | Configurable (default: Sunday 2 AM) | Refreshes WHOIS data for all domains |
-| Email Check | Daily at 9 AM | Checks for expiring domains and sends alerts |
-| Session Cleanup | Hourly | Removes expired sessions from database |
-
-### WHOIS Refresh Process
-
-1. **Initiation**: Manual button click or scheduled cron job
-2. **TLD-Based Routing**:
-   - `.info` domains → RDAP protocol (registry blocks traditional WHOIS)
-   - `.biz` domains → Direct WHOIS (APILayer returns incomplete data)
-   - Other TLDs → APILayer API (with direct WHOIS fallback if expiration missing)
-3. **Rate Limiting**: 2-second delay between API calls
-4. **API Key Rotation**: Round-robin selection from multiple keys
-5. **Retry Logic**: Up to 3 attempts with exponential backoff
-6. **Progress Tracking**: WebSocket broadcasts progress to all clients
-7. **Change Detection**: Compares nameservers, stores previous values
-8. **Audit Logging**: Records each refresh with old/new values
-
-### TLD-Specific Handling
-
-| TLD | Method | Reason |
-|-----|--------|--------|
-| `.info` | RDAP | Registry (Identity Digital) blocks traditional WHOIS |
-| `.biz` | Direct WHOIS | APILayer returns null expiration dates |
-| Others | APILayer | Primary API with direct WHOIS fallback |
-
-**RDAP Endpoint Configuration**:
-```typescript
-const RDAP_TLDS: Record<string, string> = {
-  'info': 'https://rdap.donuts.co/rdap/domain/',
-};
-```
-
-**Problematic TLDs (Direct WHOIS)**:
-```typescript
-const PROBLEMATIC_TLDS = ['biz'];
-```
-
-### Health Check Process
-
-1. **DNS Check**: Resolves domain to IP addresses
-   - Tries Node.js resolver first
-   - Falls back to OS resolver if that fails
-   - Records response time and IP addresses
-
-2. **HTTP Check**: Tests web server response
-   - Tries HTTPS first (port 443)
-   - Falls back to HTTP (port 80)
-   - Records status code and response time
-
-3. **SSL Check**: Validates SSL certificate
-   - Connects on port 443
-   - Checks if certificate is valid
-   - Records expiry date and issuer
-
-4. **Storage**: Results saved to `domain_health` table
-
-5. **Broadcasting**: Results sent via WebSocket
-
----
-
-## 9. Security
-
-### Authentication
-
-- **Password Hashing**: bcrypt with cost factor 10
-- **Session IDs**: 32 bytes of cryptographically random data
-- **Cookie Security**:
-  - `httpOnly: true` - JavaScript cannot access
-  - `secure: true` - HTTPS only (in production)
-  - `sameSite: 'strict'` - CSRF protection
-- **Session Expiry**: 7 days (configurable)
-
-### API Key Encryption
-
-- **Algorithm**: AES-256-GCM
-- **Key**: 32-byte key from `ENCRYPTION_KEY` or derived from `SESSION_SECRET`
-- **IV**: 12 bytes randomly generated per encryption
-- **Auth Tag**: 16 bytes for integrity verification
+- **Session-based** with HTTP-only, SameSite=Strict cookies.
+- Sessions expire after **7 days** and are stored server-side in SQLite.
+- Passwords hashed with **bcrypt** (cost factor 12) — brute force computationally infeasible.
+- A client cannot forge a session — the session ID is a random UUID verified server-side.
+- Expired sessions are cleaned up every 15 minutes.
+
+### Authorization (RBAC)
+
+| Permission | viewer | manager | admin |
+|-----------|:------:|:-------:|:-----:|
+| Read domains, groups, tags | ✓ | ✓ | ✓ |
+| Read audit log, metrics, health, uptime | ✓ | ✓ | ✓ |
+| Add / edit / delete domains | — | ✓ | ✓ |
+| Manage groups and tags | — | ✓ | ✓ |
+| Trigger WHOIS refresh and health checks | — | ✓ | ✓ |
+| Change settings | — | ✓ | ✓ |
+| Manage API keys and webhooks | — | ✓ | ✓ |
+| Manage user accounts | — | — | ✓ |
 
 ### Input Validation
 
-- All inputs validated with Zod schemas
-- SQL injection prevented by prepared statements
-- XSS prevented by escaping HTML output
+All request bodies and query strings are validated with Zod schemas before any business logic runs. Invalid inputs receive HTTP 400 with structured error messages. Domain names are validated against an RFC-compliant regex pattern.
+
+### HTTP Security Headers
+
+**Production** (full Helmet):
+- `Content-Security-Policy` — restricts script sources to `'self'`, CDN allowlist
+- `Strict-Transport-Security` — HSTS, 1-year max-age with `includeSubDomains`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+
+**Development** — minimal Helmet config. CSP, HSTS, CORP, COOP, and referrer-policy are all disabled to avoid friction with `http://localhost`.
 
 ### Rate Limiting
 
-- WHOIS API calls: 2-second minimum delay
-- Health checks: 500ms between domains
-- Built into application logic (not middleware)
+Four tiered limiters per IP protect against brute force and resource abuse. Disabled in development mode.
+
+### SSRF Protection
+
+Webhook delivery validates the destination URL against a blocklist of private IP ranges and loopback addresses before making any outbound HTTP request.
+
+### API Key Encryption
+
+WHOIS API keys stored in the database are AES-256-CBC encrypted. The encryption key comes from `ENCRYPTION_KEY` in `.env`. If unset, a weaker built-in fallback is used with a startup warning. **Always set `ENCRYPTION_KEY` in production.**
 
 ---
 
-## 10. Deployment
+## 17. Logging System
 
-### Development
+**File:** `src/utils/logger.ts`
 
-```bash
-# Install dependencies
-npm install
+Built on **Pino** — a high-performance structured JSON logger. Two configurable transport targets:
 
-# Create .env file
-cp .env.example .env
-# Edit .env with your settings
+1. **Console** via `pino-pretty` — colorized, human-readable output with timestamps. Always active.
+2. **File** via `pino-roll` — only when `LOG_TO_FILE=true`. Writes to `LOG_DIR/app.log` with:
+   - Daily rotation
+   - Maximum 20 MB per file before rotation
+   - Keeps last 7 days of files
 
-# Run in development mode (hot reload)
-npm run dev
+### Module Loggers
+
+Every service, route, and middleware file creates a **child logger** bound to its module name:
+
+```typescript
+const logger = createLogger('email');
+// All output from this logger includes { module: 'email' } in the JSON
 ```
 
-### Production
+This makes it easy to filter logs by module: `grep '"module":"email"' app.log`.
 
-```bash
-# Install dependencies
-npm install --production
+### Log Levels
 
-# Build TypeScript
-npm run build
+| Level | When Used |
+|-------|----------|
+| `trace` | Fine-grained step tracing (usually disabled) |
+| `debug` | WHOIS parsing details, cache hits, skipped steps |
+| `info` | Normal operations: server started, email sent, domain refreshed |
+| `warn` | Non-fatal issues: SMTP verify failed but transporter kept, unknown TLD format, rate limit approaching |
+| `error` | Failures needing attention: refresh failed, email send error, DB query error |
 
-# Set production environment
-export NODE_ENV=production
+---
 
-# Start server
-npm start
-```
+## 18. Docker Deployment
 
-### Docker
+### `Dockerfile`
 
-```dockerfile
-FROM node:20-alpine
+Builds a production Node.js image. Compiles TypeScript via `npm run build`, copies the `public/` directory, exposes port 3000.
 
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install --production
-
-COPY . .
-RUN npm run build
-
-ENV NODE_ENV=production
-EXPOSE 3000
-
-CMD ["npm", "start"]
-```
+### `docker-compose.yml` (Production)
 
 ```yaml
-# docker-compose.yml
-version: '3.8'
 services:
   domain-monitor:
     build: .
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data       # Persist SQLite database across restarts
+      - ./logs:/app/logs       # Persist log files (when LOG_TO_FILE=true)
     environment:
+      - NODE_ENV=production
       - DB_PATH=/app/data/domains.db
-      - APILAYER_KEY=${APILAYER_KEY}
       - AUTH_ENABLED=true
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=changeme
+      - SESSION_SECRET=your-secret-here
+      - APILAYER_KEY=your-api-key
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
-### Environment Variables Checklist
+### `docker-compose.dev.yml`
 
-**Required**:
-- [ ] `APILAYER_KEY` - WHOIS API key
+Development variant using `tsx watch` for hot TypeScript reload.
 
-**Recommended for Production**:
-- [ ] `AUTH_ENABLED=true`
-- [ ] `ADMIN_PASSWORD` - Strong password
-- [ ] `SESSION_SECRET` - 32+ random characters
-- [ ] `NODE_ENV=production`
+### Docker Health Check
 
-**Optional**:
-- [ ] SMTP settings for email alerts
-- [ ] `LOG_TO_FILE=true` for file logging
-- [ ] `ENCRYPTION_KEY` for API key encryption
+The Docker `HEALTHCHECK` directive calls `GET /api/health`. The endpoint returns HTTP 200 when the database is responding normally, HTTP 503 if the database is unavailable. Docker marks the container unhealthy after 3 consecutive failures.
 
 ---
 
-## 11. UI Features
+## 19. Data Flow Diagrams
 
-### Theme System
+### Adding a New Domain
 
-The application supports both dark and light themes:
+```
+Browser POST /api/domains { domain: "example.com" }
+    │
+    ├── validateBody(domainSchema)
+    ├── domainExists() → 400 if duplicate
+    ├── addDomain()    → inserts row with empty WHOIS fields
+    ├── auditDomainCreate() → audit_log row with performed_by
+    ├── wsService.sendDomainAdded()
+    ├── fireWebhookEvent('domain.created')
+    │
+    └── Response: { success: true, id: 42 }
 
-- **Default**: Dark theme for reduced eye strain
-- **Toggle**: Click the sun/moon icon in the header
-- **Persistence**: Theme preference saved in localStorage
-- **Transitions**: Smooth 300ms transitions between themes
-- **Chart Colors**: Automatically updates chart colors for visibility
+    Background (non-blocking):
+        refreshDomain(domain, { withHealthCheck: true })
+            → APILayer WHOIS call
+            → updateDomain() with registrar, dates, nameservers
+            → checkDomainHealth() → dns + http + ssl
+            → wsService.sendDomainUpdate()
+        performUptimeCheck(id, domain)
+            → HTTP GET to domain
+            → uptime_checks row written
+```
 
-### Dashboard Layout
+### Scheduled WHOIS Refresh
 
-The dashboard uses a responsive grid layout with:
+```
+node-cron: "0 2 * * 0" fires
+    │
+    └── refreshAllDomains()
+            For each domain (with 2s delay between):
+                → APILayer or fallback WHOIS call
+                → updateDomain()
+                → wsService.sendRefreshProgress()
+            After all domains complete:
+                → auditBulkRefresh(count, names, null)
+                → wsService.sendRefreshComplete()
+```
 
-**Left Column (75%)**:
-- **Stat Cards**: 6 cards showing domain counts by expiration status
-  - Total Domains
-  - Expired (red)
-  - Within 30 Days (orange/danger)
-  - Within 90 Days (yellow/warning)
-  - Within 6 Months (blue/safe)
-  - 6+ Months (green/healthy)
-- **Charts Row**:
-  - Expiration Distribution (doughnut chart)
-  - Tags Distribution (doughnut chart)
+### Uptime Monitoring Loop
 
-**Right Column (25%)**:
-- **Activity Log**: Real-time feed of recent actions
-  - Domain additions/deletions
-  - WHOIS refreshes
-  - Health check results
-  - Settings changes
-  - Color-coded by action type
+```
+setInterval(uptime_interval_minutes)
+    │
+    └── checkAllDomainsUptime()
+            For each non-deleted domain:
+                → HTTP GET with 10s timeout
+                → write uptime_checks row
+                → track consecutive_failures counter
+                if failures >= uptime_alert_threshold:
+                    → sendUptimeAlert() (email)
+                    → fireWebhookEvent('uptime.down')
+                if recovered from down:
+                    → fireWebhookEvent('uptime.recovered')
+```
 
-### Activity Log Styling
+### Webhook Delivery
 
-```css
-.log-item {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.log-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Color coding by action type */
-.log-item.log-create .log-icon { background: rgba(0, 144, 91, 0.2); color: var(--success); }
-.log-item.log-update .log-icon { background: rgba(99, 102, 241, 0.2); color: var(--primary); }
-.log-item.log-delete .log-icon { background: rgba(133, 17, 48, 0.2); color: var(--danger); }
-.log-item.log-refresh .log-icon { background: rgba(168, 165, 3, 0.2); color: var(--mild-warning); }
-.log-item.log-health .log-icon { background: rgba(0, 180, 216, 0.2); color: #00b4d8; }
+```
+fireWebhookEvent('domain.expiring', data)
+    │
+    ├── getWebhooksForEvent('domain.expiring') → [wh1, wh2]
+    │
+    ├── For each webhook (fire-and-forget):
+    │       Attempt 1 (immediate):
+    │           POST to url with HMAC signature
+    │           if 2xx → logDelivery(success), update failure_count=0
+    │           if fail → logDelivery(fail)
+    │       Attempt 2 (after 30s):  [if attempt 1 failed]
+    │       Attempt 3 (after 5min): [if attempt 2 failed]
+    │           if all fail → increment failure_count
+    │
+    ├── if slack_enabled && event in slack_events:
+    │       sendSlackNotification()
+    │
+    └── if signal_enabled && event in signal_events:
+            sendSignalNotification()
 ```
 
 ---
 
-## Conclusion
+## 20. Frequently Asked Questions
 
-Domain Monitor is a comprehensive solution for domain portfolio management. Key features include:
+### General
 
-- **WHOIS tracking** with automatic refresh and multi-source lookup (APILayer, direct WHOIS, RDAP)
-- **Health monitoring** (DNS, HTTP, SSL)
-- **Email alerts** for expiring domains
-- **Organization** via groups and tags
-- **Bulk operations** for efficiency
-- **Real-time updates** via WebSocket
-- **Security** with authentication and encryption
-- **Audit trail** for compliance
-- **Dark/Light themes** with persistent preference
-- **Activity dashboard** with real-time activity log
+**Q: Do I need to run a build step every time I change the code?**
+A: Only for TypeScript source files in `src/`. Run `npm run dev` in development — `tsx watch` automatically restarts the server when any `.ts` file changes. Changes to files in `public/` (HTML, CSS, JS) are served immediately with no restart needed.
 
-The codebase follows clean architecture principles with clear separation between configuration, database, middleware, routes, and services. TypeScript provides type safety, while Zod ensures runtime validation.
+**Q: Where is the database file?**
+A: `./domains.db` by default. Set `DB_PATH=/absolute/path/to/your.db` in `.env` to relocate it. In Docker, mount a volume to the directory containing the DB file so data persists across container restarts.
 
-For questions or issues, refer to the [GitHub repository](https://github.com/sanchodevs/domain-monitor).
+**Q: Can I run multiple instances of Domain Monitor simultaneously?**
+A: No. SQLite is a single-writer database. Multiple processes writing to the same file will produce `SQLITE_BUSY` errors. Run a single instance; use a reverse proxy (nginx, Caddy) in front if you need high availability.
+
+**Q: How do I back up the database?**
+A: While the server is stopped, copy the `.db` file. While running, use SQLite's online backup API: `sqlite3 domains.db ".backup backup.db"`. WAL mode makes hot backups safe — you won't get a corrupted copy.
+
+**Q: How do I generate the auto-docs?**
+A: `npm run docs:generate` — runs `scripts/generate-docs.js` which introspects the Express route table and writes `docs/index.html`. This also runs automatically as part of `npm run build`.
+
+**Q: How do I run the tests?**
+A: `npm test` — runs Vitest. Test files (`*.test.ts`) live alongside the source modules they cover. Current coverage includes the settings database module, email service, and helper utilities.
+
+---
+
+### WHOIS & Domain Data
+
+**Q: Why is my domain showing empty WHOIS data after adding it?**
+A: The most common reasons: (1) `APILAYER_KEY` is not set or the account has hit its monthly quota; (2) the domain's TLD is exotic or very new and not supported by APILayer; (3) the domain uses WHOIS privacy/redaction. Check the domain's `error` field in the table for the specific error message.
+
+**Q: What happens when APILayer fails?**
+A: The WHOIS service falls back to `whois-json` (direct WHOIS socket query). For `.info` domains specifically, it falls back to RDAP at `https://rdap.org/domain/{domain}`. Each step is attempted before giving up.
+
+**Q: Why the 2-second delay between domain refreshes during bulk refresh?**
+A: APILayer enforces request rate limits. The mandatory 2-second `sleep()` between each domain in `refreshAllDomains()` prevents the account from hitting those limits. With 2-second delays, refreshing 300 domains takes ~10 minutes.
+
+**Q: Can I add more than one WHOIS API key?**
+A: Yes. Go to Settings → API Keys, add as many APILayer keys as you have. Keys are tried in priority order (lowest number first). If a key fails (quota exceeded, invalid, etc.), the next key is tried automatically.
+
+**Q: What is nameserver change detection?**
+A: After each WHOIS refresh, `name_servers` is compared to `name_servers_prev`. If they differ, a warning badge appears on that domain. This helps detect unauthorized DNS changes (domain hijacking, registrar transfers). Click "Validate" to acknowledge the change as intentional — this copies current nameservers to previous and clears the warning.
+
+---
+
+### Authentication & Users
+
+**Q: How do I enable authentication?**
+A: Set `AUTH_ENABLED=true`, `ADMIN_USERNAME=yourname`, and `ADMIN_PASSWORD=yourpassword` in `.env`, then restart the server.
+
+**Q: What's the difference between the env-var admin and database users?**
+A: The env-var admin (`ADMIN_USERNAME`/`ADMIN_PASSWORD`) is always available, always has the `admin` role, and cannot be deleted through the UI. Database users are created through Settings → Users and can be managed (role changes, password changes, disabling) without server restarts.
+
+**Q: Can the same credentials work for both the env-var admin and a database user?**
+A: Yes. Login checks env-var credentials first, then falls back to the `users` table. If both have the same username, the env-var credentials always win.
+
+**Q: How long do sessions last?**
+A: 7 days. Sessions are server-side in SQLite. They're invalidated when: the server restarts with a different `SESSION_SECRET`, the user logs out, or the 7-day expiry passes.
+
+**Q: I keep getting logged out. Why?**
+A: If `SESSION_SECRET` changes between restarts (e.g. it's not set in `.env` and uses a random default), all existing sessions are invalidated. Set a stable, fixed `SESSION_SECRET` in `.env`.
+
+---
+
+### Health Checks & Uptime
+
+**Q: What's the difference between health checks and uptime monitoring?**
+A: **Health checks** run DNS lookup + HTTP request + SSL certificate inspection and store detailed diagnostic data. They run on-demand or on a schedule (typically every 24 hours). **Uptime monitoring** is a simple periodic HTTP GET ping (every 1–60 minutes) whose purpose is to track availability percentage over time and alert when a site goes down.
+
+**Q: A site is reachable in my browser but shows DNS failure. Why?**
+A: The DNS check uses Node.js's `dns.resolve4()` which goes through the server's system resolver. If the server is behind a corporate firewall, VPN, or split-horizon DNS, results may differ from what your browser sees.
+
+**Q: Some sites show HTTP failure but they load fine in my browser.**
+A: The health check sends an HTTP `HEAD` request with a 5-second timeout. Servers that block bots, require cookies, JavaScript, or specific User-Agent headers may return non-2xx responses or time out. This is expected for some hosting setups.
+
+**Q: How is the heartbeat bar visualization calculated?**
+A: `getAllHeartbeatData(buckets)` divides the last N hours into equal-width time buckets. Each cell shows the up/down ratio for checks that fell within that time window. Fully green = all checks in that bucket passed; red = all failed; gradient = mixed results.
+
+---
+
+### Email & Alerts
+
+**Q: I configured SMTP but no emails are sending. What should I check?**
+A: In order: (1) Go to Settings → Email → "Test Email" to send a direct test. (2) Click "Verify Connection" to see if SMTP handshake succeeds. (3) Make sure "Email Alerts" is toggled on and at least one recipient is entered. (4) Check that the domains in question actually fall within the `alert_days` window. (5) Check server logs for entries from the `email` module.
+
+**Q: Gmail requires an App Password. What is that?**
+A: Google requires App Passwords when 2-Step Verification is enabled (which is required for smtp access). Go to: Google Account → Security → 2-Step Verification → App Passwords. Generate one for "Mail" and use that as `SMTP_PASS`. Your regular Google password will not work.
+
+**Q: Why does `verify()` fail but emails still get delivered?**
+A: Some SMTP servers don't implement the `NOOP` command that Nodemailer's `verify()` uses. The transporter is kept running anyway. If "Test Email" succeeds, the connection is working regardless of `verify()` output.
+
+**Q: Will the same domain get the same expiry alert every day?**
+A: No. The `email_alerts` table tracks sent alerts per domain per alert type. Once an alert is recorded as `sent`, it won't be re-sent. The record resets when the domain's expiry date changes (i.e., after renewal).
+
+---
+
+### Webhooks
+
+**Q: How do I verify a webhook payload came from Domain Monitor?**
+A: Compute `HMAC-SHA256(request_body_string, your_webhook_secret)` and compare to the `X-Domain-Monitor-Signature` header value (format: `sha256=<hex>`). If they match, the payload is authentic and untampered.
+
+**Q: Webhook deliveries are failing. How do I debug?**
+A: Settings → Webhooks → click the webhook name → "Delivery History". Each attempt shows the HTTP status code and the first 500 characters of the response body. Also check your receiving endpoint's logs.
+
+**Q: Can I send to localhost for local testing?**
+A: No — SSRF protection blocks `localhost`, `127.x.x.x`, and all private IP ranges. Use a tunneling tool like [ngrok](https://ngrok.com) or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose a local endpoint with a public HTTPS URL.
+
+**Q: How many retry attempts are made when a webhook fails?**
+A: Three attempts total: immediately, after 30 seconds, and after 5 minutes. If all three fail, `failure_count` on the webhook is incremented and no further retries occur until the next event triggers a new delivery chain.
+
+---
+
+### Import & Export
+
+**Q: What columns does the CSV import expect?**
+A: Download the template from Settings → Import/Export. The only required column is `domain`. Optional columns: `group` (group name, created if absent), `tags` (comma-separated tag names, created if absent).
+
+**Q: What happens to domains that already exist during import?**
+A: They are **skipped** — not overwritten or modified. The response tells you how many were imported vs. skipped.
+
+**Q: Can I export and re-import to migrate to a new server?**
+A: Yes, the CSV export includes domain names, registrar, dates, nameservers, group, and tags. After importing on the new server, trigger a WHOIS refresh to populate any missing data. Health and uptime history are **not** included in the export.
+
+---
+
+### Performance & Scalability
+
+**Q: How many domains can Domain Monitor handle?**
+A: SQLite has no practical row-count limit. The application has been used with thousands of domains. The main bottleneck is refresh speed — at 2 seconds per domain, 1,000 domains takes ~33 minutes per refresh cycle. Use the `status` filter to quickly find domains needing attention without loading all rows.
+
+**Q: The domain table feels slow with many domains. What helps?**
+A: Use the `limit` parameter (default 50) and navigate by pages. The `include=all` parameter (tags + health + uptime) adds some overhead proportional to page size — consider `include=health` or `include=uptime` individually if you only need specific enrichment.
+
+**Q: The SQLite database file is growing large. What should I do?**
+A: Enable "Auto Cleanup" in Settings → Retention. Set appropriate retention periods — 30 days for health/uptime records is usually sufficient. For audit logs, 90 days is the default. You can also run `VACUUM;` on the SQLite file after cleanup to reclaim disk space (requires stopping the server).
+
+**Q: Can I put a reverse proxy (nginx/Caddy) in front of Domain Monitor?**
+A: Yes. Forward HTTP traffic to `localhost:3000`. Ensure WebSocket upgrade headers are proxied:
+```nginx
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+```
+For Caddy, WebSocket proxying is automatic.
+
+---
+
+*End of Documentation*

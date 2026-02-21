@@ -46,22 +46,33 @@ onRefreshUpdate((status) => {
 });
 
 // Security headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
-      imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'", 'ws:', 'wss:'],
+if (config.isProduction) {
+  // Full helmet hardening in production
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+      },
     },
-  },
-  // HSTS only in production (dev uses http)
-  strictTransportSecurity: config.isProduction
-    ? { maxAge: 31536000, includeSubDomains: true }
-    : false,
-}));
+    strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+  }));
+} else {
+  // In development, only set the bare minimum — avoid headers that interfere
+  // with http://localhost (upgrade-insecure-requests, CORP, COOP, referrer-policy)
+  app.use(helmet({
+    contentSecurityPolicy: false,       // no CSP in dev
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    referrerPolicy: false,
+    strictTransportSecurity: false,
+    originAgentCluster: false,
+  }));
+}
 
 // Middleware
 app.use(express.json());
@@ -82,6 +93,7 @@ app.get('/', (_req, res) => {
 
 // Serve static files
 app.use(express.static('public'));
+app.use('/docs', express.static('docs'));
 
 // Apply rate limiting to all API routes
 app.use('/api', standardLimiter);

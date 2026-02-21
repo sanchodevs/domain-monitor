@@ -387,885 +387,2754 @@
   <aside class="sidebar">
     <nav class="toc">
       <a href="#table-of-contents" class="toc-link ">Table of Contents</a>
-        <a href="#what-is-domain-monitor" class="toc-link ">What is Domain Monitor?</a>
-        <a href="#who-is-this-for" class="toc-link toc-sub">Who is this for?</a>
-        <a href="#key-features" class="toc-link ">Key Features</a>
-        <a href="#domain-tracking" class="toc-link toc-sub">Domain Tracking</a>
-        <a href="#health-monitoring" class="toc-link toc-sub">Health Monitoring</a>
-        <a href="#organization" class="toc-link toc-sub">Organization</a>
-        <a href="#dashboard-alerts" class="toc-link toc-sub">Dashboard & Alerts</a>
-        <a href="#quick-start" class="toc-link ">Quick Start</a>
-        <a href="#option-1-docker-recommended" class="toc-link toc-sub">Option 1: Docker (Recommended)</a>
-        <a href="#option-2-manual-installation" class="toc-link toc-sub">Option 2: Manual Installation</a>
-        <a href="#first-steps-after-installation" class="toc-link toc-sub">First Steps After Installation</a>
-        <a href="#how-it-works" class="toc-link ">How It Works</a>
-        <a href="#the-big-picture" class="toc-link toc-sub">The Big Picture</a>
-        <a href="#data-flow-adding-a-domain" class="toc-link toc-sub">Data Flow: Adding a Domain</a>
-        <a href="#where-does-the-data-come-from" class="toc-link toc-sub">Where Does the Data Come From?</a>
-        <a href="#scheduled-tasks" class="toc-link toc-sub">Scheduled Tasks</a>
-        <a href="#dashboard-guide" class="toc-link ">Dashboard Guide</a>
-        <a href="#top-statistics-bar" class="toc-link toc-sub">Top Statistics Bar</a>
+        <a href="#1-project-overview" class="toc-link ">1. Project Overview</a>
+        <a href="#2-technology-stack" class="toc-link ">2. Technology Stack</a>
+        <a href="#3-directory-structure" class="toc-link ">3. Directory Structure</a>
+        <a href="#4-configuration-environment-variables" class="toc-link ">4. Configuration & Environment Variables</a>
+        <a href="#environment-variables-reference" class="toc-link toc-sub">Environment Variables Reference</a>
+        <a href="#startup-validation" class="toc-link toc-sub">Startup Validation</a>
+        <a href="#in-app-settings-database-backed" class="toc-link toc-sub">In-App Settings (Database-Backed)</a>
+        <a href="#5-server-startup-lifecycle" class="toc-link ">5. Server Startup & Lifecycle</a>
+        <a href="#startup-sequence-srcserverts" class="toc-link toc-sub">Startup Sequence (`src/server.ts`)</a>
+        <a href="#graceful-shutdown" class="toc-link toc-sub">Graceful Shutdown</a>
+        <a href="#6-database-layer" class="toc-link ">6. Database Layer</a>
+        <a href="#why-better-sqlite3" class="toc-link toc-sub">Why `better-sqlite3`?</a>
+        <a href="#schema-tables" class="toc-link toc-sub">Schema & Tables</a>
+        <a href="#indexes" class="toc-link toc-sub">Indexes</a>
+        <a href="#migrations" class="toc-link toc-sub">Migrations</a>
+        <a href="#database-modules" class="toc-link toc-sub">Database Modules</a>
+        <a href="#7-services" class="toc-link ">7. Services</a>
+        <a href="#whois-service" class="toc-link toc-sub">WHOIS Service</a>
+        <a href="#health-check-service" class="toc-link toc-sub">Health Check Service</a>
+        <a href="#uptime-monitoring-service" class="toc-link toc-sub">Uptime Monitoring Service</a>
+        <a href="#scheduler-service" class="toc-link toc-sub">Scheduler Service</a>
+        <a href="#email-service" class="toc-link toc-sub">Email Service</a>
+        <a href="#websocket-service" class="toc-link toc-sub">WebSocket Service</a>
+        <a href="#webhook-service" class="toc-link toc-sub">Webhook Service</a>
+        <a href="#slack-service" class="toc-link toc-sub">Slack Service</a>
+        <a href="#signal-service" class="toc-link toc-sub">Signal Service</a>
+        <a href="#cleanup-service" class="toc-link toc-sub">Cleanup Service</a>
+        <a href="#8-middleware" class="toc-link ">8. Middleware</a>
+        <a href="#authentication-middleware" class="toc-link toc-sub">Authentication Middleware</a>
+        <a href="#rate-limiting-middleware" class="toc-link toc-sub">Rate Limiting Middleware</a>
+        <a href="#request-logging-middleware" class="toc-link toc-sub">Request Logging Middleware</a>
+        <a href="#validation-middleware" class="toc-link toc-sub">Validation Middleware</a>
+        <a href="#error-handling-middleware" class="toc-link toc-sub">Error Handling Middleware</a>
+        <a href="#9-api-routes-full-reference" class="toc-link ">9. API Routes — Full Reference</a>
+        <a href="#authentication-apiauth" class="toc-link toc-sub">Authentication (`/api/auth/*`)</a>
+        <a href="#domains-apidomains" class="toc-link toc-sub">Domains (`/api/domains/*`)</a>
+        <a href="#groups-apigroups" class="toc-link toc-sub">Groups (`/api/groups/*`)</a>
+        <a href="#tags-apitags" class="toc-link toc-sub">Tags (`/api/tags/*`)</a>
+        <a href="#whois-refresh-apirefresh" class="toc-link toc-sub">WHOIS Refresh (`/api/refresh/*`)</a>
+        <a href="#health-checks-apihealth" class="toc-link toc-sub">Health Checks (`/api/health/*`)</a>
+        <a href="#uptime-monitoring-apiuptime" class="toc-link toc-sub">Uptime Monitoring (`/api/uptime/*`)</a>
+        <a href="#import-export" class="toc-link toc-sub">Import / Export</a>
+        <a href="#settings-apisettings" class="toc-link toc-sub">Settings (`/api/settings/*`)</a>
+        <a href="#api-keys-apiapikeys" class="toc-link toc-sub">API Keys (`/api/apikeys/*`)</a>
+        <a href="#users-apiusers" class="toc-link toc-sub">Users (`/api/users/*`)</a>
+        <a href="#audit-log-apiaudit" class="toc-link toc-sub">Audit Log (`/api/audit/*`)</a>
+        <a href="#webhooks-apiwebhooks" class="toc-link toc-sub">Webhooks (`/api/webhooks/*`)</a>
+        <a href="#metrics-apimetrics" class="toc-link toc-sub">Metrics (`/api/metrics`)</a>
+        <a href="#rss-feed-apifeedrss" class="toc-link toc-sub">RSS Feed (`/api/feed.rss`)</a>
+        <a href="#public-status-apistatus" class="toc-link toc-sub">Public Status (`/api/status`)</a>
+        <a href="#10-websocket-protocol" class="toc-link ">10. WebSocket Protocol</a>
+        <a href="#client-connection-example" class="toc-link toc-sub">Client Connection Example</a>
+        <a href="#message-reference" class="toc-link toc-sub">Message Reference</a>
+        <a href="#11-validation-schemas" class="toc-link ">11. Validation Schemas</a>
+        <a href="#12-typescript-types" class="toc-link ">12. TypeScript Types</a>
+        <a href="#srctypesdomaints" class="toc-link toc-sub">`src/types/domain.ts`</a>
+        <a href="#srctypesapits" class="toc-link toc-sub">`src/types/api.ts`</a>
+        <a href="#srctypesauditts" class="toc-link toc-sub">`src/types/audit.ts`</a>
+        <a href="#13-frontend-spa" class="toc-link ">13. Frontend (SPA)</a>
+        <a href="#appjs-overview" class="toc-link toc-sub">`app.js` Overview</a>
+        <a href="#css-architecture" class="toc-link toc-sub">CSS Architecture</a>
         <a href="#dashboard-widgets" class="toc-link toc-sub">Dashboard Widgets</a>
-        <a href="#domain-table" class="toc-link toc-sub">Domain Table</a>
-        <a href="#adding-domains" class="toc-link toc-sub">Adding Domains</a>
-        <a href="#filtering-sorting" class="toc-link toc-sub">Filtering & Sorting</a>
-        <a href="#configuration" class="toc-link ">Configuration</a>
-        <a href="#environment-variables" class="toc-link toc-sub">Environment Variables</a>
-        <a href="#in-app-settings" class="toc-link toc-sub">In-App Settings</a>
-        <a href="#api-reference" class="toc-link ">API Reference</a>
-        <a href="#domains" class="toc-link toc-sub">Domains</a>
-        <a href="#groups" class="toc-link toc-sub">Groups</a>
-        <a href="#tags" class="toc-link toc-sub">Tags</a>
-        <a href="#whois-refresh" class="toc-link toc-sub">WHOIS Refresh</a>
-        <a href="#health-checks" class="toc-link toc-sub">Health Checks</a>
-        <a href="#uptime" class="toc-link toc-sub">Uptime</a>
-        <a href="#importexport" class="toc-link toc-sub">Import/Export</a>
-        <a href="#settings" class="toc-link toc-sub">Settings</a>
-        <a href="#audit-log" class="toc-link toc-sub">Audit Log</a>
-        <a href="#websocket" class="toc-link toc-sub">WebSocket</a>
-        <a href="#architecture" class="toc-link ">Architecture</a>
-        <a href="#project-structure" class="toc-link toc-sub">Project Structure</a>
-        <a href="#database-schema" class="toc-link toc-sub">Database Schema</a>
-        <a href="#technology-stack" class="toc-link toc-sub">Technology Stack</a>
-        <a href="#troubleshooting" class="toc-link ">Troubleshooting</a>
-        <a href="#common-issues" class="toc-link toc-sub">Common Issues</a>
-        <a href="#debug-mode" class="toc-link toc-sub">Debug Mode</a>
-        <a href="#checking-logs" class="toc-link toc-sub">Checking Logs</a>
-        <a href="#contributing" class="toc-link ">Contributing</a>
-        <a href="#development-setup" class="toc-link toc-sub">Development Setup</a>
-        <a href="#license" class="toc-link ">License</a>
-        <a href="#support" class="toc-link ">Support</a>
+        <a href="#pages-navigation" class="toc-link toc-sub">Pages & Navigation</a>
+        <a href="#14-public-status-page" class="toc-link ">14. Public Status Page</a>
+        <a href="#structure" class="toc-link toc-sub">Structure</a>
+        <a href="#xss-safety" class="toc-link toc-sub">XSS Safety</a>
+        <a href="#15-audit-log-system" class="toc-link ">15. Audit Log System</a>
+        <a href="#what-gets-logged" class="toc-link toc-sub">What Gets Logged</a>
+        <a href="#performedby-field" class="toc-link toc-sub">`performed_by` Field</a>
+        <a href="#16-security-model" class="toc-link ">16. Security Model</a>
+        <a href="#authentication" class="toc-link toc-sub">Authentication</a>
+        <a href="#authorization-rbac" class="toc-link toc-sub">Authorization (RBAC)</a>
+        <a href="#input-validation" class="toc-link toc-sub">Input Validation</a>
+        <a href="#http-security-headers" class="toc-link toc-sub">HTTP Security Headers</a>
+        <a href="#rate-limiting" class="toc-link toc-sub">Rate Limiting</a>
+        <a href="#ssrf-protection" class="toc-link toc-sub">SSRF Protection</a>
+        <a href="#api-key-encryption" class="toc-link toc-sub">API Key Encryption</a>
+        <a href="#17-logging-system" class="toc-link ">17. Logging System</a>
+        <a href="#module-loggers" class="toc-link toc-sub">Module Loggers</a>
+        <a href="#log-levels" class="toc-link toc-sub">Log Levels</a>
+        <a href="#18-docker-deployment" class="toc-link ">18. Docker Deployment</a>
+        <a href="#dockerfile" class="toc-link toc-sub">`Dockerfile`</a>
+        <a href="#docker-composeyml-production" class="toc-link toc-sub">`docker-compose.yml` (Production)</a>
+        <a href="#docker-composedevyml" class="toc-link toc-sub">`docker-compose.dev.yml`</a>
+        <a href="#docker-health-check" class="toc-link toc-sub">Docker Health Check</a>
+        <a href="#19-data-flow-diagrams" class="toc-link ">19. Data Flow Diagrams</a>
+        <a href="#adding-a-new-domain" class="toc-link toc-sub">Adding a New Domain</a>
+        <a href="#scheduled-whois-refresh" class="toc-link toc-sub">Scheduled WHOIS Refresh</a>
+        <a href="#uptime-monitoring-loop" class="toc-link toc-sub">Uptime Monitoring Loop</a>
+        <a href="#webhook-delivery" class="toc-link toc-sub">Webhook Delivery</a>
+        <a href="#20-frequently-asked-questions" class="toc-link ">20. Frequently Asked Questions</a>
+        <a href="#general" class="toc-link toc-sub">General</a>
+        <a href="#whois-domain-data" class="toc-link toc-sub">WHOIS & Domain Data</a>
+        <a href="#authentication-users" class="toc-link toc-sub">Authentication & Users</a>
+        <a href="#health-checks-uptime" class="toc-link toc-sub">Health Checks & Uptime</a>
+        <a href="#email-alerts" class="toc-link toc-sub">Email & Alerts</a>
+        <a href="#webhooks" class="toc-link toc-sub">Webhooks</a>
+        <a href="#import-export" class="toc-link toc-sub">Import & Export</a>
+        <a href="#performance-scalability" class="toc-link toc-sub">Performance & Scalability</a>
     </nav>
   </aside>
 
   <main class="main">
-    <h1>Domain Monitor</h1>
+    <h1>Domain Monitor — Complete Technical Documentation</h1>
 
 <p>
-A comprehensive, self-hosted domain management and monitoring system that tracks domain registration, monitors website health, checks uptime, and alerts you before domains expire.
-</p>
-
-<p>
-!<a href="https://img.shields.io/badge/Node.js-18+-green">Node.js</a>
-!<a href="https://img.shields.io/badge/TypeScript-5.3+-blue">TypeScript</a>
-!<a href="https://img.shields.io/badge/SQLite-3-blue">SQLite</a>
-!<a href="https://img.shields.io/badge/License-MIT-blue">License</a>
+> <strong>Last updated:</strong> 2026-02-21
+> This document covers every part of the system: architecture, database schema, all API endpoints, every service, middleware, configuration option, frontend behavior, and operational FAQ.
 </p>
 
 <hr>
 
 <h2 id="table-of-contents">Table of Contents</h2>
 
-<ol><li><a href="#what-is-domain-monitor">What is Domain Monitor?</a></li></ol>
-<ol><li><a href="#key-features">Key Features</a></li></ol>
-<ol><li><a href="#quick-start">Quick Start</a></li></ol>
-<ol><li><a href="#how-it-works">How It Works</a></li></ol>
-<ol><li><a href="#dashboard-guide">Dashboard Guide</a></li></ol>
-<ol><li><a href="#configuration">Configuration</a></li></ol>
-<ol><li><a href="#api-reference">API Reference</a></li></ol>
-<ol><li><a href="#architecture">Architecture</a></li></ol>
-<ol><li><a href="#troubleshooting">Troubleshooting</a></li></ol>
-<ol><li><a href="#contributing">Contributing</a></li></ol>
+<ol><li><a href="#1-project-overview">Project Overview</a></li>
+<li><a href="#2-technology-stack">Technology Stack</a></li>
+<li><a href="#3-directory-structure">Directory Structure</a></li>
+<li><a href="#4-configuration--environment-variables">Configuration & Environment Variables</a></li>
+<li><a href="#5-server-startup--lifecycle">Server Startup & Lifecycle</a></li>
+<li><a href="#6-database-layer">Database Layer</a></li>
+<li><a href="#7-services">Services</a></li>
+<li><a href="#8-middleware">Middleware</a></li>
+<li><a href="#9-api-routes--full-reference">API Routes — Full Reference</a></li>
+<li><a href="#10-websocket-protocol">WebSocket Protocol</a></li>
+<li><a href="#11-validation-schemas">Validation Schemas</a></li>
+<li><a href="#12-typescript-types">TypeScript Types</a></li>
+<li><a href="#13-frontend-spa">Frontend (SPA)</a></li>
+<li><a href="#14-public-status-page">Public Status Page</a></li>
+<li><a href="#15-audit-log-system">Audit Log System</a></li>
+<li><a href="#16-security-model">Security Model</a></li>
+<li><a href="#17-logging-system">Logging System</a></li>
+<li><a href="#18-docker-deployment">Docker Deployment</a></li>
+<li><a href="#19-data-flow-diagrams">Data Flow Diagrams</a></li>
+<li><a href="#20-frequently-asked-questions">Frequently Asked Questions</a></li>
+</ol>
+<hr>
+
+<h2 id="1-project-overview">1. Project Overview</h2>
+
+<strong>Domain Monitor</strong> is a self-hosted Node.js/TypeScript application that gives you a single-pane-of-glass view over all your domain names. It fetches WHOIS registration data, checks DNS/HTTP/SSL health, monitors uptime, fires alerts before domains expire, and writes a full audit trail of every action taken.
+
+<p>
+The application is a <strong>single-process Express server</strong> backed by an embedded <strong>SQLite</strong> database. There is no separate frontend build step — the <code>public/</code> folder is served as static files directly. Real-time updates are pushed to browsers via a <strong>WebSocket</strong> connection. All background work (scheduled refreshes, uptime pings, log cleanup) runs as in-process timers and <code>node-cron</code> jobs.
+</p>
 
 <hr>
 
-<h2 id="what-is-domain-monitor">What is Domain Monitor?</h2>
+<h2 id="2-technology-stack">2. Technology Stack</h2>
 
-<strong>Domain Monitor</strong> is a tool that helps you keep track of all your domain names in one place. Think of it as a control center for your domains where you can:<ul><li data-level="1"><strong>See when domains expire</strong> - Never lose a domain because you forgot to renew it</li></ul><ul><li data-level="0"><strong>Check if websites are working</strong> - Know immediately if a site goes down</li></ul><ul><li data-level="0"><strong>Monitor DNS and SSL certificates</strong> - Catch security issues before they become problems</li></ul><ul><li data-level="0"><strong>Get email alerts</strong> - Receive notifications before domains expire</li></ul><ul><li data-level="0"><strong>Organize domains</strong> - Group and tag domains for easy management</li></ul>
+<table><tr><td>Layer</td><td>Library / Tool</td><td>Version</td><td>Purpose</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>Runtime</td><td>Node.js</td><td>18+</td><td>JavaScript execution environment</td></tr>
+<tr><td>Language</td><td>TypeScript</td><td>5.3+</td><td>Static typing; compiled to ESM with <code>tsc</code></td></tr>
+<tr><td>Web framework</td><td>Express</td><td>4.x</td><td>HTTP routing, middleware pipeline</td></tr>
+<tr><td>Database</td><td>better-sqlite3</td><td>12.x</td><td>Synchronous SQLite bindings — zero async overhead</td></tr>
+<tr><td>HTTP client</td><td>Axios</td><td>1.x</td><td>WHOIS API calls, webhook delivery, Slack/Signal</td></tr>
+<tr><td>Authentication</td><td>bcrypt</td><td>6.x</td><td>Password hashing for local users</td></tr>
+<tr><td>Email</td><td>Nodemailer</td><td>7.x</td><td>SMTP transport for expiration/uptime alerts</td></tr>
+<tr><td>Scheduling</td><td>node-cron</td><td>3.x</td><td>Cron-syntax background jobs</td></tr>
+<tr><td>WHOIS fallback</td><td>whois-json</td><td>2.x</td><td>Direct WHOIS socket queries when API is unavailable</td></tr>
+<tr><td>WebSocket</td><td>ws</td><td>8.x</td><td>Real-time push from server to browser</td></tr>
+<tr><td>Input validation</td><td>Zod</td><td>4.x</td><td>Schema-based request body/query validation</td></tr>
+<tr><td>Security headers</td><td>Helmet</td><td>8.x</td><td>HTTP security headers (CSP, HSTS, etc.)</td></tr>
+<tr><td>Rate limiting</td><td>express-rate-limit</td><td>8.x</td><td>Per-IP request throttling</td></tr>
+<tr><td>File upload</td><td>Multer</td><td>2.x</td><td>CSV import multipart/form-data handling</td></tr>
+<tr><td>CSV parsing</td><td>csv-parse</td><td>6.x</td><td>Parse imported CSV files</td></tr>
+<tr><td>Logging</td><td>Pino + pino-pretty + pino-roll</td><td>10.x</td><td>Structured JSON logging with optional file rotation</td></tr>
+<tr><td>Charts</td><td>Chart.js</td><td>4.x</td><td>Expiry timeline bar chart (loaded from CDN)</td></tr>
+<tr><td>Icons</td><td>Font Awesome 6</td><td>CDN</td><td>UI icons throughout the interface</td></tr>
+<tr><td>Testing</td><td>Vitest</td><td>latest</td><td>Unit tests</td></tr>
+<tr><td>Dev runner</td><td>tsx</td><td>latest</td><td>TypeScript execution without a compile step</td></tr>
+</table>
+<hr>
 
-<h3 id="who-is-this-for">Who is this for?</h3><ul><li data-level="1"><strong>Web developers</strong> managing multiple client websites</li></ul><ul><li data-level="0"><strong>IT administrators</strong> overseeing company domains</li></ul><ul><li data-level="0"><strong>Domain investors</strong> tracking portfolio expiration dates</li></ul><ul><li data-level="0"><strong>Small businesses</strong> wanting to monitor their online presence</li></ul><ul><li data-level="0"><strong>Anyone</strong> with more than a handful of domains to manage</li></ul>
+<h2 id="3-directory-structure">3. Directory Structure</h2>
+
+<pre><code class="language-text">domain-monitor/
+├── src/                          # All TypeScript source (compiled → dist/)
+│   ├── index.ts                  # Re-exports server.ts (entry point)
+│   ├── server.ts                 # Express app wiring, startup, shutdown
+│   │
+│   ├── config/
+│   │   ├── index.ts              # Reads env vars, exports typed config object
+│   │   └── schema.ts             # Zod schemas for all request bodies &amp; queries
+│   │
+│   ├── database/
+│   │   ├── db.ts                 # Opens SQLite connection (WAL mode, FK ON)
+│   │   ├── index.ts              # CREATE TABLE statements + all migrations
+│   │   ├── domains.ts            # Domain CRUD, pagination, soft-delete, restore
+│   │   ├── groups.ts             # Group CRUD with domain counts
+│   │   ├── tags.ts               # Tag CRUD and domain↔tag associations
+│   │   ├── audit.ts              # logAudit(), queryAuditLog(), helper functions
+│   │   ├── sessions.ts           # Session store and cleanup
+│   │   ├── settings.ts           # Key/value settings with in-memory cache
+│   │   ├── apikeys.ts            # API key storage with AES encryption
+│   │   ├── health.ts             # domain_health queries and batch helpers
+│   │   ├── users.ts              # Multi-user CRUD with bcrypt passwords
+│   │   ├── webhooks.ts           # Webhook config and delivery log
+│   │   └── alert_rules.ts        # Per-domain or global alert rule CRUD
+│   │
+│   ├── routes/
+│   │   ├── index.ts              # Mounts all sub-routers under /api
+│   │   ├── auth.ts               # /api/auth — login, logout, me, status
+│   │   ├── domains.ts            # /api/domains — full CRUD + bulk ops
+│   │   ├── groups.ts             # /api/groups
+│   │   ├── tags.ts               # /api/tags
+│   │   ├── refresh.ts            # /api/refresh — WHOIS refresh triggers
+│   │   ├── health.ts             # /api/health — domain + app health
+│   │   ├── uptime.ts             # /api/uptime — uptime monitoring + log retention
+│   │   ├── import.ts             # /api/import — CSV file upload
+│   │   ├── export.ts             # /api/export — CSV/JSON download
+│   │   ├── settings.ts           # /api/settings — read/write all settings
+│   │   ├── apikeys.ts            # /api/apikeys — WHOIS key management
+│   │   ├── users.ts              # /api/users — multi-user management (admin only)
+│   │   ├── audit.ts              # /api/audit — audit log queries
+│   │   ├── webhooks.ts           # /api/webhooks — webhook CRUD + delivery history
+│   │   ├── metrics.ts            # /api/metrics — operational metrics
+│   │   ├── rss.ts                # /api/feed.rss — RSS expiration feed
+│   │   └── status.ts             # /api/status — public unauthenticated status
+│   │
+│   ├── services/
+│   │   ├── whois.ts              # WHOIS lookups — APILayer → fallback → RDAP
+│   │   ├── healthcheck.ts        # DNS / HTTP / SSL checks per domain
+│   │   ├── uptime.ts             # Uptime monitoring loop + heartbeat data
+│   │   ├── scheduler.ts          # node-cron job initialization
+│   │   ├── email.ts              # Nodemailer SMTP, expiry/uptime email templates
+│   │   ├── websocket.ts          # WebSocketServer singleton, broadcast helpers
+│   │   ├── webhooks.ts           # Webhook dispatch with SSRF guard + retry
+│   │   ├── slack.ts              # Slack webhook notifications
+│   │   ├── signal.ts             # Signal messenger notifications
+│   │   └── cleanup.ts            # Log retention cleanup (auto + manual)
+│   │
+│   ├── middleware/
+│   │   ├── auth.ts               # Session auth, RBAC role guard, login/logout
+│   │   ├── rateLimit.ts          # Four rate-limit tiers (standard/heavy/login/delete)
+│   │   ├── logging.ts            # Request/response logging with request IDs
+│   │   ├── validation.ts         # validateBody() / validateQuery() Zod wrappers
+│   │   └── errorHandler.ts       # Global error handler, 404 handler, asyncHandler
+│   │
+│   ├── types/
+│   │   ├── domain.ts             # Domain, Group, Tag, DomainHealth interfaces
+│   │   ├── api.ts                # ApiResponse, PaginatedResponse, AuthenticatedRequest
+│   │   ├── audit.ts              # AuditEntry, AuditRow, EntityType, AuditAction
+│   │   └── whois-json.d.ts       # Ambient declarations for whois-json
+│   │
+│   └── utils/
+│       ├── logger.ts             # Pino wrapper with module child loggers
+│       └── helpers.ts            # normalizeDomain, getExpiryDays, escapeCSV, etc.
+│
+├── public/                       # Static frontend (served as-is, no build step)
+│   ├── index.html                # Main SPA shell with all modal markup
+│   ├── app.js                    # ~4,000-line vanilla JS application
+│   ├── status.html               # Self-contained public status page
+│   ├── favicon.png
+│   └── css/
+│       ├── tokens.css            # CSS custom properties (color, spacing, shadow)
+│       ├── base.css              # Reset, body, typography
+│       ├── layout.css            # Sidebar + main area grid
+│       ├── components.css        # Buttons, badges, alerts, cards
+│       ├── forms.css             # Inputs, labels, validation states
+│       ├── modals.css            # Modal overlay and dialog styles
+│       ├── notifications.css     # Toast notifications
+│       ├── table.css             # Domain table, pagination, sorting headers
+│       ├── dashboard.css         # Widget grid, chart cards, stat boxes
+│       ├── uptime.css            # Heartbeat bar visualization
+│       ├── pages.css             # Per-page overrides (audit, settings, etc.)
+│       └── webhooks.css          # Webhook form and delivery log UI
+│
+├── docs/
+│   └── index.html                # Auto-generated API docs (npm run docs:generate)
+│
+├── dist/                         # Compiled output of `npm run build`
+├── scripts/
+│   └── generate-docs.js          # Generates docs/index.html from route introspection
+├── .env                          # Local environment (gitignored)
+├── .env.example                  # Template for all environment variables
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+├── Dockerfile
+├── docker-compose.yml
+└── docker-compose.dev.yml
+</code></pre>
 
 <hr>
 
-<h2 id="key-features">Key Features</h2>
+<h2 id="4-configuration-environment-variables">4. Configuration & Environment Variables</h2>
 
-<h3 id="domain-tracking">Domain Tracking</h3>
-<table><tr><td>Feature</td><td>What it does</td></tr></table>
 <p>
-__TABLE_HEADER__
+All configuration is loaded in <code>src/config/index.ts</code> via <code>dotenv/config</code>. A <code>validateConfig()</code> function is called at startup and <strong>terminates the process</strong> if required values are missing or insecure.
 </p>
-<table><tr><td><strong>WHOIS Lookup</strong></td><td>Fetches registration info (registrar, creation date, expiry date, nameservers)</td></tr></table>
-<table><tr><td><strong>Expiration Alerts</strong></td><td>Warns you 7, 14, and 30 days before expiry</td></tr></table>
-<table><tr><td><strong>Nameserver Monitoring</strong></td><td>Detects when DNS servers change (potential security issue)</td></tr></table>
-<table><tr><td><strong>Bulk Import/Export</strong></td><td>Add hundreds of domains via CSV, export your data anytime</td></tr></table>
 
-<h3 id="health-monitoring">Health Monitoring</h3>
-<table><tr><td>Feature</td><td>What it does</td></tr></table>
-<p>
-__TABLE_HEADER__
-</p>
-<table><tr><td><strong>DNS Checks</strong></td><td>Verifies domain resolves to an IP address</td></tr></table>
-<table><tr><td><strong>HTTP Checks</strong></td><td>Confirms website responds with valid status code</td></tr></table>
-<table><tr><td><strong>SSL Checks</strong></td><td>Validates certificate is present and not expired</td></tr></table>
-<table><tr><td><strong>Uptime Monitoring</strong></td><td>Pings sites every 1-60 minutes, tracks availability percentage</td></tr></table>
+<h3 id="environment-variables-reference">Environment Variables Reference</h3>
 
-<h3 id="organization">Organization</h3>
-<table><tr><td>Feature</td><td>What it does</td></tr></table>
-<p>
-__TABLE_HEADER__
-</p>
-<table><tr><td><strong>Groups</strong></td><td>Organize domains by client, project, or purpose</td></tr></table>
-<table><tr><td><strong>Tags</strong></td><td>Add multiple labels (production, staging, important, etc.)</td></tr></table>
-<table><tr><td><strong>Search & Filter</strong></td><td>Find domains by name, registrar, status, or group</td></tr></table>
-<table><tr><td><strong>Pagination</strong></td><td>Handle thousands of domains efficiently</td></tr></table>
+<table><tr><td>Variable</td><td>Required</td><td>Default</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>APILAYER_KEY</code></td><td><strong>Yes</strong></td><td>—</td><td>API key for the APILayer WHOIS API. The primary WHOIS data source. Additional keys can be added through the UI.</td></tr>
+<tr><td><code>PORT</code></td><td>No</td><td><code>3000</code></td><td>TCP port the HTTP server binds to.</td></tr>
+<tr><td><code>NODE_ENV</code></td><td>No</td><td><code>development</code></td><td>Set to <code>production</code> to enable HSTS, stricter CSP, and production-safety checks.</td></tr>
+<tr><td><code>DB_PATH</code></td><td>No</td><td><code>./domains.db</code></td><td>Path to the SQLite database file. Created automatically on first run.</td></tr>
+<tr><td><code>AUTH_ENABLED</code></td><td>No</td><td><code>false</code></td><td>Set <code>true</code> to require login before accessing any API endpoint.</td></tr>
+<tr><td><code>ADMIN_USERNAME</code></td><td>No</td><td><code>admin</code></td><td>Username for the built-in admin account when <code>AUTH_ENABLED=true</code>.</td></tr>
+<tr><td><code>ADMIN_PASSWORD</code></td><td>No</td><td>—</td><td>Password for the built-in admin account. <strong>Required</strong> when <code>AUTH_ENABLED=true</code>.</td></tr>
+<tr><td><code>SESSION_SECRET</code></td><td>No</td><td><code>change-this-secret-in-production</code></td><td>Secret used to sign session cookies. Must be changed in production.</td></tr>
+<tr><td><code>SMTP_HOST</code></td><td>No</td><td>—</td><td>SMTP server hostname (e.g. <code>smtp.gmail.com</code>). Required for email alerts.</td></tr>
+<tr><td><code>SMTP_PORT</code></td><td>No</td><td><code>587</code></td><td>SMTP port. Use <code>587</code> for STARTTLS, <code>465</code> for implicit TLS.</td></tr>
+<tr><td><code>SMTP_SECURE</code></td><td>No</td><td><code>false</code></td><td>Set <code>true</code> for port 465 (implicit TLS).</td></tr>
+<tr><td><code>SMTP_USER</code></td><td>No</td><td>—</td><td>SMTP authentication username.</td></tr>
+<tr><td><code>SMTP_PASS</code></td><td>No</td><td>—</td><td>SMTP authentication password. For Gmail, use an App Password.</td></tr>
+<tr><td><code>SMTP_FROM</code></td><td>No</td><td><code>Domain Monitor <noreply@example.com></code></td><td>The <code>From:</code> header on all outbound emails.</td></tr>
+<tr><td><code>ENCRYPTION_KEY</code></td><td>No</td><td>—</td><td>AES encryption key for API keys stored in the database. Strongly recommended in production.</td></tr>
+<tr><td><code>LOG_LEVEL</code></td><td>No</td><td><code>info</code></td><td>Pino log level: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>, <code>fatal</code>.</td></tr>
+<tr><td><code>LOG_TO_FILE</code></td><td>No</td><td><code>false</code></td><td>Set <code>true</code> to write rotating log files to <code>LOG_DIR</code>.</td></tr>
+<tr><td><code>LOG_DIR</code></td><td>No</td><td><code>./logs</code></td><td>Directory for log files (created automatically if it doesn't exist).</td></tr>
+<tr><td><code>HEALTH_CHECK_ENABLED</code></td><td>No</td><td><code>true</code></td><td>Set <code>false</code> to globally disable scheduled health checks at startup.</td></tr>
+<tr><td><code>HEALTH_CHECK_INTERVAL_HOURS</code></td><td>No</td><td><code>24</code></td><td>How often automatic health checks run (overridable per-domain in settings).</td></tr>
+</table>
+<h3 id="startup-validation">Startup Validation</h3>
 
-<h3 id="dashboard-alerts">Dashboard & Alerts</h3>
-<table><tr><td>Feature</td><td>What it does</td></tr></table>
+<code>validateConfig()</code> calls <code>process.exit(1)</code> if:
+<ul><li data-level="0"><code>APILAYER_KEY</code> is not set</li>
+<li data-level="0"><code>AUTH_ENABLED=true</code> but <code>ADMIN_PASSWORD</code> is empty or missing</li>
+<li data-level="0"><code>NODE_ENV=production</code> but <code>SESSION_SECRET</code> is still the default placeholder value</li>
+</ul>
 <p>
-__TABLE_HEADER__
+Non-fatal warnings are logged (but the server still starts) if:
 </p>
-<table><tr><td><strong>Site Status Widget</strong></td><td>Shows how many sites are up, down, or unknown</td></tr></table>
-<table><tr><td><strong>Critical Alerts Widget</strong></td><td>Highlights expired domains, down sites, NS changes</td></tr></table>
-<table><tr><td><strong>Expiry Timeline</strong></td><td>Chart showing when domains expire over next 6 months</td></tr></table>
-<table><tr><td><strong>Activity Log</strong></td><td>Recent actions and changes in real-time</td></tr></table>
-<table><tr><td><strong>Email Notifications</strong></td><td>SMTP-based alerts sent to your inbox</td></tr></table>
+<ul><li data-level="0"><code>ENCRYPTION_KEY</code> is not set (API keys are stored with a weaker built-in fallback key)</li>
+<li data-level="0"><code>AUTH_ENABLED=false</code> in a production environment (all endpoints are publicly accessible)</li>
+</ul>
+<h3 id="in-app-settings-database-backed">In-App Settings (Database-Backed)</h3>
+
+<p>
+Beyond environment variables, runtime settings are stored in the <code>settings</code> table and editable through the UI under <strong>Settings</strong>. All settings below can be changed without restarting the server.
+</p>
+
+<table><tr><td>Setting Key</td><td>Type</td><td>Default</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>refresh_schedule</code></td><td>string (cron)</td><td><code>0 2 <em> </em> 0</code></td><td>Cron expression for automatic WHOIS refresh. Default: Sundays at 2 AM.</td></tr>
+<tr><td><code>email_enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable outbound expiry/uptime email alerts.</td></tr>
+<tr><td><code>email_recipients</code></td><td>string[]</td><td><code>[]</code></td><td>Email addresses that receive alert emails.</td></tr>
+<tr><td><code>alert_days</code></td><td>number[]</td><td><code>[7, 14, 30]</code></td><td>Days-before-expiry thresholds that trigger email alerts.</td></tr>
+<tr><td><code>smtp_host</code></td><td>string</td><td>—</td><td>Overrides the <code>SMTP_HOST</code> env var at runtime.</td></tr>
+<tr><td><code>smtp_port</code></td><td>number</td><td>—</td><td>Overrides <code>SMTP_PORT</code>.</td></tr>
+<tr><td><code>smtp_secure</code></td><td>boolean</td><td>—</td><td>Overrides <code>SMTP_SECURE</code>.</td></tr>
+<tr><td><code>smtp_user</code></td><td>string</td><td>—</td><td>Overrides <code>SMTP_USER</code>.</td></tr>
+<tr><td><code>smtp_pass</code></td><td>string</td><td>—</td><td>Overrides <code>SMTP_PASS</code>.</td></tr>
+<tr><td><code>smtp_from</code></td><td>string</td><td>—</td><td>Overrides <code>SMTP_FROM</code>.</td></tr>
+<tr><td><code>uptime_enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable the uptime monitoring loop.</td></tr>
+<tr><td><code>uptime_interval_minutes</code></td><td>number</td><td><code>5</code></td><td>How often to ping each domain (1–60 minutes).</td></tr>
+<tr><td><code>uptime_alert_threshold</code></td><td>number</td><td><code>3</code></td><td>Consecutive failures before sending a "domain down" alert.</td></tr>
+<tr><td><code>health_check_enabled</code></td><td>boolean</td><td><code>true</code></td><td>Enable scheduled domain health checks.</td></tr>
+<tr><td><code>health_check_interval_hours</code></td><td>number</td><td><code>24</code></td><td>Hours between automatic health check runs.</td></tr>
+<tr><td><code>auto_cleanup_enabled</code></td><td>boolean</td><td><code>true</code></td><td>Automatically purge old log records on the retention schedule.</td></tr>
+<tr><td><code>audit_log_retention_days</code></td><td>number</td><td><code>90</code></td><td>Days to keep audit log entries.</td></tr>
+<tr><td><code>health_log_retention_days</code></td><td>number</td><td><code>30</code></td><td>Days to keep health and uptime check records.</td></tr>
+<tr><td><code>timezone</code></td><td>string</td><td><code>UTC</code></td><td>Timezone used when formatting dates in email alerts.</td></tr>
+<tr><td><code>slack_enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable Slack notifications (hidden from UI; configured directly in DB or code).</td></tr>
+<tr><td><code>slack_webhook_url</code></td><td>string</td><td>—</td><td>Slack Incoming Webhook URL.</td></tr>
+<tr><td><code>slack_events</code></td><td>string[]</td><td><code>[]</code></td><td>Event types to send to Slack. Empty array = all events.</td></tr>
+<tr><td><code>signal_enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable Signal messenger notifications.</td></tr>
+<tr><td><code>signal_api_url</code></td><td>string</td><td>—</td><td>URL of a self-hosted signal-cli REST API instance.</td></tr>
+<tr><td><code>signal_sender</code></td><td>string</td><td>—</td><td>Phone number to send Signal messages from.</td></tr>
+<tr><td><code>signal_recipients</code></td><td>string[]</td><td><code>[]</code></td><td>Phone numbers to receive Signal messages.</td></tr>
+<tr><td><code>signal_events</code></td><td>string[]</td><td><code>[]</code></td><td>Event types to send via Signal.</td></tr>
+</table>
+<hr>
+
+<h2 id="5-server-startup-lifecycle">5. Server Startup & Lifecycle</h2>
+
+<h3 id="startup-sequence-codesrcservertscode">Startup Sequence (<code>src/server.ts</code>)</h3>
+
+<p>
+The server boots in this exact order:
+</p>
+
+<pre><code class="language-text">1. validateConfig()            — exits process if environment is broken
+2. runMigrations()             — creates/alters DB tables as needed (idempotent)
+3. initializeSettings()        — seeds default settings into the DB if absent
+4. Express app created         — JSON body parser, cookie-parser, requestLogger
+5. wsService.initialize()      — attaches WebSocketServer to the HTTP server at /ws
+6. onRefreshUpdate()           — wires WHOIS progress events to WebSocket broadcasts
+7. Helmet headers applied      — different CSP profiles for dev vs. production
+8. Static files mounted        — public/ served at /
+9. Routes mounted              — /api/auth (no auth gate), /api/* (auth gate if enabled)
+10. 404 + error handlers       — catch-all fallbacks
+11. initialize() called async:
+    a. initializeAuth()        — seeds built-in admin user if AUTH_ENABLED
+    b. initializeEmail()       — SMTP transporter created and verified
+    c. initializeScheduler()   — node-cron jobs registered (refresh + email check)
+    d. startSessionCleanup()   — expired sessions purged every 15 minutes
+    e. startUptimeMonitoring() — uptime ping interval loop started
+    f. startAutoCleanup()      — log retention cleanup scheduled daily
+12. server.listen(PORT)        — binds to PORT, logs startup info
+13. migrateFromJSON()          — one-time migration from legacy domains.json if present
+</code></pre>
+
+<h3 id="graceful-shutdown">Graceful Shutdown</h3>
+
+<p>
+On <code>SIGTERM</code> or <code>SIGINT</code>:
+</p>
+<ol><li>Uptime monitoring loop stopped</li>
+<li>Auto-cleanup scheduler stopped</li>
+<li>HTTP server closed (no new connections accepted; in-flight requests finish)</li>
+<li>WebSocket server closed</li>
+<li>SQLite connection closed</li>
+<li><code>process.exit(0)</code></li>
+</ol>
+<hr>
+
+<h2 id="6-database-layer">6. Database Layer</h2>
+
+<h3 id="why-codebetter-sqlite3code">Why <code>better-sqlite3</code>?</h3>
+
+<p>
+All database calls are <strong>synchronous</strong>. <code>better-sqlite3</code> uses a blocking C++ binding to SQLite which is faster than async SQLite wrappers for Node.js because it avoids event-loop overhead for the small, frequent queries typical of a monitoring application. The trade-off (blocking the event loop on heavy queries) is mitigated by keeping all queries indexed and lightweight.
+</p>
+
+<strong>WAL mode</strong> (<code>PRAGMA journal_mode = WAL</code>) is enabled at startup. WAL allows concurrent readers while a single writer is active, which greatly improves throughput for the read-heavy monitoring workload.
+
+<strong>Foreign keys</strong> are enforced with <code>PRAGMA foreign_keys = ON</code>.
+
+<strong>Prepared statements</strong> are cached in module-level <code>_statements</code> objects and lazily initialized on first use. This avoids re-parsing SQL on every call while also avoiding initialization-order issues.
 
 <hr>
 
-<h2 id="quick-start">Quick Start</h2>
+<h3 id="schema-tables">Schema & Tables</h3>
 
-<h3 id="option-1-docker-recommended">Option 1: Docker (Recommended)</h3>
-
+<h4 id="codedomainscode"><code>domains</code></h4>
 <p>
-``<code>bash
-</p>
-<h1>Clone the repository</h1>
-<p>
-git clone https://github.com/sanchodevs/domain-monitor.git
-cd domain-monitor
+The core table. One row per domain name.
 </p>
 
-<h1>Create environment file</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>domain</code></td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Normalized domain name (lowercase, no trailing dot)</td></tr>
+<tr><td><code>registrar</code></td><td>TEXT</td><td>NOT NULL default <code>''</code></td><td>Registrar name from WHOIS</td></tr>
+<tr><td><code>created_date</code></td><td>TEXT</td><td>NOT NULL default <code>''</code></td><td>Domain registration date (ISO or raw WHOIS string)</td></tr>
+<tr><td><code>expiry_date</code></td><td>TEXT</td><td>NOT NULL default <code>''</code></td><td>Domain expiration date</td></tr>
+<tr><td><code>name_servers</code></td><td>TEXT</td><td>NOT NULL default <code>'[]'</code></td><td>JSON array of current nameservers</td></tr>
+<tr><td><code>name_servers_prev</code></td><td>TEXT</td><td>NOT NULL default <code>'[]'</code></td><td>JSON array of previous nameservers (for NS change detection)</td></tr>
+<tr><td><code>last_checked</code></td><td>TEXT</td><td>nullable</td><td>ISO datetime of the last successful WHOIS fetch</td></tr>
+<tr><td><code>error</code></td><td>TEXT</td><td>nullable</td><td>Last WHOIS error message</td></tr>
+<tr><td><code>group_id</code></td><td>INTEGER</td><td>FK → groups(id) ON DELETE SET NULL</td><td>Group assignment</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL default <code>datetime('now')</code></td><td>Row creation time</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL default <code>datetime('now')</code></td><td>Last update time</td></tr>
+<tr><td><code>deleted_at</code></td><td>TEXT</td><td>nullable</td><td>Soft-delete timestamp; non-null means the domain is in the trash</td></tr>
+</table>
+<h4 id="codegroupscode"><code>groups</code></h4>
 <p>
-cp .env.example .env
+Named organizational buckets for domains (e.g., "Production", "Clients").
 </p>
 
-<h1>Edit .env and add your WHOIS API key (required)</h1>
-<h1>Get a free key at: https://apilayer.com/marketplace/whois-api</h1>
-
-<h1>Start the application</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Display name</td></tr>
+<tr><td><code>color</code></td><td>TEXT</td><td>NOT NULL</td><td>Hex color code for UI badge</td></tr>
+<tr><td><code>description</code></td><td>TEXT</td><td>nullable</td><td>Optional free-text description</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last update timestamp</td></tr>
+</table>
+<h4 id="codetagscode"><code>tags</code></h4>
 <p>
-docker-compose up -d
+Labels that can be applied to multiple domains independently of groups.
 </p>
 
-<h1>Open in browser</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Display name</td></tr>
+<tr><td><code>color</code></td><td>TEXT</td><td>NOT NULL</td><td>Hex color code for UI badge</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+</table>
+<h4 id="codedomaintagscode-junction-table"><code>domain_tags</code> (Junction Table)</h4>
 <p>
-open http://localhost:3000
-</code>`<code>
+Many-to-many relationship between domains and tags.
 </p>
 
-<h3 id="option-2-manual-installation">Option 2: Manual Installation</h3>
-
-</code>`<code>bash
-<h1>Clone and enter directory</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>domain_id</code></td><td>INTEGER</td><td>FK → domains(id) ON DELETE CASCADE</td></tr>
+<tr><td><code>tag_id</code></td><td>INTEGER</td><td>FK → tags(id) ON DELETE CASCADE</td></tr>
+<tr><td></td><td></td><td>PRIMARY KEY (domain_id, tag_id)</td></tr>
+</table>
+<h4 id="codeauditlogcode"><code>audit_log</code></h4>
 <p>
-git clone https://github.com/sanchodevs/domain-monitor.git
-cd domain-monitor
+Append-only record of every significant action in the system.
 </p>
 
-<h1>Install dependencies</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>entity_type</code></td><td>TEXT</td><td>NOT NULL</td><td><code>domain</code>, <code>group</code>, <code>tag</code>, <code>settings</code>, <code>apikey</code>, <code>user</code>, <code>system</code></td></tr>
+<tr><td><code>entity_id</code></td><td>TEXT</td><td>NOT NULL</td><td>The ID or name of the affected entity</td></tr>
+<tr><td><code>action</code></td><td>TEXT</td><td>NOT NULL</td><td><code>create</code>, <code>update</code>, <code>delete</code>, <code>refresh</code>, <code>import</code>, <code>login</code>, <code>logout</code>, <code>health_check</code>, <code>scheduled</code></td></tr>
+<tr><td><code>old_value</code></td><td>TEXT</td><td>nullable</td><td>JSON snapshot of the entity before the action</td></tr>
+<tr><td><code>new_value</code></td><td>TEXT</td><td>nullable</td><td>JSON snapshot of the entity after the action</td></tr>
+<tr><td><code>ip_address</code></td><td>TEXT</td><td>nullable</td><td>Client IP address</td></tr>
+<tr><td><code>user_agent</code></td><td>TEXT</td><td>nullable</td><td>Client User-Agent string</td></tr>
+<tr><td><code>performed_by</code></td><td>TEXT</td><td>nullable</td><td>Username of the authenticated user who performed the action</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Timestamp of the action</td></tr>
+</table>
+<h4 id="codesessionscode"><code>sessions</code></h4>
 <p>
-npm install
+Server-side session store. The session ID is stored in an HTTP-only cookie named <code>session</code>.
 </p>
 
-<h1>Create and configure environment</h1>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>TEXT</td><td>PK</td><td>Randomly generated UUID session token</td></tr>
+<tr><td><code>expires_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Expiry time (7 days from creation)</td></tr>
+<tr><td><code>user_role</code></td><td>TEXT</td><td>NOT NULL</td><td><code>admin</code>, <code>manager</code>, or <code>viewer</code></td></tr>
+<tr><td><code>username</code></td><td>TEXT</td><td>NOT NULL</td><td>The authenticated username</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Session creation time</td></tr>
+</table>
+<h4 id="codeapikeyscode"><code>api_keys</code></h4>
 <p>
-cp .env.example .env
-</p>
-<h1>Edit .env with your settings</h1>
-
-<h1>Build TypeScript</h1>
-<p>
-npm run build
-</p>
-
-<h1>Start server</h1>
-<p>
-npm start
-</code>`<code>
+Stores WHOIS API keys for the APILayer provider. Supports multiple keys with automatic failover.
 </p>
 
-<h3 id="first-steps-after-installation">First Steps After Installation</h3>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>NOT NULL</td><td>Friendly label (e.g., "Primary Key")</td></tr>
+<tr><td><code>key_encrypted</code></td><td>TEXT</td><td>NOT NULL</td><td>AES-256-CBC encrypted API key value</td></tr>
+<tr><td><code>provider</code></td><td>TEXT</td><td>NOT NULL default <code>'apilayer'</code></td><td>Provider identifier</td></tr>
+<tr><td><code>priority</code></td><td>INTEGER</td><td>NOT NULL default <code>0</code></td><td>Lower number = tried first during failover</td></tr>
+<tr><td><code>enabled</code></td><td>INTEGER</td><td>NOT NULL default <code>1</code></td><td>Boolean (0/1)</td></tr>
+<tr><td><code>request_count</code></td><td>INTEGER</td><td>NOT NULL default <code>0</code></td><td>Cumulative usage counter</td></tr>
+<tr><td><code>last_used</code></td><td>TEXT</td><td>nullable</td><td>Last time this key was used successfully</td></tr>
+<tr><td><code>last_error</code></td><td>TEXT</td><td>nullable</td><td>Last error message received from this key</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last update timestamp</td></tr>
+</table>
+<h4 id="codedomainhealthcode"><code>domain_health</code></h4>
+<p>
+One row per health check run per domain. Accumulates over time (pruned by retention settings).
+</p>
 
-<ol><li><strong>Add your first domain</strong> - Type a domain name (e.g., </code>example.com<code>) and click Add</li></ol>
-<ol><li><strong>Wait for WHOIS data</strong> - The system automatically fetches registration info</li></ol>
-<ol><li><strong>Run a health check</strong> - Click the heart icon to check DNS/HTTP/SSL</li></ol>
-<ol><li><strong>Create groups</strong> - Go to Settings > Groups to organize your domains</li></ol>
-<ol><li><strong>Set up email alerts</strong> - Configure SMTP in Settings if you want notifications</li></ol>
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>domain_id</code></td><td>INTEGER</td><td>NOT NULL FK → domains(id)</td><td>Parent domain</td></tr>
+<tr><td><code>dns_resolved</code></td><td>INTEGER</td><td>NOT NULL</td><td>Boolean: DNS A record lookup succeeded</td></tr>
+<tr><td><code>dns_response_time_ms</code></td><td>INTEGER</td><td>nullable</td><td>DNS lookup duration in milliseconds</td></tr>
+<tr><td><code>dns_records</code></td><td>TEXT</td><td>NOT NULL default <code>'[]'</code></td><td>JSON array of resolved IP addresses</td></tr>
+<tr><td><code>http_status</code></td><td>INTEGER</td><td>nullable</td><td>HTTP response status code (e.g. 200, 404, 503)</td></tr>
+<tr><td><code>http_response_time_ms</code></td><td>INTEGER</td><td>nullable</td><td>HTTP HEAD request round-trip time in milliseconds</td></tr>
+<tr><td><code>ssl_valid</code></td><td>INTEGER</td><td>nullable</td><td>Boolean: SSL certificate is present, valid, and not expired</td></tr>
+<tr><td><code>ssl_expires</code></td><td>TEXT</td><td>nullable</td><td>SSL certificate expiry date</td></tr>
+<tr><td><code>ssl_issuer</code></td><td>TEXT</td><td>nullable</td><td>SSL certificate issuer name</td></tr>
+<tr><td><code>checked_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Timestamp of the check</td></tr>
+</table>
+<h4 id="codeuptimecheckscode"><code>uptime_checks</code></h4>
+<p>
+One row per uptime ping per domain. Accumulates over time.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>domain_id</code></td><td>INTEGER</td><td>NOT NULL FK → domains(id)</td><td>Parent domain</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>NOT NULL</td><td><code>up</code> or <code>down</code></td></tr>
+<tr><td><code>response_time_ms</code></td><td>INTEGER</td><td>nullable</td><td>HTTP response time in milliseconds</td></tr>
+<tr><td><code>status_code</code></td><td>INTEGER</td><td>nullable</td><td>HTTP status code received</td></tr>
+<tr><td><code>error</code></td><td>TEXT</td><td>nullable</td><td>Error message if the check failed</td></tr>
+<tr><td><code>checked_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Timestamp of the check</td></tr>
+</table>
+<h4 id="codeemailalertscode"><code>email_alerts</code></h4>
+<p>
+Tracks which expiration alerts have already been sent to prevent duplicate emails.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>domain_id</code></td><td>INTEGER</td><td>NOT NULL FK → domains(id)</td><td>Domain this alert is for</td></tr>
+<tr><td><code>alert_type</code></td><td>TEXT</td><td>NOT NULL</td><td>e.g. <code>expiry_30d</code>, <code>expiry_7d</code></td></tr>
+<tr><td><code>sent_at</code></td><td>TEXT</td><td>nullable</td><td>Timestamp when the email was sent</td></tr>
+<tr><td><code>scheduled_for</code></td><td>TEXT</td><td>nullable</td><td>When the alert was due</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>NOT NULL</td><td><code>pending</code>, <code>sent</code>, or <code>failed</code></td></tr>
+<tr><td><code>error</code></td><td>TEXT</td><td>nullable</td><td>Error message if sending failed</td></tr>
+</table>
+<h4 id="codewebhookscode"><code>webhooks</code></h4>
+<p>
+Outbound webhook endpoint configurations.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>NOT NULL</td><td>Friendly label</td></tr>
+<tr><td><code>url</code></td><td>TEXT</td><td>NOT NULL</td><td>Destination URL for HTTP POST</td></tr>
+<tr><td><code>secret</code></td><td>TEXT</td><td>NOT NULL</td><td>HMAC-SHA256 signing secret</td></tr>
+<tr><td><code>events</code></td><td>TEXT</td><td>NOT NULL</td><td>JSON array of subscribed event types</td></tr>
+<tr><td><code>enabled</code></td><td>INTEGER</td><td>NOT NULL default <code>1</code></td><td>Boolean (0/1)</td></tr>
+<tr><td><code>last_triggered</code></td><td>TEXT</td><td>nullable</td><td>When the webhook last fired</td></tr>
+<tr><td><code>last_status</code></td><td>INTEGER</td><td>nullable</td><td>HTTP status code from the last delivery attempt</td></tr>
+<tr><td><code>failure_count</code></td><td>INTEGER</td><td>NOT NULL default <code>0</code></td><td>Cumulative delivery failure count</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last update timestamp</td></tr>
+</table>
+<h4 id="codewebhookdeliveriescode"><code>webhook_deliveries</code></h4>
+<p>
+Delivery history log for every webhook invocation attempt.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>webhook_id</code></td><td>INTEGER</td><td>NOT NULL FK → webhooks(id) ON DELETE CASCADE</td><td>Parent webhook</td></tr>
+<tr><td><code>event</code></td><td>TEXT</td><td>NOT NULL</td><td>Event type that triggered delivery</td></tr>
+<tr><td><code>payload</code></td><td>TEXT</td><td>NOT NULL</td><td>Full JSON payload sent</td></tr>
+<tr><td><code>response_status</code></td><td>INTEGER</td><td>nullable</td><td>HTTP response status code</td></tr>
+<tr><td><code>response_body</code></td><td>TEXT</td><td>nullable</td><td>First 500 characters of the response body</td></tr>
+<tr><td><code>success</code></td><td>INTEGER</td><td>NOT NULL</td><td>Boolean: delivery received a 2xx status</td></tr>
+<tr><td><code>attempt</code></td><td>INTEGER</td><td>NOT NULL</td><td>Attempt number (1, 2, or 3)</td></tr>
+<tr><td><code>delivered_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Delivery timestamp</td></tr>
+</table>
+<h4 id="codealertrulescode"><code>alert_rules</code></h4>
+<p>
+Configurable alert rules per domain or globally.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>domain_id</code></td><td>INTEGER</td><td>nullable FK → domains(id)</td><td>null = global rule</td></tr>
+<tr><td><code>event_type</code></td><td>TEXT</td><td>NOT NULL</td><td>Type of event the rule applies to</td></tr>
+<tr><td><code>threshold_days</code></td><td>INTEGER</td><td>nullable</td><td>Days threshold for expiry-type rules</td></tr>
+<tr><td><code>consecutive_failures</code></td><td>INTEGER</td><td>nullable</td><td>Failure count threshold for uptime rules</td></tr>
+<tr><td><code>muted</code></td><td>INTEGER</td><td>NOT NULL default <code>0</code></td><td>Boolean: alert is silenced</td></tr>
+<tr><td><code>muted_until</code></td><td>TEXT</td><td>nullable</td><td>Silence expires at this datetime</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last update timestamp</td></tr>
+</table>
+<h4 id="codeuserscode"><code>users</code></h4>
+<p>
+Application user accounts for multi-user RBAC authentication.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>id</code></td><td>INTEGER</td><td>PK AUTOINCREMENT</td><td>Internal identifier</td></tr>
+<tr><td><code>username</code></td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Login username</td></tr>
+<tr><td><code>password_hash</code></td><td>TEXT</td><td>NOT NULL</td><td>bcrypt hash (cost factor 12)</td></tr>
+<tr><td><code>role</code></td><td>TEXT</td><td>NOT NULL</td><td><code>admin</code>, <code>manager</code>, or <code>viewer</code></td></tr>
+<tr><td><code>enabled</code></td><td>INTEGER</td><td>NOT NULL default <code>1</code></td><td>Boolean: account is active</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Creation timestamp</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last update timestamp</td></tr>
+<tr><td><code>last_login</code></td><td>TEXT</td><td>nullable</td><td>Timestamp of the last successful login</td></tr>
+</table>
+<h4 id="codesettingscode"><code>settings</code></h4>
+<p>
+Key/value store for all in-app configuration.
+</p>
+
+<table><tr><td>Column</td><td>Type</td><td>Constraints</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>key</code></td><td>TEXT</td><td>PK</td><td>Setting name</td></tr>
+<tr><td><code>value</code></td><td>TEXT</td><td>NOT NULL</td><td>JSON-encoded value</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>NOT NULL</td><td>Last modification timestamp</td></tr>
+</table>
+<hr>
+
+<h3 id="indexes">Indexes</h3>
+
+<table><tr><td>Index</td><td>Table</td><td>Columns</td><td>Purpose</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>idx_domain</code></td><td>domains</td><td><code>domain</code></td><td>Fast single-domain lookup</td></tr>
+<tr><td><code>idx_expiry_date</code></td><td>domains</td><td><code>expiry_date</code></td><td>Expiry range queries</td></tr>
+<tr><td><code>idx_domains_group</code></td><td>domains</td><td><code>group_id</code></td><td>Group filter queries</td></tr>
+<tr><td><code>idx_domains_deleted</code></td><td>domains</td><td><code>deleted_at</code></td><td>Soft-delete filter (WHERE deleted_at IS NULL)</td></tr>
+<tr><td><code>idx_audit_entity</code></td><td>audit_log</td><td><code>entity_type, entity_id</code></td><td>Per-entity audit history</td></tr>
+<tr><td><code>idx_audit_created</code></td><td>audit_log</td><td><code>created_at</code></td><td>Date range queries</td></tr>
+<tr><td><code>idx_audit_action</code></td><td>audit_log</td><td><code>action</code></td><td>Action type filter</td></tr>
+<tr><td><code>idx_health_domain</code></td><td>domain_health</td><td><code>domain_id</code></td><td>Domain health history</td></tr>
+<tr><td><code>idx_health_checked</code></td><td>domain_health</td><td><code>checked_at</code></td><td>Time range queries</td></tr>
+<tr><td><code>idx_health_domain_checked</code></td><td>domain_health</td><td><code>domain_id, checked_at DESC</code></td><td>Latest health record per domain</td></tr>
+<tr><td><code>idx_uptime_domain</code></td><td>uptime_checks</td><td><code>domain_id</code></td><td>Domain uptime history</td></tr>
+<tr><td><code>idx_uptime_domain_checked</code></td><td>uptime_checks</td><td><code>domain_id, checked_at DESC</code></td><td>Latest uptime record per domain</td></tr>
+</table>
+<hr>
+
+<h3 id="migrations">Migrations</h3>
+
+<p>
+All migrations run on every startup via <code>runMigrations()</code> in <code>src/database/index.ts</code>. The approach is fully <strong>idempotent</strong>:
+</p>
+<ul><li data-level="0">Tables use <code>CREATE TABLE IF NOT EXISTS</code>.</li>
+<li data-level="0">Column additions check <code>PRAGMA table_info(table_name)</code> first and only run <code>ALTER TABLE</code> if the column is absent.</li>
+</ul>
+<p>
+This means you can upgrade the server by replacing the binary and restarting — migrations apply automatically without any migration runner tool.
+</p>
+
+<strong>Example safe column addition pattern:</strong>
+<pre><code class="language-typescript">const cols = db.prepare("PRAGMA table_info(audit_log)").all() as { name: string }[];
+if (!cols.some(c =&gt; c.name === 'performed_by')) {
+  db.exec('ALTER TABLE audit_log ADD COLUMN performed_by TEXT');
+}
+</code></pre>
 
 <hr>
 
-<h2 id="how-it-works">How It Works</h2>
+<h3 id="database-modules">Database Modules</h3>
 
-<h3 id="the-big-picture">The Big Picture</h3>
-
-</code>`<code>
+<h4 id="codesrcdatabasedbtscode"><code>src/database/db.ts</code></h4>
 <p>
-┌─────────────────────────────────────────────────────────────────┐
-│                         YOUR BROWSER                             │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Dashboard (index.html + app.js)             │    │
-│  │  - View domains, health status, alerts                   │    │
-│  │  - Add/edit/delete domains                               │    │
-│  │  - Configure settings                                    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ HTTP + WebSocket
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      EXPRESS SERVER (Node.js)                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   REST API   │  │  WebSocket   │  │  Scheduler   │          │
-│  │  /api/...    │  │  Real-time   │  │  Cron jobs   │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-│  SQLite Database │ │ WHOIS APIs   │ │  SMTP Server     │
-│  - Domains       │ │ - APILayer   │ │  - Send alerts   │
-│  - Health logs   │ │ - Direct     │ │                  │
-│  - Settings      │ │ - RDAP       │ │                  │
-└──────────────────┘ └──────────────┘ └──────────────────┘
-</code>`<code>
+Opens the SQLite file at <code>DB_PATH</code>, enables WAL mode and foreign key enforcement, and exports the <code>db</code> singleton used by every other database module.
 </p>
 
-<h3 id="data-flow-adding-a-domain">Data Flow: Adding a Domain</h3>
-
+<h4 id="codesrcdatabasedomainstscode"><code>src/database/domains.ts</code></h4>
 <p>
-Here's what happens when you add a domain like </code>mywebsite.com<code>:
+Key functions:
+</p>
+<ul><li data-level="0"><code>getDomainsPaginated(page, limit, sortBy, sortOrder, search?, status?, groupId?, registrar?)</code> — returns <code>{ data, total, page, limit, totalPages }</code>. Supports full-text search over domain + registrar + nameservers, status filters (<code>expired</code>, <code>expiring_15</code>, <code>expiring_30</code>, <code>expiring_90</code>, <code>expiring_180</code>, <code>error</code>, <code>unchecked</code>), group filter (including <code>'none'</code> for ungrouped), and registrar exact-match filter.</li>
+<li data-level="0"><code>addDomain(domain)</code> — inserts a new domain row, returns the new <code>id</code>.</li>
+<li data-level="0"><code>softDeleteDomain(domain)</code> / <code>softDeleteDomainById(id)</code> — sets <code>deleted_at</code> to current time.</li>
+<li data-level="0"><code>restoreDomain(id)</code> — clears <code>deleted_at</code>.</li>
+<li data-level="0"><code>permanentDeleteDomain(id)</code> — hard DELETE (only works for already-trashed domains).</li>
+<li data-level="0"><code>setDomainGroup(id, groupId)</code> / <code>setDomainsGroup(ids[], groupId)</code> — group assignment (bulk version uses a single transaction).</li>
+<li data-level="0"><code>validateNsChange(domainId)</code> — copies current <code>name_servers</code> into <code>name_servers_prev</code> to acknowledge a nameserver change.</li>
+<li data-level="0"><code>getLatestHealthBatch(domainIds[])</code> — single SQL query returning a <code>Map<id, DomainHealth></code> to avoid N+1 queries when enriching paginated results.</li>
+</ul>
+<h4 id="codesrcdatabasesettingstscode"><code>src/database/settings.ts</code></h4>
+<p>
+Settings are cached in-memory after the first load. <code>getSettingsData()</code> returns a fully-typed <code>SettingsData</code> object. <code>saveSettingsData(partial)</code> deep-merges the partial update, persists to the DB, and invalidates the cache. The cache is never stale longer than one request cycle.
 </p>
 
-</code>`<code>
-<ol><li>YOU: Type "mywebsite.com" and click Add</li></ol>
+<h4 id="codesrcdatabaseapikeystscode"><code>src/database/apikeys.ts</code></h4>
 <p>
-                    │
-                    ▼
-</p>
-<ol><li>FRONTEND: Sends POST /api/domains with { domain: "mywebsite.com" }</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>SERVER: Validates domain format, checks it doesn't already exist</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>DATABASE: Inserts new domain record with empty WHOIS fields</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>WEBSOCKET: Broadcasts "domain_added" to all connected browsers</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>BACKGROUND TASK: Starts fetching WHOIS data...</li></ol>
-<p>
-   │
-   ├─► WHOIS API (APILayer): "Tell me about mywebsite.com"
-   │   └─► Response: registrar, created, expires, nameservers
-   │
-   ├─► HEALTH CHECK: DNS lookup, HTTP request, SSL check
-   │
-   └─► UPTIME CHECK: Initial ping to record first status
-                    │
-                    ▼
-</p>
-<ol><li>DATABASE: Updates domain with all fetched data</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>WEBSOCKET: Broadcasts "domain_updated" with new data</li></ol>
-<p>
-                    │
-                    ▼
-</p>
-<ol><li>FRONTEND: Automatically refreshes to show complete info</li></ol>
-</code>`<code>
-
-<h3 id="where-does-the-data-come-from">Where Does the Data Come From?</h3>
-
-<table><tr><td>Data Type</td><td>Source</td><td>How it's fetched</td></tr></table>
-<p>
-__TABLE_HEADER__
-</p>
-<table><tr><td><strong>WHOIS Data</strong></td><td>APILayer.com API</td><td>HTTP request with API key</td></tr></table>
-<table><tr><td><strong>WHOIS Fallback</strong></td><td>Direct WHOIS servers</td><td>Using </code>whois-json<code> library</td></tr></table>
-<table><tr><td><strong>WHOIS for .info</strong></td><td>RDAP protocol</td><td>HTTP request to registry</td></tr></table>
-<table><tr><td><strong>DNS Status</strong></td><td>System DNS resolver</td><td>Node.js </code>dns.resolve4()<code></td></tr></table>
-<table><tr><td><strong>HTTP Status</strong></td><td>Target website</td><td>HEAD request with 5s timeout</td></tr></table>
-<table><tr><td><strong>SSL Certificate</strong></td><td>Target website</td><td>TLS connection on port 443</td></tr></table>
-<table><tr><td><strong>Uptime Data</strong></td><td>Target website</td><td>Periodic HTTP requests</td></tr></table>
-
-<h3 id="scheduled-tasks">Scheduled Tasks</h3>
-
-<p>
-The system runs automatic tasks in the background:
+API keys are stored AES-256-CBC encrypted. The encryption key comes from <code>ENCRYPTION_KEY</code> env var with a built-in fallback. <code>getEnabledApiKeys()</code> returns keys ordered by priority (ascending); the WHOIS service cycles through them when one fails.
 </p>
 
-<table><tr><td>Task</td><td>Default Schedule</td><td>What it does</td></tr></table>
+<h4 id="codesrcdatabaseaudittscode"><code>src/database/audit.ts</code></h4>
+<ul><li data-level="0"><code>logAudit(entry)</code> — inserts a row into <code>audit_log</code>. All 13+ call sites across routes and middleware pass <code>performed_by</code> from <code>(req as AuthenticatedRequest).username</code>.</li>
+<li data-level="0">Helper functions (<code>auditDomainCreate</code>, <code>auditDomainUpdate</code>, <code>auditDomainDelete</code>, <code>auditBulkRefresh</code>, <code>auditBulkHealthCheck</code>, <code>auditImport</code>) provide structured wrappers for common audit events.</li>
+<li data-level="0"><code>queryAuditLog({ entityType, entityId, action, startDate, endDate, limit, offset })</code> — returns paginated results with a total count.</li>
+</ul>
+<hr>
+
+<h2 id="7-services">7. Services</h2>
+
+<h3 id="whois-service">WHOIS Service</h3>
+<strong>File:</strong> <code>src/services/whois.ts</code>
+
 <p>
-__TABLE_HEADER__
+The primary source of domain registration data.
 </p>
-<table><tr><td><strong>WHOIS Refresh</strong></td><td>Sunday 2:00 AM</td><td>Updates all domain registration data</td></tr></table>
-<table><tr><td><strong>Email Alerts</strong></td><td>Daily 9:00 AM</td><td>Sends expiration warnings</td></tr></table>
-<table><tr><td><strong>Uptime Checks</strong></td><td>Every 5 minutes</td><td>Pings all domains, records status</td></tr></table>
-<table><tr><td><strong>Data Cleanup</strong></td><td>Daily</td><td>Removes old logs per retention settings</td></tr></table>
+
+<h4 id="provider-chain">Provider Chain</h4>
+
+<p>
+Requests fall through providers in order until one returns usable data:
+</p>
+
+<ol><li><strong>APILayer WHOIS API</strong> (<code>https://api.apilayer.com/whois/query</code>) — Structured JSON. Requires <code>APILAYER_KEY</code> or stored DB keys.</li>
+<li><strong>whois-json</strong> — Direct WHOIS socket connection. Less reliable for some TLDs but works without an API key.</li>
+<li><strong>RDAP</strong> (<code>https://rdap.org/domain/{domain}</code>) — Used for TLDs (like <code>.info</code>) where socket WHOIS returns unstructured data.</li>
+</ol>
+<h4 id="key-functions">Key Functions</h4>
+<ul><li data-level="0"><code>refreshDomain(domain, options?)</code> — Fetches WHOIS for a single domain, normalizes data, updates the DB, optionally runs a health check after.</li>
+<li data-level="0"><code>refreshAllDomains(domains?, options?)</code> — Iterates all (or a provided subset of) domains with a 2-second delay between calls to respect API rate limits. Broadcasts <code>refresh_progress</code> WebSocket messages throughout.</li>
+<li data-level="0"><code>getRefreshStatus()</code> — Returns <code>{ isRefreshing, total, completed, startTime, currentDomain }</code>.</li>
+<li data-level="0"><code>onRefreshUpdate(callback)</code> — Registers a listener called after each domain completes (wired to WebSocket in <code>server.ts</code>).</li>
+</ul>
+<h4 id="whois-data-normalization">WHOIS Data Normalization</h4>
+
+<p>
+Date formats from different registrars vary widely. The WHOIS service normalizes all recognized formats into ISO 8601 strings. Nameserver arrays are deduplicated and lowercased. Registrar names are trimmed of whitespace.
+</p>
+
+<h4 id="nameserver-change-detection">Nameserver Change Detection</h4>
+
+<p>
+After each refresh, if <code>name_servers</code> differs from <code>name_servers_prev</code>, the domain is flagged with an <code>nsChanged</code> indicator in the UI. The user acknowledges the change via <code>POST /api/domains/:id/validate-ns</code>, which copies current nameservers to previous and clears the flag.
+</p>
 
 <hr>
 
-<h2 id="dashboard-guide">Dashboard Guide</h2>
-
-<h3 id="top-statistics-bar">Top Statistics Bar</h3>
+<h3 id="health-check-service">Health Check Service</h3>
+<strong>File:</strong> <code>src/services/healthcheck.ts</code>
 
 <p>
-Shows at-a-glance counts:<ul><li data-level="0"><strong>Total Domains</strong> - How many domains you're tracking</li></ul><ul><li data-level="0"><strong>Expired</strong> - Domains past their expiry date (urgent!)</li></ul><ul><li data-level="0"><strong>< 15 Days</strong> - Expiring very soon (critical)</li></ul><ul><li data-level="0"><strong>< 30 Days</strong> - Expiring soon (warning)</li></ul><ul><li data-level="0"><strong>< 90 Days</strong> - Expiring in ~3 months (plan ahead)</li></ul><ul><li data-level="0"><strong>< 6 Months</strong> - Expiring within 6 months (awareness)</li></ul>
+Performs three independent checks per domain:
 </p>
+
+<table><tr><td>Check</td><td>Method</td><td>What It Detects</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><strong>DNS</strong></td><td><code>dns.resolve4(domain)</code></td><td>Domain resolves to at least one IPv4 address</td></tr>
+<tr><td><strong>HTTP</strong></td><td><code>axios.head('http://domain', { timeout: 5000 })</code></td><td>Server responds with any HTTP status code</td></tr>
+<tr><td><strong>SSL</strong></td><td>TLS socket on port 443</td><td>Certificate is present, valid, and not expired</td></tr>
+</table>
+<p>
+Each check records its response time in milliseconds. Results are stored in <code>domain_health</code>. After each individual domain check, a <code>health_update</code> WebSocket message is broadcast so the UI updates in real-time without a page refresh.
+</p>
+
+<code>checkAllDomainsHealth()</code> runs checks for every non-deleted domain concurrently in batches.
+
+<hr>
+
+<h3 id="uptime-monitoring-service">Uptime Monitoring Service</h3>
+<strong>File:</strong> <code>src/services/uptime.ts</code>
+
+<p>
+Runs a continuous HTTP ping loop to track whether domains are reachable over time.
+</p>
+
+<h4 id="how-it-works">How It Works</h4>
+
+<ol><li><code>startUptimeMonitoring()</code> creates a <code>setInterval</code> using <code>uptime_interval_minutes</code> from settings.</li>
+<li>Each tick calls <code>checkAllDomainsUptime()</code> which loops over all non-deleted domains.</li>
+<li>For each domain an HTTP GET is sent with a 10-second timeout.</li>
+<li>The result (<code>up</code>/<code>down</code>, response time, status code, error) is written to <code>uptime_checks</code>.</li>
+<li>If a domain has failed <code>uptime_alert_threshold</code> consecutive checks, <code>sendUptimeAlert()</code> fires an email and a <code>uptime.down</code> webhook event.</li>
+<li>When a domain recovers after being down, a <code>uptime.recovered</code> webhook event fires.</li>
+</ol>
+<h4 id="heartbeat-visualization">Heartbeat Visualization</h4>
+
+<code>getAllHeartbeatData(buckets)</code> divides the last N hours into equal time buckets and returns the up/down aggregate per bucket for each domain. This powers the heartbeat bar visualization in the Uptime page.
+
+<h4 id="statistics">Statistics</h4>
+
+<code>getUptimeStats()</code> returns per-domain: <code>uptime_percentage</code>, <code>avg_response_time_ms</code>, <code>total_checks</code>, <code>successful_checks</code>, <code>current_status</code> (<code>up</code>/<code>down</code>/<code>unknown</code>).
+
+<code>getDomainUptimeSummaryBatch(domainIds, hours)</code> fetches uptime summaries for a batch of domains in a single query (used to enrich paginated domain results without N+1 queries).
+
+<hr>
+
+<h3 id="scheduler-service">Scheduler Service</h3>
+<strong>File:</strong> <code>src/services/scheduler.ts</code>
+
+<p>
+Uses <code>node-cron</code> to register recurring background jobs.
+</p>
+
+<table><tr><td>Job</td><td>Default Schedule</td><td>Action</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>WHOIS refresh</td><td><code>0 2 <em> </em> 0</code> (Sunday 2 AM)</td><td><code>refreshAllDomains()</code></td></tr>
+<tr><td>Email expiry check</td><td><code>0 9 <em> </em> <em></code> (daily 9 AM)</td><td><code>checkExpiringDomains()</code></td></tr>
+</table>
+<p>
+When settings are saved with a new <code>refresh_schedule</code> cron expression, the scheduler destroys the old cron job and creates a new one immediately — no restart required.
+</p>
+
+<hr>
+
+<h3 id="email-service">Email Service</h3>
+<strong>File:</strong> <code>src/services/email.ts</code>
+
+<p>
+Sends dark-themed HTML emails via Nodemailer SMTP.
+</p>
+
+<h4 id="configuration-priority">Configuration Priority</h4>
+
+<code>getSmtpConfig()</code> reads DB settings first, then falls back to environment variables. This means SMTP can be fully configured through the UI without touching <code>.env</code>.
+
+<h4 id="smtp-initialization">SMTP Initialization</h4>
+
+<code>initializeEmail()</code>:
+<ol><li>Resolves the SMTP hostname to an IP via <code>dns.lookup()</code> (avoids Node.js DNS resolver issues with some mail hosts).</li>
+<li>Creates the Nodemailer transporter with a 15-second connection timeout.</li>
+<li>Attempts <code>transporter.verify()</code> with a 15-second timeout. If verify fails, the transporter is kept — delivery may still work depending on the SMTP server.</li>
+</ol>
+<code>reinitializeEmail()</code> is called automatically after settings are saved to reconnect with new credentials.
+
+<h4 id="email-types">Email Types</h4>
+<ul><li data-level="0"><strong>Expiration Alert</strong> — Sent by <code>checkExpiringDomains()</code> when domains fall within the configured <code>alert_days</code> window. HTML table sorted by days remaining, color-coded (red ≤7, orange ≤14, yellow ≤30).</li>
+<li data-level="0"><strong>Uptime Alert</strong> — Sent when a domain exceeds the consecutive failure threshold. Shows domain name, failure count, and last error.</li>
+<li data-level="0"><strong>Test Email</strong> — Triggered manually via <code>POST /api/settings/email/test</code>. Simple confirmation email.</li>
+</ul>
+<p>
+After sending an expiration alert, a <code>domain.expiring</code> webhook event is also fired for each domain in the alert.
+</p>
+
+<hr>
+
+<h3 id="websocket-service">WebSocket Service</h3>
+<strong>File:</strong> <code>src/services/websocket.ts</code>
+
+<p>
+A singleton <code>WebSocketService</code> wrapping the <code>ws</code> library's <code>WebSocketServer</code>.
+</p>
+
+<h4 id="connection-management">Connection Management</h4>
+<ul><li data-level="0">The WebSocket server attaches to the existing HTTP server at path <code>/ws</code> — no separate port needed.</li>
+<li data-level="0">Connected clients are tracked in a <code>Set<WebSocket></code>.</li>
+<li data-level="0">A heartbeat ping/pong runs every 30 seconds. Clients that fail to respond are terminated and removed.</li>
+<li data-level="0">All <code>broadcast()</code> calls serialize the message once and send to all connected clients.</li>
+</ul>
+<h4 id="message-types">Message Types</h4>
+
+<table><tr><td>Type</td><td>Payload</td><td>Sent When</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>connected</code></td><td><code>{ timestamp, message }</code></td><td>Immediately on new connection</td></tr>
+<tr><td><code>refresh_progress</code></td><td><code>RefreshStatus</code></td><td>After each domain is processed during bulk refresh</td></tr>
+<tr><td><code>refresh_complete</code></td><td><code>{ total, duration, timestamp }</code></td><td>When bulk refresh finishes</td></tr>
+<tr><td><code>domain_updated</code></td><td>Full <code>Domain</code> object</td><td>After any domain data changes</td></tr>
+<tr><td><code>domain_added</code></td><td><code>{ domainId, domain, timestamp }</code></td><td>When a new domain is created</td></tr>
+<tr><td><code>health_update</code></td><td><code>{ domainId, health }</code></td><td>After a health check completes</td></tr>
+<tr><td><code>error</code></td><td><code>{ message, timestamp }</code></td><td>When a background task fails</td></tr>
+</table>
+<hr>
+
+<h3 id="webhook-service">Webhook Service</h3>
+<strong>File:</strong> <code>src/services/webhooks.ts</code>
+
+<p>
+Dispatches signed HTTP POST payloads to registered endpoints when domain events occur.
+</p>
+
+<h4 id="event-types">Event Types</h4>
+
+<table><tr><td>Event</td><td>Fired When</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>domain.created</code></td><td>A new domain is added via the API</td></tr>
+<tr><td><code>domain.deleted</code></td><td>A domain is soft-deleted</td></tr>
+<tr><td><code>domain.expiring</code></td><td>Expiration alert email is sent</td></tr>
+<tr><td><code>domain.expired</code></td><td>Domain expiry date has passed</td></tr>
+<tr><td><code>health.failed</code></td><td>A health check fails</td></tr>
+<tr><td><code>uptime.down</code></td><td>Domain fails consecutive uptime checks past the threshold</td></tr>
+<tr><td><code>uptime.recovered</code></td><td>Domain recovers after a down period</td></tr>
+<tr><td><code>refresh.complete</code></td><td>A bulk WHOIS refresh finishes</td></tr>
+</table>
+<h4 id="delivery-mechanics">Delivery Mechanics</h4>
+
+<ol><li>Payload signed with <code>HMAC-SHA256(body, secret)</code> → <code>X-Domain-Monitor-Signature: sha256=...</code> header.</li>
+<li>POST sent with a 10-second timeout and <code>validateStatus: () => true</code> (non-2xx does not throw).</li>
+<li>On failure: retried up to 3 times — immediately, after 30 seconds, after 5 minutes.</li>
+<li>Every attempt logged to <code>webhook_deliveries</code>.</li>
+<li><code>failure_count</code> on the webhook record incremented after all retries fail.</li>
+</ol>
+<h4 id="ssrf-protection">SSRF Protection</h4>
+
+<p>
+Before any delivery, the webhook URL is checked against a blocklist:
+</p>
+<ul><li data-level="0">Loopback: <code>127.x.x.x</code>, <code>::1</code>, <code>localhost</code></li>
+<li data-level="0">Private ranges: <code>10.x.x.x</code>, <code>172.16–31.x.x</code>, <code>192.168.x.x</code></li>
+<li data-level="0">Catch-all: <code>0.0.0.0</code></li>
+</ul>
+<p>
+Requests to blocked addresses are silently rejected with a warning log entry.
+</p>
+
+<h4 id="slack-signal">Slack & Signal</h4>
+
+<code>fireWebhookEvent()</code> also checks if Slack or Signal are enabled and dispatches notifications via <code>slack.ts</code> and <code>signal.ts</code> (both fire-and-forget, errors logged but not re-thrown).
+
+<hr>
+
+<h3 id="slack-service">Slack Service</h3>
+<strong>File:</strong> <code>src/services/slack.ts</code>
+
+<p>
+Sends formatted messages to a Slack Incoming Webhook URL. Message format includes event type, domain name, and relevant context (days remaining, error message, etc.).
+</p>
+
+<hr>
+
+<h3 id="signal-service">Signal Service</h3>
+<strong>File:</strong> <code>src/services/signal.ts</code>
+
+<p>
+Sends text notifications via a self-hosted <a href="https://github.com/bbernhard/signal-cli-rest-api">signal-cli REST API</a>. Requires <code>signal_sender</code> (phone number) and <code>signal_recipients</code> (array of phone numbers) in settings.
+</p>
+
+<hr>
+
+<h3 id="cleanup-service">Cleanup Service</h3>
+<strong>File:</strong> <code>src/services/cleanup.ts</code>
+
+<p>
+Manages log retention to prevent the SQLite database from growing without bound.
+</p>
+
+<h4 id="auto-cleanup-schedule">Auto Cleanup Schedule</h4>
+
+<code>startAutoCleanup()</code> runs <code>runAutoCleanup()</code> once 60 seconds after startup (to not slow boot), then every 24 hours. <code>runAutoCleanup()</code> checks <code>auto_cleanup_enabled</code> in settings before doing anything.
+
+<h4 id="what-gets-pruned">What Gets Pruned</h4>
+<ul><li data-level="0"><code>audit_log</code> rows older than <code>audit_log_retention_days</code> (default 90)</li>
+<li data-level="0"><code>domain_health</code> rows older than <code>health_log_retention_days</code> (default 30)</li>
+<li data-level="0"><code>uptime_checks</code> rows older than <code>health_log_retention_days</code> (same setting)</li>
+</ul>
+<h4 id="manual-cleanup">Manual Cleanup</h4>
+
+<p>
+Individual endpoints allow on-demand cleanup with custom day thresholds:
+</p>
+<ul><li data-level="0"><code>POST /api/uptime/retention/cleanup</code> — runs full auto-cleanup now</li>
+<li data-level="0"><code>DELETE /api/uptime/retention/audit?days=N</code></li>
+<li data-level="0"><code>DELETE /api/uptime/retention/health?days=N</code></li>
+<li data-level="0"><code>DELETE /api/uptime/retention/uptime?days=N</code></li>
+</ul>
+<p>
+All manual cleanup calls write an entry to the audit log.
+</p>
+
+<hr>
+
+<h2 id="8-middleware">8. Middleware</h2>
+
+<h3 id="authentication-middleware">Authentication Middleware</h3>
+<strong>File:</strong> <code>src/middleware/auth.ts</code>
+
+<h4 id="session-flow">Session Flow</h4>
+
+<ol><li>Browser sends the <code>session</code> cookie (HTTP-only, SameSite=Strict) on every request.</li>
+<li><code>authMiddleware</code> reads the cookie value and looks it up in the <code>sessions</code> table.</li>
+<li>If the session exists and <code>expires_at > now</code>, the request is enriched with <code>req.username</code>, <code>req.userRole</code>, and <code>req.isAuthenticated = true</code>.</li>
+<li>If no valid session: HTTP 401 <code>{ success: false, message: 'Unauthorized' }</code>.</li>
+</ol>
+<h4 id="login-codepost-apiauthlogincode">Login (<code>POST /api/auth/login</code>)</h4>
+
+<ol><li>Validates body with <code>loginSchema</code>.</li>
+<li>If <code>AUTH_ENABLED=false</code> — grants an admin session automatically (useful for development).</li>
+<li>Checks the env-var admin credentials first (constant-time comparison).</li>
+<li>Falls back to the <code>users</code> table using <code>bcrypt.compare()</code>.</li>
+<li>Creates a session row with a 7-day expiry, sets the <code>session</code> HTTP-only cookie.</li>
+<li>Writes a <code>login</code> audit event with <code>performed_by: username</code>.</li>
+</ol>
+<h4 id="logout-codepost-apiauthlogoutcode">Logout (<code>POST /api/auth/logout</code>)</h4>
+
+<ol><li>Reads the session record to retrieve the username for the audit trail.</li>
+<li>Deletes the session from the DB.</li>
+<li>Clears the <code>session</code> cookie.</li>
+<li>Writes a <code>logout</code> audit event.</li>
+</ol>
+<h4 id="rbac-guard">RBAC Guard</h4>
+
+<code>requireRole('admin', 'manager')</code> is a middleware factory that reads <code>req.userRole</code> and returns HTTP 403 if the role is not in the allowed list.
+
+<table><tr><td>Role</td><td>Access Level</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>admin</code></td><td>Full access including user management</td></tr>
+<tr><td><code>manager</code></td><td>Modify domains, settings, groups, tags, API keys, webhooks</td></tr>
+<tr><td><code>viewer</code></td><td>Read-only access to all data</td></tr>
+</table>
+<hr>
+
+<h3 id="rate-limiting-middleware">Rate Limiting Middleware</h3>
+<strong>File:</strong> <code>src/middleware/rateLimit.ts</code>
+
+<p>
+Uses <code>express-rate-limit</code> with in-memory per-IP tracking. All limits are <strong>disabled in development</strong> (<code>NODE_ENV !== 'production'</code>) to avoid friction during local testing.
+</p>
+
+<table><tr><td>Limiter</td><td>Window</td><td>Max Requests</td><td>Applied To</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>standardLimiter</code></td><td>15 min</td><td>2,000</td><td>All <code>/api/</em></code> routes</td></tr>
+<tr><td><code>heavyOpLimiter</code></td><td>15 min</td><td>20</td><td>Bulk refresh, check-all health, uptime check-all</td></tr>
+<tr><td><code>loginLimiter</code></td><td>15 min</td><td>50</td><td><code>POST /api/auth/login</code></td></tr>
+<tr><td><code>deleteOpLimiter</code></td><td>1 hour</td><td>20</td><td>All <code>DELETE /api/domains/<em></code> routes</td></tr>
+</table>
+<p>
+Rate limit violations return HTTP 429 with a <code>Retry-After</code> header.
+</p>
+
+<hr>
+
+<h3 id="request-logging-middleware">Request Logging Middleware</h3>
+<strong>File:</strong> <code>src/middleware/logging.ts</code>
+
+<p>
+Logs every HTTP request using the <code>http</code> child logger. Each log entry includes the method, path, response status code, duration in milliseconds, and a unique request ID for correlation.
+</p>
+
+<hr>
+
+<h3 id="validation-middleware">Validation Middleware</h3>
+<strong>File:</strong> <code>src/middleware/validation.ts</code>
+
+<code>validateBody(schema)</code> and <code>validateQuery(schema)</code> are Express middleware factories:
+
+<ol><li>Parse <code>req.body</code> or <code>req.query</code>.</li>
+<li>Run through the Zod schema with <code>.safeParse()</code>.</li>
+<li>On failure → HTTP 400 with structured Zod error messages.</li>
+<li>On success → replace <code>req.body</code>/<code>req.query</code> with the Zod-coerced (typed and transformed) data.</li>
+</ol>
+<p>
+Using <code>.safeParse()</code> instead of <code>.parse()</code> means validation errors are caught and formatted as JSON responses rather than thrown as unhandled exceptions.
+</p>
+
+<hr>
+
+<h3 id="error-handling-middleware">Error Handling Middleware</h3>
+<strong>File:</strong> <code>src/middleware/errorHandler.ts</code>
+<ul><li data-level="0"><code>asyncHandler(fn)</code> — wraps an async route handler so any rejection automatically calls <code>next(err)</code>. Eliminates try/catch boilerplate in every route.</li>
+<li data-level="0"><code>createError(message, statusCode)</code> — creates an <code>Error</code> with an attached <code>statusCode</code> property.</li>
+<li data-level="0"><code>errorHandler</code> — global Express error handler. Logs the error and returns <code>{ success: false, error: message }</code> with the appropriate HTTP status code.</li>
+<li data-level="0"><code>notFoundHandler</code> — 404 fallback that returns <code>{ success: false, message: 'Not found' }</code>.</li>
+</ul>
+<hr>
+
+<h2 id="9-api-routes-full-reference">9. API Routes — Full Reference</h2>
+
+<p>
+All routes are prefixed with <code>/api</code>. When <code>AUTH_ENABLED=true</code>, all routes except <code>/api/auth/</em></code> and <code>/api/status</code> require a valid session cookie.
+</p>
+
+<hr>
+
+<h3 id="authentication-codeapiauthcode">Authentication (<code>/api/auth/<em></code>)</h3>
+
+<p>
+Mounted before the auth gate — always publicly accessible.
+</p>
+
+<h4 id="codeget-apiauthstatuscode"><code>GET /api/auth/status</code></h4>
+<p>
+Returns whether authentication is enabled and if the current request is authenticated.
+</p>
+
+<pre><code class="language-json">{ "authEnabled": true, "authenticated": false }
+</code></pre>
+
+<h4 id="codepost-apiauthlogincode"><code>POST /api/auth/login</code></h4>
+<p>
+Authenticates and creates a session. Sets an HTTP-only <code>session</code> cookie valid for 7 days.
+</p>
+
+<strong>Body:</strong> <code>{ "username": "admin", "password": "secret" }</code>
+
+<strong>Response:</strong> <code>{ "success": true, "username": "admin", "role": "admin" }</code>
+
+<p>
+Rate limited: 50 attempts per 15 minutes per IP.
+</p>
+
+<h4 id="codepost-apiauthlogoutcode"><code>POST /api/auth/logout</code></h4>
+<p>
+Destroys the session and clears the cookie.
+</p>
+
+<strong>Response:</strong> <code>{ "success": true }</code>
+
+<h4 id="codeget-apiauthmecode"><code>GET /api/auth/me</code></h4>
+<p>
+Returns current user information.
+</p>
+
+<strong>Response:</strong> <code>{ "username": "admin", "role": "admin", "authenticated": true }</code>
+
+<hr>
+
+<h3 id="domains-codeapidomainscode">Domains (<code>/api/domains/</em></code>)</h3>
+
+<h4 id="codeget-apidomainscode"><code>GET /api/domains</code></h4>
+<p>
+Returns a paginated list of domains.
+</p>
+
+<strong>Query Parameters:</strong>
+
+<table><tr><td>Parameter</td><td>Type</td><td>Default</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>page</code></td><td>number</td><td><code>1</code></td><td>Page number (1-based)</td></tr>
+<tr><td><code>limit</code></td><td>number</td><td><code>50</code></td><td>Rows per page (max 200)</td></tr>
+<tr><td><code>include</code></td><td>string</td><td>—</td><td>Data to enrich: <code>tags</code>, <code>health</code>, <code>uptime</code>, or <code>all</code></td></tr>
+<tr><td><code>sortBy</code></td><td>string</td><td><code>domain</code></td><td>Sort field: <code>domain</code>, <code>expiry_date</code>, <code>registrar</code>, <code>last_checked</code></td></tr>
+<tr><td><code>sortOrder</code></td><td>string</td><td><code>asc</code></td><td><code>asc</code> or <code>desc</code></td></tr>
+<tr><td><code>search</code></td><td>string</td><td>—</td><td>Full-text filter across domain name, registrar, and nameservers</td></tr>
+<tr><td><code>status</code></td><td>string</td><td>—</td><td><code>expired</code>, <code>expiring_15</code>, <code>expiring_30</code>, <code>expiring_90</code>, <code>expiring_180</code>, <code>error</code>, <code>unchecked</code></td></tr>
+<tr><td><code>group</code></td><td>string</td><td>—</td><td>Group ID number, or <code>none</code> for ungrouped domains</td></tr>
+<tr><td><code>registrar</code></td><td>string</td><td>—</td><td>Exact registrar name filter</td></tr>
+</table>
+<strong>Response:</strong>
+<pre><code class="language-json">{
+  "data": [/* Domain objects */],
+  "total": 150,
+  "page": 1,
+  "limit": 50,
+  "totalPages": 3
+}
+</code></pre>
+
+<p>
+With <code>include=all</code>, each domain object includes <code>tags</code> (Tag[]), <code>health</code> (DomainHealth | null), and <code>uptime</code> (UptimeStats | null). These are fetched with batch queries to avoid N+1.
+</p>
+
+<h4 id="codeget-apidomainstrashcode"><code>GET /api/domains/trash</code></h4>
+<p>
+Returns all soft-deleted domains.
+</p>
+
+<strong>Response:</strong> <code>{ "success": true, "data": [/<em> Domain objects </em>/] }</code>
+
+<h4 id="codeget-apidomainsdomaincode"><code>GET /api/domains/:domain</code></h4>
+<p>
+Returns a single domain by name (URL-encode the domain). Includes <code>tags</code> array.
+</p>
+
+<h4 id="codepost-apidomainscode"><code>POST /api/domains</code></h4>
+<p>
+Adds a new domain. Responds immediately, then runs WHOIS + health + uptime checks in the background.
+</p>
+
+<strong>Body:</strong> <code>{ "domain": "example.com", "group_id": 1 }</code> (<code>group_id</code> optional)
+
+<strong>Response:</strong> <code>{ "success": true, "id": 42 }</code>
+
+<strong>Webhook fired:</strong> <code>domain.created</code>
+
+<h4 id="codedelete-apidomainsdomaincode"><code>DELETE /api/domains/:domain</code></h4>
+<p>
+Soft-deletes a domain by name. Rate limited: 20/hour.
+</p>
+
+<h4 id="codedelete-apidomainsididcode"><code>DELETE /api/domains/id/:id</code></h4>
+<p>
+Soft-deletes a domain by numeric ID. Rate limited: 20/hour.
+</p>
+
+<h4 id="codepost-apidomainsidrestorecode"><code>POST /api/domains/:id/restore</code></h4>
+<p>
+Restores a soft-deleted domain from the trash.
+</p>
+
+<h4 id="codedelete-apidomainsidpermanentcode"><code>DELETE /api/domains/:id/permanent</code></h4>
+<p>
+Permanently (hard) deletes a domain. Only works on already-trashed domains.
+</p>
+
+<h4 id="codepost-apidomainsidvalidate-nscode"><code>POST /api/domains/:id/validate-ns</code></h4>
+<p>
+Acknowledges a nameserver change. Copies <code>name_servers</code> → <code>name_servers_prev</code>, clearing the NS change warning.
+</p>
+
+<h4 id="codepost-apidomainsidgroupcode"><code>POST /api/domains/:id/group</code></h4>
+<p>
+Assigns the domain to a group.
+</p>
+
+<strong>Body:</strong> <code>{ "group_id": 1 }</code> (or <code>{ "group_id": null }</code> to remove from group)
+
+<h4 id="codeget-apidomainsidtagscode"><code>GET /api/domains/:id/tags</code></h4>
+<p>
+Returns all tags assigned to a domain.
+</p>
+
+<h4 id="codeput-apidomainsidtagscode"><code>PUT /api/domains/:id/tags</code></h4>
+<p>
+Replaces the domain's entire tag list.
+</p>
+
+<strong>Body:</strong> <code>{ "tag_ids": [1, 2, 3] }</code>
+
+<h4 id="codepost-apidomainsidtagstagidcode"><code>POST /api/domains/:id/tags/:tagId</code></h4>
+<p>
+Adds a single tag to a domain.
+</p>
+
+<h4 id="codedelete-apidomainsidtagstagidcode"><code>DELETE /api/domains/:id/tags/:tagId</code></h4>
+<p>
+Removes a single tag from a domain.
+</p>
+
+<h4 id="codedelete-apidomainsbulkcode"><code>DELETE /api/domains/bulk</code></h4>
+<p>
+Soft-deletes multiple domains.
+</p>
+
+<strong>Body:</strong> <code>{ "domain_ids": [1, 2, 3] }</code>
+
+<strong>Response:</strong> <code>{ "success": true, "deleted": 3 }</code>
+
+<h4 id="codepost-apidomainsbulkgroupcode"><code>POST /api/domains/bulk/group</code></h4>
+<p>
+Assigns multiple domains to a group (or removes their group with <code>null</code>).
+</p>
+
+<strong>Body:</strong> <code>{ "domain_ids": [1, 2, 3], "group_id": 5 }</code>
+
+<h4 id="codepost-apidomainsbulktagscode"><code>POST /api/domains/bulk/tags</code></h4>
+<p>
+Assigns a set of tags to multiple domains simultaneously.
+</p>
+
+<strong>Body:</strong> <code>{ "domain_ids": [1, 2, 3], "tag_ids": [4, 5] }</code>
+
+<h4 id="codepost-apidomainsbulkrefreshcode"><code>POST /api/domains/bulk/refresh</code></h4>
+<p>
+Queues a WHOIS refresh for a specific set of domains. Returns immediately; refresh runs in the background.
+</p>
+
+<strong>Body:</strong> <code>{ "domain_ids": [1, 2, 3] }</code>
+
+<strong>Response:</strong> <code>{ "success": true, "queued": 3 }</code>
+
+<p>
+Heavy op: rate limited to 20 per 15 minutes.
+</p>
+
+<hr>
+
+<h3 id="groups-codeapigroupscode">Groups (<code>/api/groups/<em></code>)</h3>
+
+<h4 id="codeget-apigroupscode"><code>GET /api/groups</code></h4>
+<p>
+Returns all groups with their domain count.
+</p>
+
+<strong>Response:</strong> Array of <code>{ id, name, color, description, domain_count, created_at, updated_at }</code>
+
+<h4 id="codeget-apigroupsidcode"><code>GET /api/groups/:id</code></h4>
+<p>
+Returns a single group.
+</p>
+
+<h4 id="codeget-apigroupsiddomainscode"><code>GET /api/groups/:id/domains</code></h4>
+<p>
+Returns all non-deleted domains assigned to the group.
+</p>
+
+<h4 id="codepost-apigroupscode"><code>POST /api/groups</code></h4>
+<p>
+Creates a group.
+</p>
+
+<strong>Body:</strong> <code>{ "name": "Production", "color": "#6366f1", "description": "Optional" }</code>
+
+<h4 id="codeput-apigroupsidcode"><code>PUT /api/groups/:id</code></h4>
+<p>
+Updates a group's name, color, or description.
+</p>
+
+<h4 id="codedelete-apigroupsidcode"><code>DELETE /api/groups/:id</code></h4>
+<p>
+Deletes a group. Affected domain <code>group_id</code> values are set to <code>null</code>.
+</p>
+
+<hr>
+
+<h3 id="tags-codeapitagscode">Tags (<code>/api/tags/</em></code>)</h3>
+
+<h4 id="codeget-apitagscode"><code>GET /api/tags</code></h4>
+<p>
+Returns all tags with their usage count.
+</p>
+
+<h4 id="codeget-apitagsidcode"><code>GET /api/tags/:id</code></h4>
+<p>
+Returns a single tag.
+</p>
+
+<h4 id="codepost-apitagscode"><code>POST /api/tags</code></h4>
+<p>
+Creates a tag.
+</p>
+
+<strong>Body:</strong> <code>{ "name": "production", "color": "#22c55e" }</code>
+
+<h4 id="codeput-apitagsidcode"><code>PUT /api/tags/:id</code></h4>
+<p>
+Updates a tag's name or color.
+</p>
+
+<h4 id="codedelete-apitagsidcode"><code>DELETE /api/tags/:id</code></h4>
+<p>
+Deletes a tag and removes all domain associations.
+</p>
+
+<hr>
+
+<h3 id="whois-refresh-codeapirefreshcode">WHOIS Refresh (<code>/api/refresh/<em></code>)</h3>
+
+<h4 id="codeget-apirefreshstatuscode"><code>GET /api/refresh/status</code></h4>
+<p>
+Returns the current refresh operation state.
+</p>
+
+<pre><code class="language-json">{
+  "isRefreshing": true,
+  "total": 150,
+  "completed": 42,
+  "startTime": 1700000000000,
+  "currentDomain": "example.com"
+}
+</code></pre>
+
+<h4 id="codepost-apirefreshcode"><code>POST /api/refresh</code></h4>
+<p>
+Starts a full WHOIS refresh for all domains. Returns HTTP 409 if a refresh is already running.
+</p>
+
+<strong>Query:</strong> <code>?withHealth=true</code> — also runs health checks after each WHOIS update.
+
+<strong>Response:</strong> <code>{ "success": true, "message": "Refreshing 150 domain(s)...", "total": 150 }</code>
+
+<p>
+Heavy op: rate limited.
+</p>
+
+<h4 id="codepost-apirefreshdomaincode"><code>POST /api/refresh/:domain</code></h4>
+<p>
+Refreshes WHOIS data for a single domain by name.
+</p>
+
+<strong>Query:</strong> <code>?withHealth=true</code> — run health check after.
+
+<hr>
+
+<h3 id="health-checks-codeapihealthcode">Health Checks (<code>/api/health/</em></code>)</h3>
+
+<h4 id="codeget-apihealthcode"><code>GET /api/health</code></h4>
+<strong>Application</strong> health check (for Docker health checks and external monitoring). Not domain health.
+
+<pre><code class="language-json">{
+  "status": "healthy",
+  "timestamp": "2026-02-21T12:00:00.000Z",
+  "database": { "status": "ok", "size_bytes": 4096000 },
+  "smtp": { "status": "ok" },
+  "disk": { "status": "ok", "free_mb": 45000 },
+  "websocket": { "clients": 3 }
+}
+</code></pre>
+
+<p>
+Returns HTTP 503 if the database is unreachable.
+</p>
+
+<h4 id="codeget-apihealthsummarycode"><code>GET /api/health/summary</code></h4>
+<p>
+Returns aggregate counts of health check pass/fail results across all domains.
+</p>
+
+<h4 id="codeget-apihealthdomainidcode"><code>GET /api/health/domain/:id</code></h4>
+<p>
+Returns health check history for a domain.
+</p>
+
+<strong>Query:</strong> <code>?limit=100</code> (max 1000)
+
+<h4 id="codeget-apihealthdomainidlatestcode"><code>GET /api/health/domain/:id/latest</code></h4>
+<p>
+Returns only the most recent health check result for a domain.
+</p>
+
+<h4 id="codepost-apihealthdomainidcode"><code>POST /api/health/domain/:id</code></h4>
+<p>
+Triggers an immediate health check for a specific domain.
+</p>
+
+<strong>Response:</strong> <code>{ "success": true, "health": { /<em> DomainHealth </em>/ } }</code>
+
+<h4 id="codepost-apihealthcheck-allcode"><code>POST /api/health/check-all</code></h4>
+<p>
+Triggers health checks for all non-deleted domains in the background.
+</p>
+
+<p>
+Heavy op: rate limited.
+</p>
+
+<h4 id="codedelete-apihealthcleanupcode"><code>DELETE /api/health/cleanup</code></h4>
+<p>
+Deletes old health records.
+</p>
+
+<strong>Query:</strong> <code>?days=30</code> (default 30, max 365)
+
+<hr>
+
+<h3 id="uptime-monitoring-codeapiuptimecode">Uptime Monitoring (<code>/api/uptime/<em></code>)</h3>
+
+<h4 id="codeget-apiuptimestatuscode"><code>GET /api/uptime/status</code></h4>
+<p>
+Returns the uptime service state: enabled, interval, domains monitored, last run time.
+</p>
+
+<h4 id="codeget-apiuptimestatscode"><code>GET /api/uptime/stats</code></h4>
+<p>
+Returns uptime statistics for all monitored domains. Each entry includes uptime percentage, average response time, total checks, and current status.
+</p>
+
+<h4 id="codeget-apiuptimeheartbeatcode"><code>GET /api/uptime/heartbeat</code></h4>
+<p>
+Returns time-bucketed heartbeat data for all domains.
+</p>
+
+<strong>Query:</strong> <code>?buckets=45</code> (default 45, max 90) — number of time buckets for the visualization bar.
+
+<h4 id="codeget-apiuptimedomainidcode"><code>GET /api/uptime/domain/:id</code></h4>
+<p>
+Returns raw uptime check history for a specific domain.
+</p>
+
+<strong>Query:</strong> <code>?limit=100</code> (max 1000)
+
+<h4 id="codepost-apiuptimedomainidcode"><code>POST /api/uptime/domain/:id</code></h4>
+<p>
+Triggers an immediate uptime check for a specific domain.
+</p>
+
+<h4 id="codepost-apiuptimecheck-allcode"><code>POST /api/uptime/check-all</code></h4>
+<p>
+Triggers uptime checks for all non-deleted domains immediately.
+</p>
+
+<h4 id="codepost-apiuptimerestartcode"><code>POST /api/uptime/restart</code></h4>
+<p>
+Restarts the uptime monitoring loop. Useful after changing the interval setting.
+</p>
+
+<h4 id="codeget-apiuptimeretentionstatscode"><code>GET /api/uptime/retention/stats</code></h4>
+<p>
+Returns log retention statistics: total record counts, oldest/newest entries, and counts broken down by age buckets.
+</p>
+
+<h4 id="codepost-apiuptimeretentioncleanupcode"><code>POST /api/uptime/retention/cleanup</code></h4>
+<p>
+Runs the auto-cleanup immediately (ignoring the normal daily schedule).
+</p>
+
+<h4 id="codedelete-apiuptimeretentionauditdays90code"><code>DELETE /api/uptime/retention/audit?days=90</code></h4>
+<p>
+Deletes audit log entries older than N days (min 1, max 365).
+</p>
+
+<h4 id="codedelete-apiuptimeretentionhealthdays30code"><code>DELETE /api/uptime/retention/health?days=30</code></h4>
+<p>
+Deletes domain_health records older than N days.
+</p>
+
+<h4 id="codedelete-apiuptimeretentionuptimedays30code"><code>DELETE /api/uptime/retention/uptime?days=30</code></h4>
+<p>
+Deletes uptime_checks records older than N days.
+</p>
+
+<hr>
+
+<h3 id="import-export">Import / Export</h3>
+
+<h4 id="codeget-apiimporttemplatecode"><code>GET /api/import/template</code></h4>
+<p>
+Downloads a CSV template file showing the expected import format.
+</p>
+
+<h4 id="codepost-apiimportcsvcode"><code>POST /api/import/csv</code></h4>
+<p>
+Uploads and imports domains from a CSV file.
+</p>
+
+<strong>Content-Type:</strong> <code>multipart/form-data</code> with field name <code>file</code>.
+
+<strong>CSV Format:</strong>
+<pre><code class="language-csv">domain,group,tags
+example.com,Production,"critical,client"
+mysite.org,Staging,
+</code></pre>
+<ul><li data-level="0"><code>group</code> column: group is created automatically if it doesn't exist.</li>
+<li data-level="0"><code>tags</code> column: comma-separated tag names; tags are created if they don't exist.</li>
+<li data-level="0">Domains already in the database are skipped (not overwritten).</li>
+</ul>
+<strong>Response:</strong> <code>{ "success": true, "imported": 45, "skipped": 5, "errors": [] }</code>
+
+<h4 id="codeget-apiexportcsvcode"><code>GET /api/export/csv</code></h4>
+<p>
+Downloads all non-deleted domains as a CSV attachment. Includes domain, registrar, created_date, expiry_date, nameservers, group name, and tags.
+</p>
+
+<h4 id="codeget-apiexportjsoncode"><code>GET /api/export/json</code></h4>
+<p>
+Downloads all non-deleted domains as a JSON array attachment.
+</p>
+
+<hr>
+
+<h3 id="settings-codeapisettingscode">Settings (<code>/api/settings/</em></code>)</h3>
+
+<h4 id="codeget-apisettingscode"><code>GET /api/settings</code></h4>
+<p>
+Returns all current settings as a flat JSON object.
+</p>
+
+<h4 id="codeput-apisettingscode"><code>PUT /api/settings</code></h4>
+<p>
+Updates settings. Accepts a partial object — only provided keys are changed.
+</p>
+
+<p>
+Side effects when specific settings change:
+</p>
+<ul><li data-level="0">SMTP settings changed → <code>reinitializeEmail()</code> called automatically</li>
+<li data-level="0">Uptime interval changed → <code>restartUptimeMonitoring()</code> called automatically</li>
+<li data-level="0">Refresh schedule changed → the cron job is rescheduled immediately</li>
+</ul>
+<h4 id="codepost-apisettingsemailtestcode"><code>POST /api/settings/email/test</code></h4>
+<p>
+Sends a test email to verify SMTP is working.
+</p>
+
+<strong>Body:</strong> <code>{ "to": "test@example.com" }</code>
+
+<h4 id="codepost-apisettingsemailverifycode"><code>POST /api/settings/email/verify</code></h4>
+<p>
+Calls <code>transporter.verify()</code> and returns success/failure with the specific error if any.
+</p>
+
+<h4 id="codeget-apisettingsemailstatuscode"><code>GET /api/settings/email/status</code></h4>
+<p>
+Returns the current email service state (initialized, configured, host, port, etc.).
+</p>
+
+<h4 id="codepost-apisettingsslacktestcode"><code>POST /api/settings/slack/test</code></h4>
+<p>
+Sends a test Slack notification to the configured webhook URL.
+</p>
+
+<h4 id="codepost-apisettingssignaltestcode"><code>POST /api/settings/signal/test</code></h4>
+<p>
+Sends a test Signal message to all configured recipients.
+</p>
+
+<hr>
+
+<h3 id="api-keys-codeapiapikeyscode">API Keys (<code>/api/apikeys/<em></code>)</h3>
+
+<p>
+WHOIS provider API keys. Stored AES-encrypted in the database.
+</p>
+
+<h4 id="codeget-apiapikeyscode"><code>GET /api/apikeys</code></h4>
+<p>
+Returns all API keys. The actual key value is <strong>masked</strong> (shown as <code></em><em><strong>...</code>).
+</p>
+
+<h4 id="codepost-apiapikeyscode"><code>POST /api/apikeys</code></h4>
+<p>
+Adds a new API key.
+</p>
+
+</strong>Body:</em><em> <code>{ "name": "Primary Key", "key": "actual_api_key_value", "provider": "apilayer", "priority": 0 }</code>
+
+<h4 id="codeput-apiapikeysidcode"><code>PUT /api/apikeys/:id</code></h4>
+<p>
+Updates a key's name, priority, or enabled status.
+</p>
+
+<h4 id="codeput-apiapikeysidtogglecode"><code>PUT /api/apikeys/:id/toggle</code></h4>
+<p>
+Toggles a key between enabled and disabled.
+</p>
+
+<h4 id="codedelete-apiapikeysidcode"><code>DELETE /api/apikeys/:id</code></h4>
+<p>
+Permanently deletes an API key.
+</p>
+
+<hr>
+
+<h3 id="users-codeapiuserscode">Users (<code>/api/users/</em></code>)</h3>
+
+<strong>Admin role required</strong> for all endpoints.
+
+<h4 id="codeget-apiuserscode"><code>GET /api/users</code></h4>
+<p>
+Returns all user accounts. Password hashes are never included in the response.
+</p>
+
+<h4 id="codepost-apiuserscode"><code>POST /api/users</code></h4>
+<p>
+Creates a new user account.
+</p>
+
+<strong>Body:</strong> <code>{ "username": "alice", "password": "secure_password", "role": "manager" }</code>
+
+<p>
+Roles: <code>admin</code>, <code>manager</code>, <code>viewer</code>.
+</p>
+
+<h4 id="codeput-apiusersidcode"><code>PUT /api/users/:id</code></h4>
+<p>
+Updates a user. Supported fields: <code>role</code>, <code>enabled</code>, <code>password</code>.
+</p>
+
+<h4 id="codedelete-apiusersidcode"><code>DELETE /api/users/:id</code></h4>
+<p>
+Deletes a user account. Safeguard: cannot delete the last remaining admin account.
+</p>
+
+<hr>
+
+<h3 id="audit-log-codeapiauditcode">Audit Log (<code>/api/audit/<em></code>)</h3>
+
+<h4 id="codeget-apiauditcode"><code>GET /api/audit</code></h4>
+<p>
+Returns paginated audit log entries with optional filters.
+</p>
+
+<strong>Query Parameters:</strong>
+
+<table><tr><td>Parameter</td><td>Description</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>entity_type</code></td><td><code>domain</code>, <code>group</code>, <code>tag</code>, <code>settings</code>, <code>apikey</code>, <code>user</code>, <code>system</code></td></tr>
+<tr><td><code>entity_id</code></td><td>Specific entity identifier</td></tr>
+<tr><td><code>action</code></td><td><code>create</code>, <code>update</code>, <code>delete</code>, <code>refresh</code>, <code>import</code>, <code>login</code>, <code>logout</code>, <code>health_check</code>, <code>scheduled</code></td></tr>
+<tr><td><code>start_date</code></td><td>ISO date range start</td></tr>
+<tr><td><code>end_date</code></td><td>ISO date range end</td></tr>
+<tr><td><code>page</code></td><td>Page number</td></tr>
+<tr><td><code>limit</code></td><td>Results per page (max 500)</td></tr>
+</table>
+<strong>Response:</strong>
+<pre><code class="language-json">{
+  "entries": [/* AuditEntry objects with performed_by */],
+  "total": 1234,
+  "page": 1,
+  "limit": 50,
+  "totalPages": 25
+}
+</code></pre>
+
+<h4 id="codeget-apiauditentitytypeentityidcode"><code>GET /api/audit/:entityType/:entityId</code></h4>
+<p>
+Returns the complete audit trail for a specific entity (e.g. all events for <code>domain</code> / <code>example.com</code>).
+</p>
+
+<h4 id="codedelete-apiauditcleanupdays90code"><code>DELETE /api/audit/cleanup?days=90</code></h4>
+<p>
+Deletes audit entries older than N days (min 7, max 365).
+</p>
+
+<hr>
+
+<h3 id="webhooks-codeapiwebhookscode">Webhooks (<code>/api/webhooks/</em></code>)</h3>
+
+<h4 id="codeget-apiwebhookscode"><code>GET /api/webhooks</code></h4>
+<p>
+Returns all configured webhooks.
+</p>
+
+<h4 id="codeget-apiwebhooksidcode"><code>GET /api/webhooks/:id</code></h4>
+<p>
+Returns a single webhook.
+</p>
+
+<h4 id="codeget-apiwebhooksiddeliveriescode"><code>GET /api/webhooks/:id/deliveries</code></h4>
+<p>
+Returns the last 100 delivery attempts for a webhook.
+</p>
+
+<h4 id="codepost-apiwebhookscode"><code>POST /api/webhooks</code></h4>
+<p>
+Creates a webhook.
+</p>
+
+<strong>Body:</strong>
+<pre><code class="language-json">{
+  "name": "Alert Receiver",
+  "url": "https://hooks.example.com/receive",
+  "secret": "my-hmac-secret",
+  "events": ["domain.expiring", "uptime.down", "uptime.recovered"]
+}
+</code></pre>
+
+<p>
+Available events: <code>domain.expiring</code>, <code>domain.expired</code>, <code>health.failed</code>, <code>uptime.down</code>, <code>uptime.recovered</code>, <code>refresh.complete</code>, <code>domain.created</code>, <code>domain.deleted</code>.
+</p>
+
+<h4 id="codeput-apiwebhooksidcode"><code>PUT /api/webhooks/:id</code></h4>
+<p>
+Updates a webhook's name, URL, secret, events, or enabled status.
+</p>
+
+<h4 id="codedelete-apiwebhooksidcode"><code>DELETE /api/webhooks/:id</code></h4>
+<p>
+Deletes a webhook and its full delivery history.
+</p>
+
+<h4 id="codepost-apiwebhookstestidcode"><code>POST /api/webhooks/test/:id</code></h4>
+<p>
+Sends a test payload to the webhook endpoint immediately.
+</p>
+
+<hr>
+
+<h3 id="metrics-codeapimetricscode">Metrics (<code>/api/metrics</code>)</h3>
+
+<h4 id="codeget-apimetricscode"><code>GET /api/metrics</code></h4>
+<p>
+Returns operational metrics for monitoring dashboards, Prometheus exporters, or uptime checkers.
+</p>
+
+<pre><code class="language-json">{
+  "timestamp": "2026-02-21T12:00:00Z",
+  "domains": {
+    "total": 150, "error": 3, "expired": 1,
+    "expiring_30d": 8, "unchecked": 0, "healthy": 146
+  },
+  "health_checks_24h": { "total": 150, "up": 147, "down": 3, "avg_response_time_ms": 245 },
+  "uptime_checks_24h": { "total": 4320, "up": 4300, "down": 20, "uptime_pct": 99.54 },
+  "audit_events_24h": 42,
+  "websocket": { "connected_clients": 2 },
+  "refresh": { "is_running": false, "completed": 150, "total": 150 },
+  "email": { "configured": true, "initialized": true },
+  "database": { "size_bytes": 4194304 }
+}
+</code></pre>
+
+<hr>
+
+<h3 id="rss-feed-codeapifeedrsscode">RSS Feed (<code>/api/feed.rss</code>)</h3>
+
+<h4 id="codeget-apifeedrsscode"><code>GET /api/feed.rss</code></h4>
+<p>
+Returns an RSS 2.0 feed of domains expiring within the next 90 days, sorted by expiry date ascending. Suitable for subscribing in an RSS reader to receive passive expiration reminders.
+</p>
+
+<hr>
+
+<h3 id="public-status-codeapistatuscode">Public Status (<code>/api/status</code>)</h3>
+
+<strong>No authentication required.</strong> Subject to standard rate limiting.
+
+<h4 id="codeget-apistatuscode"><code>GET /api/status</code></h4>
+<p>
+Returns aggregate health and expiry status for the public status page.
+</p>
+
+<pre><code class="language-json">{
+  "total": 150,
+  "healthy": 142,
+  "expired": 1,
+  "expiring_30d": 8,
+  "has_errors": 3,
+  "groups": [
+    {
+      "id": 1, "name": "Production", "color": "#6366f1",
+      "domain_count": 25, "expiring_30d_count": 2,
+      "expiry": { "expiring_30d": 2, "expired": 0 },
+      "health": {
+        "dns_ok": 24, "dns_fail": 1,
+        "http_ok": 23, "http_fail": 2,
+        "ssl_ok": 22, "ssl_fail": 3
+      }
+    }
+  ],
+  "uptime": { "total": 150, "up": 147, "down": 3, "unknown": 0 }
+}
+</code></pre>
+
+<p>
+Per-group health is computed by a correlated subquery that selects the latest <code>domain_health</code> row per domain, then aggregates DNS/HTTP/SSL pass/fail counts per group.
+</p>
+
+<hr>
+
+<h2 id="10-websocket-protocol">10. WebSocket Protocol</h2>
+
+<p>
+Connect to <code>ws://hostname:port/ws</code> (same host and port as the HTTP server, no separate port).
+</p>
+
+<h3 id="client-connection-example">Client Connection Example</h3>
+
+<pre><code class="language-javascript">const ws = new WebSocket(`ws://${location.host}/ws`);
+
+ws.onmessage = (event) =&gt; {
+  const msg = JSON.parse(event.data);
+  switch (msg.type) {
+    case 'refresh_progress': updateProgressBar(msg.payload); break;
+    case 'refresh_complete': reloadDomainTable(); break;
+    case 'domain_updated':   updateTableRow(msg.payload); break;
+    case 'health_update':    updateHealthDots(msg.payload); break;
+    case 'error':            showToast(msg.payload.message); break;
+  }
+};
+
+ws.onclose = () =&gt; setTimeout(connectWebSocket, 2000); // auto-reconnect
+</code></pre>
+
+<h3 id="message-reference">Message Reference</h3>
+
+<table><tr><td><code>type</code></td><td><code>payload</code> shape</td><td>Purpose</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>connected</code></td><td><code>{ timestamp: number, message: string }</code></td><td>Confirms connection established</td></tr>
+<tr><td><code>refresh_progress</code></td><td><code>{ isRefreshing, total, completed, currentDomain, timestamp }</code></td><td>Update progress bar during bulk refresh</td></tr>
+<tr><td><code>refresh_complete</code></td><td><code>{ total: number, duration: number, timestamp: number }</code></td><td>Hide progress bar, reload table</td></tr>
+<tr><td><code>domain_updated</code></td><td>Full <code>Domain</code> object</td><td>Update a specific row without full reload</td></tr>
+<tr><td><code>domain_added</code></td><td><code>{ domainId: number, domain: string, timestamp: number }</code></td><td>Reload table to show new domain</td></tr>
+<tr><td><code>health_update</code></td><td><code>{ domainId: number, health: DomainHealth }</code></td><td>Update health status dots for one domain</td></tr>
+<tr><td><code>error</code></td><td><code>{ message: string, timestamp: number }</code></td><td>Show error toast notification</td></tr>
+</table>
+<p>
+The server pings clients every 30 seconds. Clients that don't pong within the interval are terminated. The <code>app.js</code> frontend reconnects automatically on any disconnect with a 2-second delay.
+</p>
+
+<hr>
+
+<h2 id="11-validation-schemas">11. Validation Schemas</h2>
+
+<p>
+All defined in <code>src/config/schema.ts</code> using Zod 4. Used exclusively via <code>validateBody()</code> / <code>validateQuery()</code> middleware.
+</p>
+
+<table><tr><td>Schema</td><td>Used For</td><td>Key Rules</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>domainSchema</code></td><td><code>POST /api/domains</code></td><td>RFC-compliant domain regex, lowercase normalization</td></tr>
+<tr><td><code>groupSchema</code></td><td><code>POST /api/groups</code></td><td>name 1–100 chars, color must be valid hex</td></tr>
+<tr><td><code>updateGroupSchema</code></td><td><code>PUT /api/groups/:id</code></td><td>All fields optional</td></tr>
+<tr><td><code>tagSchema</code></td><td><code>POST /api/tags</code></td><td>Same rules as group</td></tr>
+<tr><td><code>settingsSchema</code></td><td><code>PUT /api/settings</code></td><td>Validates every possible settings key with its correct type</td></tr>
+<tr><td><code>loginSchema</code></td><td><code>POST /api/auth/login</code></td><td>username and password required strings</td></tr>
+<tr><td><code>apiKeySchema</code></td><td><code>POST /api/apikeys</code></td><td>key string required, priority 0–100</td></tr>
+<tr><td><code>assignGroupSchema</code></td><td><code>POST /api/domains/:id/group</code></td><td>group_id: number or null</td></tr>
+<tr><td><code>assignTagsSchema</code></td><td><code>PUT /api/domains/:id/tags</code></td><td>tag_ids: number[]</td></tr>
+<tr><td><code>bulkIdsSchema</code></td><td>Bulk delete, bulk refresh</td><td>domain_ids: non-empty number[]</td></tr>
+<tr><td><code>bulkAssignGroupSchema</code></td><td><code>POST /api/domains/bulk/group</code></td><td>domain_ids[] + group_id</td></tr>
+<tr><td><code>bulkAssignTagsSchema</code></td><td><code>POST /api/domains/bulk/tags</code></td><td>domain_ids[] + tag_ids[]</td></tr>
+<tr><td><code>paginationSchema</code></td><td>Reused across paginated GET endpoints</td><td>page ≥ 1, limit 1–200</td></tr>
+<tr><td><code>auditQuerySchema</code></td><td><code>GET /api/audit</code></td><td>Optional entity_type, action, date range, pagination</td></tr>
+</table>
+<hr>
+
+<h2 id="12-typescript-types">12. TypeScript Types</h2>
+
+<h3 id="codesrctypesdomaintscode"><code>src/types/domain.ts</code></h3>
+
+<pre><code class="language-typescript">interface Domain {
+  id?: number;
+  domain: string;
+  registrar: string;
+  created_date: string;
+  expiry_date: string;
+  name_servers: string[];
+  name_servers_prev: string[];
+  last_checked: string | null;
+  error: string | null;
+  group_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+}
+
+interface DomainWithRelations extends Domain {
+  group?: Group | null;
+  tags?: Tag[];
+  health?: DomainHealth | null;
+  uptime?: UptimeStats | null;
+}
+
+interface Group {
+  id?: number;
+  name: string;
+  color: string;
+  description?: string | null;
+  domain_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface Tag {
+  id?: number;
+  name: string;
+  color: string;
+  created_at?: string;
+}
+
+interface DomainHealth {
+  id?: number;
+  domain_id: number;
+  dns_resolved: boolean;
+  dns_response_time_ms: number | null;
+  dns_records: string[];
+  http_status: number | null;
+  http_response_time_ms: number | null;
+  ssl_valid: boolean | null;
+  ssl_expires: string | null;
+  ssl_issuer: string | null;
+  checked_at: string;
+}
+</code></pre>
+
+<h3 id="codesrctypesapitscode"><code>src/types/api.ts</code></h3>
+
+<pre><code class="language-typescript">interface ApiResponse&lt;T = unknown&gt; {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
+interface PaginatedResponse&lt;T&gt; extends ApiResponse&lt;T[]&gt; {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages?: number;
+}
+
+interface RefreshStatus {
+  isRefreshing: boolean;
+  total: number;
+  completed: number;
+  startTime: number | null;
+  currentDomain?: string;
+}
+
+interface UptimeStats {
+  domain_id: number;
+  domain: string;
+  uptime_percentage: number;
+  avg_response_time_ms: number;
+  total_checks: number;
+  successful_checks: number;
+  last_check: string | null;
+  current_status: 'up' | 'down' | 'unknown';
+}
+
+type UserRole = 'admin' | 'manager' | 'viewer';
+
+// Express Request with authentication properties attached by auth middleware
+interface AuthenticatedRequest extends Request {
+  username?: string;
+  userRole?: UserRole;
+  isAuthenticated?: boolean;
+}
+</code></pre>
+
+<h3 id="codesrctypesaudittscode"><code>src/types/audit.ts</code></h3>
+
+<pre><code class="language-typescript">type EntityType = 'domain' | 'group' | 'tag' | 'settings' | 'apikey' | 'user' | 'system';
+type AuditAction = 'create' | 'update' | 'delete' | 'refresh' | 'import'
+                 | 'login' | 'logout' | 'health_check' | 'scheduled';
+
+interface AuditEntry {
+  id?: number;
+  entity_type: EntityType;
+  entity_id: string;
+  action: AuditAction;
+  old_value?: string | null;
+  new_value?: string | null;
+  ip_address?: string;
+  user_agent?: string;
+  performed_by?: string;   // Username of the actor; null for background/system actions
+  created_at?: string;
+}
+</code></pre>
+
+<hr>
+
+<h2 id="13-frontend-spa">13. Frontend (SPA)</h2>
+
+<p>
+The frontend is a <strong>vanilla JavaScript single-page application</strong> with no build step, no framework, and no bundler. All files in <code>public/</code> are served as-is by Express's static middleware.
+</p>
+
+<h3 id="codeappjscode-overview"><code>app.js</code> Overview</h3>
+
+<code>app.js</code> is ~4,000 lines organized into these functional areas:
+
+<h4 id="global-state">Global State</h4>
+
+<pre><code class="language-javascript">const state = {
+  domains: [],      // Full unfiltered domain list (used for alerts and widgets)
+  groups: [],       // All groups
+  tags: [],         // All tags
+  settings: {},     // Current settings
+  page: 1,          // Current pagination page
+  limit: 50,        // Rows per page
+  filters: {},      // Active filter set (search, status, group, etc.)
+  sort: {},         // Active sort column and direction
+};
+</code></pre>
+
+<h4 id="main-data-load-codeloadcode">Main Data Load (<code>load()</code>)</h4>
+
+<p>
+Called on page load and after any data-changing operation:
+</p>
+<ol><li>Fetches <code>GET /api/domains?include=all</code> with current filters and pagination.</li>
+<li>Fetches <code>GET /api/groups</code> and <code>GET /api/tags</code>.</li>
+<li>Renders the domain table rows.</li>
+<li>Updates all stat counters (total, expiring, expired, errors).</li>
+<li>Updates dashboard widgets: <code>updateGroupsStatusWidget()</code>, <code>updateMammothWidget()</code>, <code>updateUptimeWidget()</code>, <code>updateCriticalAlerts()</code>, <code>updateCharts()</code>.</li>
+</ol>
+<h4 id="websocket-connection">WebSocket Connection</h4>
+
+<p>
+Connects to <code>ws://host/ws</code> on load. On message:
+</p>
+<ul><li data-level="0"><code>domain_updated</code> → finds the matching table row and updates it in place (or full reload if not currently visible).</li>
+<li data-level="0"><code>domain_added</code> → triggers <code>load()</code>.</li>
+<li data-level="0"><code>refresh_progress</code> → updates the refresh progress bar and current-domain label in the header.</li>
+<li data-level="0"><code>refresh_complete</code> → hides the progress bar, calls <code>load()</code>.</li>
+<li data-level="0"><code>health_update</code> → updates the DNS/HTTP/SSL status dots on the matching domain row.</li>
+<li data-level="0"><code>error</code> → shows a toast notification.</li>
+</ul>
+<p>
+Reconnects automatically with a 2-second delay on any disconnect.
+</p>
+
+<h4 id="audit-log-rendering">Audit Log Rendering</h4>
+
+<code>formatAuditLog(log)</code> converts a raw audit entry into a human-readable object with <code>{ message, details, icon, className }</code>:
+
+<table><tr><td>Action + Entity</td><td>Example Output</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>create</code> + <code>domain</code></td><td>"Domain example.com added"</td></tr>
+<tr><td><code>delete</code> + <code>domain</code></td><td>"Domain example.com deleted"</td></tr>
+<tr><td><code>refresh</code> + <code>system</code></td><td>"Bulk WHOIS refresh: 150 domains"</td></tr>
+<tr><td><code>login</code> + <code>system</code></td><td>"User logged in"</td></tr>
+<tr><td><code>import</code> + <code>system</code></td><td>"45 domains imported (2 skipped)"</td></tr>
+<tr><td><code>create</code> + <code>group</code></td><td>"Group Production created"</td></tr>
+<tr><td><code>health_check</code> + <code>domain</code></td><td>"Health check for example.com"</td></tr>
+</table>
+<p>
+The <code>performed_by</code> field renders as a user chip: <code><span class="audit-performer"><i class="fa-solid fa-user"></i> admin</span></code>.
+</p>
+
+<h4 id="alert-deduplication">Alert Deduplication</h4>
+
+<code>updateCriticalAlerts()</code> always computes alerts from <code>alertSource</code>, which is <code>state.domains</code> (the full unfiltered domain list) — never from the currently displayed page. A <code>seenAlerts = new Set()</code> keyed by <code>${domain}:${type}</code> prevents duplicates within a single render pass. Alert types:
+
+<table><tr><td>Alert</td><td>Condition</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>expired</code></td><td><code>expiry_date</code> is in the past</td></tr>
+<tr><td><code>expiring</code></td><td><code>expiry_date</code> is within 15 days</td></tr>
+<tr><td><code>down</code></td><td><code>uptime.current_status === 'down'</code></td></tr>
+<tr><td><code>ns_changed</code></td><td><code>name_servers</code> differs from <code>name_servers_prev</code></td></tr>
+<tr><td><code>dns_fail</code></td><td><code>health.dns_resolved === false</code></td></tr>
+<tr><td><code>ssl_fail</code></td><td><code>health.ssl_valid === false</code></td></tr>
+</table>
+<p>
+Each alert is a clickable link that applies a filter to show the relevant domain in the table.
+</p>
+
+<hr>
+
+<h3 id="css-architecture">CSS Architecture</h3>
+
+<p>
+CSS is split into 12 focused files, all loaded via <code><link></code> tags in <code>index.html</code>. There is no CSS preprocessor or build step.
+</p>
+
+<table><tr><td>File</td><td>Responsibility</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>tokens.css</code></td><td>All CSS custom properties: <code>--bg-primary</code>, <code>--accent</code>, <code>--text-muted</code>, <code>--shadow-md</code>, etc. Edit this file to retheme the entire app.</td></tr>
+<tr><td><code>base.css</code></td><td>Universal box-sizing, body font, scrollbar styling, link colors</td></tr>
+<tr><td><code>layout.css</code></td><td>Left sidebar + main content area grid, responsive breakpoints</td></tr>
+<tr><td><code>components.css</code></td><td><code>.btn</code>, <code>.badge</code>, <code>.alert</code>, <code>.card</code>, <code>.stat-card</code></td></tr>
+<tr><td><code>forms.css</code></td><td><code>input</code>, <code>select</code>, <code>textarea</code>, <code>.form-group</code>, validation state styles</td></tr>
+<tr><td><code>modals.css</code></td><td><code>.modal-overlay</code>, <code>.modal</code>, close button, modal animations</td></tr>
+<tr><td><code>notifications.css</code></td><td><code>.toast</code> slide-in/out notification system</td></tr>
+<tr><td><code>table.css</code></td><td>Domain table, <code>.th-sortable</code> sort indicators, <code>.pagination</code> controls</td></tr>
+<tr><td><code>dashboard.css</code></td><td><code>.charts-area</code> widget grid, <code>.chart-card</code>, groups-status widget, mammoth widget, stat widgets</td></tr>
+<tr><td><code>uptime.css</code></td><td><code>.heartbeat-bar</code>, <code>.heartbeat-cell</code>, <code>.uptime-status-dot</code></td></tr>
+<tr><td><code>pages.css</code></td><td>Page-specific overrides for audit log (<code>.audit-performer</code>, <code>.audit-details</code>), settings, health views</td></tr>
+<tr><td><code>webhooks.css</code></td><td>Webhook configuration form rows, delivery status chips</td></tr>
+</table>
+<hr>
 
 <h3 id="dashboard-widgets">Dashboard Widgets</h3>
 
-<h4 id="site-status-widget">Site Status Widget</h4>
 <p>
-Shows three big numbers:<ul><li data-level="0"><strong>Sites Up</strong> (green) - Websites responding normally</li></ul><ul><li data-level="0"><strong>Sites Down</strong> (red) - Websites not responding</li></ul><ul><li data-level="0"><strong>Unknown</strong> (gray) - No uptime data yet</li></ul>
+The dashboard has four draggable widget cards (<code>div.chart-card[data-widget-id]</code>) that can be reordered by drag-and-drop. Order is persisted in <code>localStorage</code>.
 </p>
 
-<h4 id="critical-alerts-widget">Critical Alerts Widget</h4>
+<h4 id="site-status-codedata-widget-id"uptime"</code>)">Site Status (<code>data-widget-id="uptime"</code>)</h4>
 <p>
-Lists urgent issues requiring attention:<ul><li data-level="0">Expired domains</li></ul><ul><li data-level="0">Domains expiring in < 15 days</li></ul><ul><li data-level="0">Sites that are down</li></ul><ul><li data-level="0">Nameserver changes detected</li></ul><ul><li data-level="0">DNS resolution failures</li></ul><ul><li data-level="0">Invalid SSL certificates</li></ul>
+Three large counters: <strong>Up</strong> / <strong>Down</strong> / <strong>Unknown</strong>. Counts derived from <code>uptime.current_status</code> across all domains. Updated by <code>updateUptimeWidget(domains)</code>.
 </p>
 
-<h4 id="health-status-chart">Health Status Chart</h4>
+<h4 id="critical-alerts-codedata-widget-id"alerts"</code>)">Critical Alerts (<code>data-widget-id="alerts"</code>)</h4>
 <p>
-Pie chart showing:<ul><li data-level="0">DNS OK vs DNS Failed</li></ul><ul><li data-level="0">HTTP OK vs HTTP Failed</li></ul><ul><li data-level="0">SSL Valid vs SSL Invalid</li></ul>
+Actionable alert list. Updated by <code>updateCriticalAlerts(domains)</code>. Always computed from the full domain list (not the current page). Deduplicated by <code>domain:type</code> key. Each alert links to a filtered view of the domain table.
 </p>
 
-<h4 id="expiry-timeline">Expiry Timeline</h4>
+<h4 id="sites-per-group-codedata-widget-id"groups-status"</code>)">Sites per Group (<code>data-widget-id="groups-status"</code>)</h4>
 <p>
-Bar chart showing how many domains expire each month for the next 6 months.
+One row per named group (empty groups and "ungrouped" excluded). Each row shows:
+</p>
+<ul><li data-level="0">Colored group indicator dot</li>
+<li data-level="0">Group name</li>
+<li data-level="0">Domain count</li>
+<li data-level="0">Status pill: <strong>Issues</strong> (red) if any domain in the group has an error or expired status, <strong>OK</strong> (green) otherwise</li>
+</ul>
+<p>
+Updated by <code>updateGroupsStatusWidget(domains)</code>.
 </p>
 
-<h4 id="activity-log">Activity Log</h4>
+<h4 id="mammoth-codedata-widget-id"mammoth"</code>)">Mammoth (<code>data-widget-id="mammoth"</code>)</h4>
 <p>
-Real-time feed of recent actions:<ul><li data-level="0">Domains added/deleted</li></ul><ul><li data-level="0">WHOIS refreshes</li></ul><ul><li data-level="0">Health checks</li></ul><ul><li data-level="0">Settings changes</li></ul>
+Scoped to the group named "Mammoth" (case-insensitive). Shows:
+</p>
+<ul><li data-level="0"><strong>Up / Down / Unknown</strong> counts from <code>uptime.current_status</code></li>
+<li data-level="0"><strong>DNS / HTTP / SSL</strong> health chips with ok/fail counts from the latest health check per domain</li>
+</ul>
+<p>
+Updated by <code>updateMammothWidget(domains)</code>.
 </p>
 
-<h3 id="domain-table">Domain Table</h3>
-
+<h4 id="expiry-timeline-non-draggable-bottom">Expiry Timeline (non-draggable, bottom)</h4>
 <p>
-Each row shows:
-</p>
-
-<table><tr><td>Column</td><td>What it shows</td></tr></table>
-<p>
-__TABLE_HEADER__
-</p>
-<table><tr><td><strong>Checkbox</strong></td><td>Select for bulk operations</td></tr></table>
-<table><tr><td><strong>Domain</strong></td><td>Domain name (click to view details)</td></tr></table>
-<table><tr><td><strong>Uptime</strong></td><td>Heartbeat bar + percentage + current status</td></tr></table>
-<table><tr><td><strong>Health</strong></td><td>Three dots for DNS/HTTP/SSL (green=ok, red=error)</td></tr></table>
-<table><tr><td><strong>Registrar</strong></td><td>Who the domain is registered with</td></tr></table>
-<table><tr><td><strong>Expires</strong></td><td>Expiration date</td></tr></table>
-<table><tr><td><strong>Days Left</strong></td><td>Days until expiration (color-coded)</td></tr></table>
-<table><tr><td><strong>Nameservers</strong></td><td>Current DNS servers</td></tr></table>
-<table><tr><td><strong>NS Status</strong></td><td>Stable/Changed/Pending with validate button</td></tr></table>
-<table><tr><td><strong>Last Checked</strong></td><td>When WHOIS was last refreshed</td></tr></table>
-<table><tr><td><strong>Actions</strong></td><td>Refresh, Health Check, Delete buttons</td></tr></table>
-
-<h3 id="adding-domains">Adding Domains</h3>
-
-<strong>Single Domain:</strong>
-<ol><li>Type domain in the input field (e.g., </code>example.com<code>)</li></ol>
-<ol><li>Optionally select a Group from dropdown</li></ol>
-<ol><li>Optionally select a Tag from dropdown</li></ol>
-<ol><li>Click "Add"</li></ol>
-
-<strong>Bulk Add:</strong>
-<ol><li>Click the layers icon next to Add button</li></ol>
-<ol><li>Enter multiple domains (one per line or comma-separated)</li></ol>
-<ol><li>Click "Add Domains"</li></ol>
-
-<strong>CSV Import:</strong>
-<ol><li>Go to Settings > Import/Export</li></ol>
-<ol><li>Download the CSV template</li></ol>
-<ol><li>Fill in your domains</li></ol>
-<ol><li>Upload the file</li></ol>
-
-<h3 id="filtering-sorting">Filtering & Sorting</h3><ul><li data-level="1"><strong>Search</strong> - Type to filter by domain name, registrar, or nameservers</li></ul><ul><li data-level="0"><strong>Status Filter</strong> - Show only expired, expiring soon, or healthy</li></ul><ul><li data-level="0"><strong>Group Filter</strong> - Show only domains in a specific group</li></ul><ul><li data-level="0"><strong>Registrar Filter</strong> - Show only domains from a specific registrar</li></ul><ul><li data-level="0"><strong>Column Headers</strong> - Click to sort ascending/descending</li></ul>
-
-<hr>
-
-<h2 id="configuration">Configuration</h2>
-
-<h3 id="environment-variables">Environment Variables</h3>
-
-<p>
-Create a </code>.env<code> file with these settings:
-</p>
-
-<h4 id="required-settings">Required Settings</h4>
-
-</code>`<code>env
-<h1>WHOIS API Key (get free at apilayer.com)</h1>
-<p>
-APILAYER_KEY=your_api_key_here
-</code>`<code>
-</p>
-
-<h4 id="server-settings">Server Settings</h4>
-
-</code>`<code>env
-<p>
-PORT=3000                    # Port to run on
-NODE_ENV=production          # production or development
-</code>`<code>
-</p>
-
-<h4 id="authentication-optional">Authentication (Optional)</h4>
-
-</code>`<code>env
-<p>
-AUTH_ENABLED=true            # Enable login requirement
-ADMIN_USERNAME=admin         # Login username
-ADMIN_PASSWORD=secure123     # Login password
-SESSION_SECRET=random-string # Cookie signing secret
-</code>`<code>
-</p>
-
-<h4 id="email-alerts-optional">Email Alerts (Optional)</h4>
-
-</code>`<code>env
-<p>
-SMTP_HOST=smtp.gmail.com     # SMTP server
-SMTP_PORT=587                # Usually 587 (TLS) or 465 (SSL)
-SMTP_SECURE=false            # true for port 465
-SMTP_USER=your@email.com     # SMTP username
-SMTP_PASS=app-password       # SMTP password
-SMTP_FROM=Domain Monitor <alerts@example.com>
-</code>`<code>
-</p>
-
-<h4 id="logging-optional">Logging (Optional)</h4>
-
-</code>`<code>env
-<p>
-LOG_LEVEL=info               # debug, info, warn, error
-LOG_TO_FILE=false            # Write logs to file
-LOG_DIR=./logs               # Log directory
-</code>`<code>
-</p>
-
-<h3 id="in-app-settings">In-App Settings</h3>
-
-<p>
-Access via Settings button (gear icon):
-</p>
-
-<h4 id="general-tab">General Tab</h4><ul><li data-level="0"><strong>Refresh Schedule</strong> - Cron expression for WHOIS refresh (default: Sunday 2 AM)</li></ul>
-
-<h4 id="email-tab">Email Tab</h4><ul><li data-level="0"><strong>Enable Email Alerts</strong> - Toggle on/off</li></ul><ul><li data-level="0"><strong>Recipients</strong> - Comma-separated email addresses</li></ul><ul><li data-level="0"><strong>Alert Days</strong> - Days before expiry to send alerts (e.g., 7, 14, 30)</li></ul><ul><li data-level="0"><strong>Test Email</strong> - Send a test to verify configuration</li></ul>
-
-<h4 id="uptime-tab">Uptime Tab</h4><ul><li data-level="0"><strong>Enable Monitoring</strong> - Toggle on/off</li></ul><ul><li data-level="0"><strong>Check Interval</strong> - How often to ping (1-60 minutes)</li></ul><ul><li data-level="0"><strong>Alert Threshold</strong> - Consecutive failures before alerting</li></ul>
-
-<h4 id="retention-tab">Retention Tab</h4><ul><li data-level="0"><strong>Auto Cleanup</strong> - Enable automatic log deletion</li></ul><ul><li data-level="0"><strong>Audit Log Retention</strong> - Days to keep audit logs (default: 90)</li></ul><ul><li data-level="0"><strong>Health Log Retention</strong> - Days to keep health checks (default: 30)</li></ul>
-
-<h4 id="groups-tab">Groups Tab</h4><ul><li data-level="0">Create, edit, delete domain groups</li></ul><ul><li data-level="0">Assign colors for visual organization</li></ul>
-
-<h4 id="tags-tab">Tags Tab</h4><ul><li data-level="0">Create, edit, delete domain tags</li></ul><ul><li data-level="0">Assign colors for quick identification</li></ul>
-
-<h4 id="api-keys-tab">API Keys Tab</h4><ul><li data-level="0">Add WHOIS API keys from multiple providers</li></ul><ul><li data-level="0">Set priority order for key usage</li></ul><ul><li data-level="0">Enable/disable individual keys</li></ul>
-
-<hr>
-
-<h2 id="api-reference">API Reference</h2>
-
-<p>
-All API endpoints are under </code>/api/<code>. Authentication required for write operations if </code>AUTH_ENABLED=true<code>.
-</p>
-
-<h3 id="domains">Domains</h3>
-
-</code>`<code>http
-<h1>List all domains (with optional filters)</h1>
-<p>
-GET /api/domains?include=all&page=1&limit=50&search=example
-</p>
-
-<h1>Add single domain</h1>
-<p>
-POST /api/domains
-{ "domain": "example.com", "group_id": 1 }
-</p>
-
-<h1>Get domain details</h1>
-<p>
-GET /api/domains/:id
-</p>
-
-<h1>Delete domain</h1>
-<p>
-DELETE /api/domains/:domain
-</p>
-
-<h1>Validate NS change (acknowledge)</h1>
-<p>
-POST /api/domains/:id/validate-ns
-</p>
-
-<h1>Assign group</h1>
-<p>
-POST /api/domains/:id/group
-{ "group_id": 1 }
-</p>
-
-<h1>Assign tags</h1>
-<p>
-PUT /api/domains/:id/tags
-{ "tag_ids": [1, 2, 3] }
-</code>`<code>
-</p>
-
-<h3 id="groups">Groups</h3>
-
-</code>`<code>http
-<p>
-GET /api/groups              # List all groups
-POST /api/groups             # Create group { "name": "...", "color": "#..." }
-PUT /api/groups/:id          # Update group
-DELETE /api/groups/:id       # Delete group
-</code>`<code>
-</p>
-
-<h3 id="tags">Tags</h3>
-
-</code>`<code>http
-<p>
-GET /api/tags                # List all tags
-POST /api/tags               # Create tag { "name": "...", "color": "#..." }
-DELETE /api/tags/:id         # Delete tag
-POST /api/domains/:id/tags/:tagId    # Add tag to domain
-DELETE /api/domains/:id/tags/:tagId  # Remove tag from domain
-</code>`<code>
-</p>
-
-<h3 id="whois-refresh">WHOIS Refresh</h3>
-
-</code>`<code>http
-<p>
-GET /api/refresh/status      # Get refresh progress
-POST /api/refresh            # Refresh all domains
-POST /api/refresh/:domain    # Refresh single domain
-</code>`<code>
-</p>
-
-<h3 id="health-checks">Health Checks</h3>
-
-</code>`<code>http
-<p>
-GET /api/health                      # App health status
-GET /api/health/summary              # Health summary counts
-GET /api/health/domain/:id           # Domain health history
-POST /api/health/domain/:id          # Run health check
-POST /api/health/check-all           # Check all domains
-</code>`<code>
-</p>
-
-<h3 id="uptime">Uptime</h3>
-
-</code>`<code>http
-<p>
-GET /api/uptime/stats                # All domain uptime stats
-GET /api/uptime/domain/:id           # Domain uptime history
-POST /api/uptime/domain/:id          # Run uptime check
-POST /api/uptime/restart             # Restart monitoring service
-</code>`<code>
-</p>
-
-<h3 id="importexport">Import/Export</h3>
-
-</code>`<code>http
-<p>
-GET /api/import/template             # Download CSV template
-POST /api/import/csv                 # Upload CSV (multipart/form-data)
-GET /api/export/csv                  # Download domains as CSV
-GET /api/export/json                 # Download domains as JSON
-</code>`<code>
-</p>
-
-<h3 id="settings">Settings</h3>
-
-</code>`<code>http
-<p>
-GET /api/settings                    # Get all settings
-PUT /api/settings                    # Update settings
-POST /api/settings/email/test        # Send test email
-</code>`<code>
-</p>
-
-<h3 id="audit-log">Audit Log</h3>
-
-</code>`<code>http
-<p>
-GET /api/audit?limit=100&entity_type=domain&action=create
-</code>`<code>
-</p>
-
-<h3 id="websocket">WebSocket</h3>
-
-<p>
-Connect to </code>ws://localhost:3000/ws<code> for real-time updates:
-</p>
-
-</code>`<code>javascript
-<p>
-const ws = new WebSocket('ws://localhost:3000/ws');
-ws.onmessage = (event) => {
-  const { type, payload } = JSON.parse(event.data);
-  // type: connected, refresh_progress, refresh_complete,
-  //       domain_updated, domain_added, health_update, uptime_update
-};
-</code>`<code>
+A Chart.js grouped bar chart showing how many domains expire in each of the next 6 months. Updated by <code>updateCharts(domains)</code>.
 </p>
 
 <hr>
 
-<h2 id="architecture">Architecture</h2>
-
-<h3 id="project-structure">Project Structure</h3>
-
-</code>`<code>
-<p>
-domain-monitor/
-├── public/                  # Frontend (served statically)
-│   ├── index.html          # Main HTML page
-│   ├── app.js              # Frontend JavaScript (~3500 lines)
-│   └── styles.css          # CSS styling
-│
-├── src/                     # Backend TypeScript
-│   ├── index.ts            # Entry point
-│   ├── server.ts           # Express server setup
-│   │
-│   ├── config/             # Configuration
-│   │   ├── index.ts        # Environment loading & validation
-│   │   └── schema.ts       # Zod validation schemas
-│   │
-│   ├── database/           # Data layer (SQLite)
-│   │   ├── db.ts           # Database connection
-│   │   ├── index.ts        # Table creation & migrations
-│   │   ├── domains.ts      # Domain CRUD operations
-│   │   ├── groups.ts       # Group CRUD operations
-│   │   ├── tags.ts         # Tag CRUD operations
-│   │   ├── health.ts       # Health check storage
-│   │   ├── audit.ts        # Audit log storage
-│   │   ├── settings.ts     # Settings storage (with caching)
-│   │   ├── sessions.ts     # Session storage
-│   │   └── apikeys.ts      # API key management
-│   │
-│   ├── routes/             # API endpoints
-│   │   ├── index.ts        # Route aggregator
-│   │   ├── domains.ts      # /api/domains/<em>
-│   │   ├── groups.ts       # /api/groups/</em>
-│   │   ├── tags.ts         # /api/tags/<em>
-│   │   ├── refresh.ts      # /api/refresh/</em>
-│   │   ├── health.ts       # /api/health/<em>
-│   │   ├── uptime.ts       # /api/uptime/</em>
-│   │   ├── settings.ts     # /api/settings/<em>
-│   │   ├── import.ts       # /api/import/</em>
-│   │   ├── export.ts       # /api/export/<em>
-│   │   ├── audit.ts        # /api/audit/</em>
-│   │   ├── apikeys.ts      # /api/apikeys/<em>
-│   │   └── auth.ts         # /api/auth/</em>
-│   │
-│   ├── services/           # Business logic
-│   │   ├── whois.ts        # WHOIS lookups (multiple providers)
-│   │   ├── healthcheck.ts  # DNS/HTTP/SSL checks
-│   │   ├── uptime.ts       # Uptime monitoring loop
-│   │   ├── scheduler.ts    # Cron job management
-│   │   ├── email.ts        # SMTP email sending
-│   │   ├── websocket.ts    # Real-time updates
-│   │   └── cleanup.ts      # Log retention cleanup
-│   │
-│   ├── middleware/         # Express middleware
-│   │   ├── auth.ts         # Authentication check
-│   │   ├── validation.ts   # Request validation
-│   │   ├── logging.ts      # Request logging
-│   │   └── errorHandler.ts # Error handling
-│   │
-│   ├── types/              # TypeScript interfaces
-│   │   ├── domain.ts       # Domain, Health, Group, Tag types
-│   │   ├── api.ts          # API response types
-│   │   └── audit.ts        # Audit log types
-│   │
-│   └── utils/              # Helpers
-│       ├── logger.ts       # Pino logger setup
-│       └── helpers.ts      # Utility functions
-│
-├── data/                    # SQLite database (created at runtime)
-├── package.json            # Dependencies
-├── tsconfig.json           # TypeScript config
-└── .env                    # Environment variables
-</code>`<code>
-</p>
-
-<h3 id="database-schema">Database Schema</h3>
-
-</code>`<code>sql
-<p>
--- Core domain data
-domains (
-  id, domain, registrar, created_date, expiry_date,
-  name_servers, name_servers_prev, last_checked, error, group_id
-)
-</p>
+<h3 id="pages-navigation">Pages & Navigation</h3>
 
 <p>
--- Organization
-groups (id, name, color, description)
-tags (id, name, color)
-domain_tags (domain_id, tag_id)
+The left sidebar links switch between "pages" (shown/hidden <code><section></code> elements within the SPA — no actual navigation):
 </p>
 
-<p>
--- Monitoring data
-domain_health (id, domain_id, dns_resolved, http_status, ssl_valid, ...)
-uptime_checks (id, domain_id, status, response_time_ms, ...)
-</p>
-
-<p>
--- System
-settings (key, value)
-audit_log (id, entity_type, entity_id, action, old_value, new_value, ...)
-sessions (id, expires_at)
-api_keys (id, name, key_encrypted, provider, enabled, ...)
-</code>`<code>
-</p>
-
-<h3 id="technology-stack">Technology Stack</h3>
-
-<table><tr><td>Layer</td><td>Technology</td><td>Why</td></tr></table>
-<p>
-__TABLE_HEADER__
-</p>
-<table><tr><td><strong>Runtime</strong></td><td>Node.js 18+</td><td>JavaScript everywhere, great ecosystem</td></tr></table>
-<table><tr><td><strong>Language</strong></td><td>TypeScript</td><td>Type safety, better developer experience</td></tr></table>
-<table><tr><td><strong>Web Framework</strong></td><td>Express.js</td><td>Simple, flexible, well-documented</td></tr></table>
-<table><tr><td><strong>Database</strong></td><td>SQLite (better-sqlite3)</td><td>Zero config, file-based, fast</td></tr></table>
-<table><tr><td><strong>WHOIS Data</strong></td><td>APILayer + fallbacks</td><td>Reliable data with redundancy</td></tr></table>
-<table><tr><td><strong>Real-time</strong></td><td>WebSocket (ws)</td><td>Push updates without polling</td></tr></table>
-<table><tr><td><strong>Scheduling</strong></td><td>node-cron</td><td>Standard cron syntax</td></tr></table>
-<table><tr><td><strong>Email</strong></td><td>Nodemailer</td><td>Battle-tested SMTP library</td></tr></table>
-<table><tr><td><strong>Validation</strong></td><td>Zod</td><td>Runtime type validation</td></tr></table>
-<table><tr><td><strong>Logging</strong></td><td>Pino</td><td>Fast JSON logging</td></tr></table>
-<table><tr><td><strong>Frontend</strong></td><td>Vanilla JS + Chart.js</td><td>No framework overhead</td></tr></table>
-
+<table><tr><td>Sidebar Link</td><td>Section ID</td><td>Content</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>Dashboard</td><td><code>#dashboard</code></td><td>Stat widgets + domain table</td></tr>
+<tr><td>Domains</td><td><code>#domains</code></td><td>Full domain table with all filters</td></tr>
+<tr><td>Uptime</td><td><code>#uptime</code></td><td>Heartbeat bars for all monitored domains</td></tr>
+<tr><td>Audit Log</td><td><code>#audit</code></td><td>Filterable paginated audit event log</td></tr>
+<tr><td>Settings</td><td><code>#settings</code></td><td>Tabbed settings panels</td></tr>
+</table>
 <hr>
 
-<h2 id="troubleshooting">Troubleshooting</h2>
+<h2 id="14-public-status-page">14. Public Status Page</h2>
 
-<h3 id="common-issues">Common Issues</h3>
-
-<h4 id=""Database is locked"">"Database is locked"</h4><ul><li data-level="0">Ensure only one instance of the app is running</li></ul><ul><li data-level="0">Check file permissions on the </code>data/<code> directory</li></ul>
-
-<h4 id="whois-data-not-loading">WHOIS data not loading</h4><ul><li data-level="0">Verify </code>APILAYER_KEY<code> is set in </code>.env<code></li></ul><ul><li data-level="0">Check API key has remaining quota</li></ul><ul><li data-level="0">Some TLDs (.biz, .info) use fallback methods</li></ul>
-
-<h4 id="websocket-not-connecting">WebSocket not connecting</h4><ul><li data-level="0">Check if running behind a proxy (needs WebSocket support)</li></ul><ul><li data-level="0">Verify firewall allows WebSocket connections</li></ul><ul><li data-level="0">Check browser console for errors</li></ul>
-
-<h4 id="emails-not-sending">Emails not sending</h4><ul><li data-level="0">Verify SMTP settings in </code>.env<code></li></ul><ul><li data-level="0">For Gmail, use an "App Password" not your regular password</li></ul><ul><li data-level="0">Check spam folder</li></ul><ul><li data-level="0">Use Settings > Test Email to diagnose</li></ul>
-
-<h4 id="health-checks-showing-unknown">Health checks showing unknown</h4><ul><li data-level="0">Run manual health check (heart icon)</li></ul><ul><li data-level="0">Check if domain is accessible from server</li></ul><ul><li data-level="0">Some sites block automated requests</li></ul>
-
-<h3 id="debug-mode">Debug Mode</h3>
+<strong>File:</strong> <code>public/status.html</code>
 
 <p>
-Run with debug logging:
+A fully self-contained HTML page with embedded CSS and JavaScript. No build step. No authentication required. Calls <code>GET /api/status</code> on load and auto-refreshes every 60 seconds.
 </p>
 
-</code>`<code>bash
-<p>
-LOG_LEVEL=debug npm start
-</code>`<code>
-</p>
+<h3 id="structure">Structure</h3>
 
-<h3 id="checking-logs">Checking Logs</h3>
+<ol><li><strong>Header</strong> — Application title and "Last updated" timestamp</li>
+<li><strong>Status Banner</strong> — Prominent "All Systems Operational" (green) or "Issues Detected" (amber/red)</li>
+<li><strong>5-Card Stats Grid</strong> — Total Domains · Healthy · Expiring ≤30 Days · Expired · Errors</li>
+<li><strong>Uptime Section</strong> — Sites Up / Down / Unknown counts (only rendered if uptime data is present)</li>
+<li><strong>Per-Group Cards</strong> — One card per group with:</li>
+</ol><ul><li data-level="1">Group name + color dot</li>
+<li data-level="1">Domain count + status pill (OK / Issues)</li>
+<li data-level="1">DNS / HTTP / SSL health chips (pass and fail counts)</li>
+<li data-level="1">Expiry warning row if any domains are expiring ≤30 days or already expired</li>
+</ul>6. <strong>App Navigation Links</strong> — Deep links into the main app: <code>/#dashboard</code>, <code>/#domains</code>, <code>/#audit</code>, <code>/#settings</code>
+<ol><li><strong>Footer</strong> — Domain Monitor branding + build timestamp</li>
+</ol>
+<h3 id="xss-safety">XSS Safety</h3>
 
-</code>`<code>bash
-<h1>If LOG_TO_FILE=true</h1>
 <p>
-tail -f logs/app.log
-</p>
-
-<h1>Docker logs</h1>
-<p>
-docker-compose logs -f
-</code>`<code>
+All API response text is passed through <code>escHtml()</code> before being inserted into the DOM. No <code>innerHTML</code> is used with raw API data anywhere on the page.
 </p>
 
 <hr>
 
-<h2 id="contributing">Contributing</h2>
+<h2 id="15-audit-log-system">15. Audit Log System</h2>
 
 <p>
-Contributions are welcome! Here's how to get started:
+Every significant action in the system writes a row to <code>audit_log</code> via <code>logAudit()</code> in <code>src/database/audit.ts</code>.
 </p>
 
-<ol><li><strong>Fork</strong> the repository</li></ol>
-<ol><li><strong>Clone</strong> your fork locally</li></ol>
-<ol><li><strong>Create a branch</strong> for your feature (</code>git checkout -b feature/amazing<code>)</li></ol>
-<ol><li><strong>Make changes</strong> and test thoroughly</li></ol>
-<ol><li><strong>Commit</strong> with clear messages</li></ol>
-<ol><li><strong>Push</strong> to your fork</li></ol>
-<ol><li><strong>Open a Pull Request</strong></li></ol>
+<h3 id="what-gets-logged">What Gets Logged</h3>
 
-<h3 id="development-setup">Development Setup</h3>
+<table><tr><td>Trigger</td><td>Action</td><td>Entity Type</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>POST /api/auth/login</code></td><td><code>login</code></td><td><code>system</code></td></tr>
+<tr><td><code>POST /api/auth/logout</code></td><td><code>logout</code></td><td><code>system</code></td></tr>
+<tr><td><code>POST /api/domains</code></td><td><code>create</code></td><td><code>domain</code></td></tr>
+<tr><td><code>DELETE /api/domains/<em></code></td><td><code>delete</code></td><td><code>domain</code></td></tr>
+<tr><td><code>POST /api/refresh</code> (all)</td><td><code>refresh</code></td><td><code>system</code></td></tr>
+<tr><td><code>POST /api/import/csv</code></td><td><code>import</code></td><td><code>system</code> + per <code>domain</code></td></tr>
+<tr><td><code>POST /api/health/domain/:id</code></td><td><code>health_check</code></td><td><code>domain</code></td></tr>
+<tr><td><code>POST /api/health/check-all</code></td><td><code>health_check</code></td><td><code>system</code></td></tr>
+<tr><td><code>POST /api/groups</code></td><td><code>create</code></td><td><code>group</code></td></tr>
+<tr><td><code>PUT /api/groups/:id</code></td><td><code>update</code></td><td><code>group</code></td></tr>
+<tr><td><code>DELETE /api/groups/:id</code></td><td><code>delete</code></td><td><code>group</code></td></tr>
+<tr><td><code>POST /api/tags</code></td><td><code>create</code></td><td><code>tag</code></td></tr>
+<tr><td><code>PUT /api/tags/:id</code></td><td><code>update</code></td><td><code>tag</code></td></tr>
+<tr><td><code>DELETE /api/tags/:id</code></td><td><code>delete</code></td><td><code>tag</code></td></tr>
+<tr><td><code>PUT /api/settings</code></td><td><code>update</code></td><td><code>settings</code></td></tr>
+<tr><td><code>POST /api/apikeys</code></td><td><code>create</code></td><td><code>apikey</code></td></tr>
+<tr><td><code>DELETE /api/apikeys/:id</code></td><td><code>delete</code></td><td><code>apikey</code></td></tr>
+<tr><td><code>POST /api/users</code></td><td><code>create</code></td><td><code>user</code></td></tr>
+<tr><td><code>PUT /api/users/:id</code></td><td><code>update</code></td><td><code>user</code></td></tr>
+<tr><td><code>DELETE /api/users/:id</code></td><td><code>delete</code></td><td><code>user</code></td></tr>
+<tr><td><code>POST /api/uptime/retention/cleanup</code></td><td><code>scheduled</code></td><td><code>system</code></td></tr>
+<tr><td><code>DELETE /api/uptime/retention/</em></code></td><td><code>delete</code></td><td><code>system</code></td></tr>
+</table>
+<h3 id="codeperformedbycode-field"><code>performed_by</code> Field</h3>
 
-</code>`<code>bash
-<h1>Install dependencies</h1>
 <p>
-npm install
+Every audit entry stores the <code>username</code> of the authenticated actor. For background/system-triggered events (scheduler, auto-cleanup), <code>performed_by</code> is <code>null</code>.
 </p>
 
-<h1>Run in development mode (with hot reload)</h1>
 <p>
-npm run dev
+For async operations (bulk refresh, check-all), the username is captured <strong>before</strong> the async call begins so it remains available in the <code>.then()</code> callback after the HTTP response has been sent:
 </p>
 
-<h1>Run tests</h1>
+<pre><code class="language-typescript">const refreshedBy = (req as AuthenticatedRequest).username;
+refreshAllDomains().then(() =&gt; {
+  auditBulkRefresh(count, domainNames, refreshedBy); // refreshedBy captured safely
+});
+</code></pre>
+
+<hr>
+
+<h2 id="16-security-model">16. Security Model</h2>
+
+<h3 id="authentication">Authentication</h3>
+<ul><li data-level="0"><strong>Session-based</strong> with HTTP-only, SameSite=Strict cookies.</li>
+<li data-level="0">Sessions expire after <strong>7 days</strong> and are stored server-side in SQLite.</li>
+<li data-level="0">Passwords hashed with <strong>bcrypt</strong> (cost factor 12) — brute force computationally infeasible.</li>
+<li data-level="0">A client cannot forge a session — the session ID is a random UUID verified server-side.</li>
+<li data-level="0">Expired sessions are cleaned up every 15 minutes.</li>
+</ul>
+<h3 id="authorization-rbac">Authorization (RBAC)</h3>
+
+<table><tr><td>Permission</td><td>viewer</td><td>manager</td><td>admin</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>Read domains, groups, tags</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Read audit log, metrics, health, uptime</td><td>✓</td><td>✓</td><td>✓</td></tr>
+<tr><td>Add / edit / delete domains</td><td>—</td><td>✓</td><td>✓</td></tr>
+<tr><td>Manage groups and tags</td><td>—</td><td>✓</td><td>✓</td></tr>
+<tr><td>Trigger WHOIS refresh and health checks</td><td>—</td><td>✓</td><td>✓</td></tr>
+<tr><td>Change settings</td><td>—</td><td>✓</td><td>✓</td></tr>
+<tr><td>Manage API keys and webhooks</td><td>—</td><td>✓</td><td>✓</td></tr>
+<tr><td>Manage user accounts</td><td>—</td><td>—</td><td>✓</td></tr>
+</table>
+<h3 id="input-validation">Input Validation</h3>
+
 <p>
-npm test
+All request bodies and query strings are validated with Zod schemas before any business logic runs. Invalid inputs receive HTTP 400 with structured error messages. Domain names are validated against an RFC-compliant regex pattern.
 </p>
 
-<h1>Build for production</h1>
+<h3 id="http-security-headers">HTTP Security Headers</h3>
+
+<strong>Production</strong> (full Helmet):
+<ul><li data-level="0"><code>Content-Security-Policy</code> — restricts script sources to <code>'self'</code>, CDN allowlist</li>
+<li data-level="0"><code>Strict-Transport-Security</code> — HSTS, 1-year max-age with <code>includeSubDomains</code></li>
+<li data-level="0"><code>X-Content-Type-Options: nosniff</code></li>
+<li data-level="0"><code>X-Frame-Options: DENY</code></li>
+</ul>
+<strong>Development</strong> — minimal Helmet config. CSP, HSTS, CORP, COOP, and referrer-policy are all disabled to avoid friction with <code>http://localhost</code>.
+
+<h3 id="rate-limiting">Rate Limiting</h3>
+
 <p>
-npm run build
-</code>``
+Four tiered limiters per IP protect against brute force and resource abuse. Disabled in development mode.
+</p>
+
+<h3 id="ssrf-protection">SSRF Protection</h3>
+
+<p>
+Webhook delivery validates the destination URL against a blocklist of private IP ranges and loopback addresses before making any outbound HTTP request.
+</p>
+
+<h3 id="api-key-encryption">API Key Encryption</h3>
+
+<p>
+WHOIS API keys stored in the database are AES-256-CBC encrypted. The encryption key comes from <code>ENCRYPTION_KEY</code> in <code>.env</code>. If unset, a weaker built-in fallback is used with a startup warning. <strong>Always set <code>ENCRYPTION_KEY</code> in production.</strong>
 </p>
 
 <hr>
 
-<h2 id="license">License</h2>
+<h2 id="17-logging-system">17. Logging System</h2>
+
+<strong>File:</strong> <code>src/utils/logger.ts</code>
 
 <p>
-MIT License - See <a href="LICENSE">LICENSE</a> for details.
+Built on <strong>Pino</strong> — a high-performance structured JSON logger. Two configurable transport targets:
+</p>
+
+<ol><li><strong>Console</strong> via <code>pino-pretty</code> — colorized, human-readable output with timestamps. Always active.</li>
+<li><strong>File</strong> via <code>pino-roll</code> — only when <code>LOG_TO_FILE=true</code>. Writes to <code>LOG_DIR/app.log</code> with:</li>
+</ol><ul><li data-level="1">Daily rotation</li>
+<li data-level="1">Maximum 20 MB per file before rotation</li>
+<li data-level="1">Keeps last 7 days of files</li>
+</ul>
+<h3 id="module-loggers">Module Loggers</h3>
+
+<p>
+Every service, route, and middleware file creates a <strong>child logger</strong> bound to its module name:
+</p>
+
+<pre><code class="language-typescript">const logger = createLogger('email');
+// All output from this logger includes { module: 'email' } in the JSON
+</code></pre>
+
+<p>
+This makes it easy to filter logs by module: <code>grep '"module":"email"' app.log</code>.
+</p>
+
+<h3 id="log-levels">Log Levels</h3>
+
+<table><tr><td>Level</td><td>When Used</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>trace</code></td><td>Fine-grained step tracing (usually disabled)</td></tr>
+<tr><td><code>debug</code></td><td>WHOIS parsing details, cache hits, skipped steps</td></tr>
+<tr><td><code>info</code></td><td>Normal operations: server started, email sent, domain refreshed</td></tr>
+<tr><td><code>warn</code></td><td>Non-fatal issues: SMTP verify failed but transporter kept, unknown TLD format, rate limit approaching</td></tr>
+<tr><td><code>error</code></td><td>Failures needing attention: refresh failed, email send error, DB query error</td></tr>
+</table>
+<hr>
+
+<h2 id="18-docker-deployment">18. Docker Deployment</h2>
+
+<h3 id="codedockerfilecode"><code>Dockerfile</code></h3>
+
+<p>
+Builds a production Node.js image. Compiles TypeScript via <code>npm run build</code>, copies the <code>public/</code> directory, exposes port 3000.
+</p>
+
+<h3 id="codedocker-composeymlcode-production"><code>docker-compose.yml</code> (Production)</h3>
+
+<pre><code class="language-yaml">services:
+  domain-monitor:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data       # Persist SQLite database across restarts
+      - ./logs:/app/logs       # Persist log files (when LOG_TO_FILE=true)
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/domains.db
+      - AUTH_ENABLED=true
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=changeme
+      - SESSION_SECRET=your-secret-here
+      - APILAYER_KEY=your-api-key
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+</code></pre>
+
+<h3 id="codedocker-composedevymlcode"><code>docker-compose.dev.yml</code></h3>
+
+<p>
+Development variant using <code>tsx watch</code> for hot TypeScript reload.
+</p>
+
+<h3 id="docker-health-check">Docker Health Check</h3>
+
+<p>
+The Docker <code>HEALTHCHECK</code> directive calls <code>GET /api/health</code>. The endpoint returns HTTP 200 when the database is responding normally, HTTP 503 if the database is unavailable. Docker marks the container unhealthy after 3 consecutive failures.
 </p>
 
 <hr>
 
-<h2 id="support">Support</h2><ul><li data-level="1"><strong>Issues</strong>: <a href="https://github.com/sanchodevs/domain-monitor/issues">GitHub Issues</a></li></ul><ul><li data-level="0"><strong>Discussions</strong>: <a href="https://github.com/sanchodevs/domain-monitor/discussions">GitHub Discussions</a></li></ul>
+<h2 id="19-data-flow-diagrams">19. Data Flow Diagrams</h2>
+
+<h3 id="adding-a-new-domain">Adding a New Domain</h3>
+
+<pre><code class="language-text">Browser POST /api/domains { domain: "example.com" }
+    │
+    ├── validateBody(domainSchema)
+    ├── domainExists() → 400 if duplicate
+    ├── addDomain()    → inserts row with empty WHOIS fields
+    ├── auditDomainCreate() → audit_log row with performed_by
+    ├── wsService.sendDomainAdded()
+    ├── fireWebhookEvent('domain.created')
+    │
+    └── Response: { success: true, id: 42 }
+
+    Background (non-blocking):
+        refreshDomain(domain, { withHealthCheck: true })
+            → APILayer WHOIS call
+            → updateDomain() with registrar, dates, nameservers
+            → checkDomainHealth() → dns + http + ssl
+            → wsService.sendDomainUpdate()
+        performUptimeCheck(id, domain)
+            → HTTP GET to domain
+            → uptime_checks row written
+</code></pre>
+
+<h3 id="scheduled-whois-refresh">Scheduled WHOIS Refresh</h3>
+
+<pre><code class="language-text">node-cron: "0 2 * * 0" fires
+    │
+    └── refreshAllDomains()
+            For each domain (with 2s delay between):
+                → APILayer or fallback WHOIS call
+                → updateDomain()
+                → wsService.sendRefreshProgress()
+            After all domains complete:
+                → auditBulkRefresh(count, names, null)
+                → wsService.sendRefreshComplete()
+</code></pre>
+
+<h3 id="uptime-monitoring-loop">Uptime Monitoring Loop</h3>
+
+<pre><code class="language-text">setInterval(uptime_interval_minutes)
+    │
+    └── checkAllDomainsUptime()
+            For each non-deleted domain:
+                → HTTP GET with 10s timeout
+                → write uptime_checks row
+                → track consecutive_failures counter
+                if failures &gt;= uptime_alert_threshold:
+                    → sendUptimeAlert() (email)
+                    → fireWebhookEvent('uptime.down')
+                if recovered from down:
+                    → fireWebhookEvent('uptime.recovered')
+</code></pre>
+
+<h3 id="webhook-delivery">Webhook Delivery</h3>
+
+<pre><code class="language-text">fireWebhookEvent('domain.expiring', data)
+    │
+    ├── getWebhooksForEvent('domain.expiring') → [wh1, wh2]
+    │
+    ├── For each webhook (fire-and-forget):
+    │       Attempt 1 (immediate):
+    │           POST to url with HMAC signature
+    │           if 2xx → logDelivery(success), update failure_count=0
+    │           if fail → logDelivery(fail)
+    │       Attempt 2 (after 30s):  [if attempt 1 failed]
+    │       Attempt 3 (after 5min): [if attempt 2 failed]
+    │           if all fail → increment failure_count
+    │
+    ├── if slack_enabled &amp;&amp; event in slack_events:
+    │       sendSlackNotification()
+    │
+    └── if signal_enabled &amp;&amp; event in signal_events:
+            sendSignalNotification()
+</code></pre>
 
 <hr>
 
+<h2 id="20-frequently-asked-questions">20. Frequently Asked Questions</h2>
+
+<h3 id="general">General</h3>
+
+<strong>Q: Do I need to run a build step every time I change the code?</strong>
 <p>
-Built with care for domain administrators everywhere.
+A: Only for TypeScript source files in <code>src/</code>. Run <code>npm run dev</code> in development — <code>tsx watch</code> automatically restarts the server when any <code>.ts</code> file changes. Changes to files in <code>public/</code> (HTML, CSS, JS) are served immediately with no restart needed.
 </p>
+
+<strong>Q: Where is the database file?</strong>
+<p>
+A: <code>./domains.db</code> by default. Set <code>DB_PATH=/absolute/path/to/your.db</code> in <code>.env</code> to relocate it. In Docker, mount a volume to the directory containing the DB file so data persists across container restarts.
+</p>
+
+<strong>Q: Can I run multiple instances of Domain Monitor simultaneously?</strong>
+<p>
+A: No. SQLite is a single-writer database. Multiple processes writing to the same file will produce <code>SQLITE_BUSY</code> errors. Run a single instance; use a reverse proxy (nginx, Caddy) in front if you need high availability.
+</p>
+
+<strong>Q: How do I back up the database?</strong>
+<p>
+A: While the server is stopped, copy the <code>.db</code> file. While running, use SQLite's online backup API: <code>sqlite3 domains.db ".backup backup.db"</code>. WAL mode makes hot backups safe — you won't get a corrupted copy.
+</p>
+
+<strong>Q: How do I generate the auto-docs?</strong>
+<p>
+A: <code>npm run docs:generate</code> — runs <code>scripts/generate-docs.js</code> which introspects the Express route table and writes <code>docs/index.html</code>. This also runs automatically as part of <code>npm run build</code>.
+</p>
+
+<strong>Q: How do I run the tests?</strong>
+<p>
+A: <code>npm test</code> — runs Vitest. Test files (<code><em>.test.ts</code>) live alongside the source modules they cover. Current coverage includes the settings database module, email service, and helper utilities.
+</p>
+
+<hr>
+
+<h3 id="whois-domain-data">WHOIS & Domain Data</h3>
+
+<strong>Q: Why is my domain showing empty WHOIS data after adding it?</strong>
+<p>
+A: The most common reasons: (1) <code>APILAYER_KEY</code> is not set or the account has hit its monthly quota; (2) the domain's TLD is exotic or very new and not supported by APILayer; (3) the domain uses WHOIS privacy/redaction. Check the domain's <code>error</code> field in the table for the specific error message.
+</p>
+
+<strong>Q: What happens when APILayer fails?</strong>
+<p>
+A: The WHOIS service falls back to <code>whois-json</code> (direct WHOIS socket query). For <code>.info</code> domains specifically, it falls back to RDAP at <code>https://rdap.org/domain/{domain}</code>. Each step is attempted before giving up.
+</p>
+
+<strong>Q: Why the 2-second delay between domain refreshes during bulk refresh?</strong>
+<p>
+A: APILayer enforces request rate limits. The mandatory 2-second <code>sleep()</code> between each domain in <code>refreshAllDomains()</code> prevents the account from hitting those limits. With 2-second delays, refreshing 300 domains takes ~10 minutes.
+</p>
+
+<strong>Q: Can I add more than one WHOIS API key?</strong>
+<p>
+A: Yes. Go to Settings → API Keys, add as many APILayer keys as you have. Keys are tried in priority order (lowest number first). If a key fails (quota exceeded, invalid, etc.), the next key is tried automatically.
+</p>
+
+<strong>Q: What is nameserver change detection?</strong>
+<p>
+A: After each WHOIS refresh, <code>name_servers</code> is compared to <code>name_servers_prev</code>. If they differ, a warning badge appears on that domain. This helps detect unauthorized DNS changes (domain hijacking, registrar transfers). Click "Validate" to acknowledge the change as intentional — this copies current nameservers to previous and clears the warning.
+</p>
+
+<hr>
+
+<h3 id="authentication-users">Authentication & Users</h3>
+
+<strong>Q: How do I enable authentication?</strong>
+<p>
+A: Set <code>AUTH_ENABLED=true</code>, <code>ADMIN_USERNAME=yourname</code>, and <code>ADMIN_PASSWORD=yourpassword</code> in <code>.env</code>, then restart the server.
+</p>
+
+<strong>Q: What's the difference between the env-var admin and database users?</strong>
+<p>
+A: The env-var admin (<code>ADMIN_USERNAME</code>/<code>ADMIN_PASSWORD</code>) is always available, always has the <code>admin</code> role, and cannot be deleted through the UI. Database users are created through Settings → Users and can be managed (role changes, password changes, disabling) without server restarts.
+</p>
+
+<strong>Q: Can the same credentials work for both the env-var admin and a database user?</strong>
+<p>
+A: Yes. Login checks env-var credentials first, then falls back to the <code>users</code> table. If both have the same username, the env-var credentials always win.
+</p>
+
+<strong>Q: How long do sessions last?</strong>
+<p>
+A: 7 days. Sessions are server-side in SQLite. They're invalidated when: the server restarts with a different <code>SESSION_SECRET</code>, the user logs out, or the 7-day expiry passes.
+</p>
+
+<strong>Q: I keep getting logged out. Why?</strong>
+<p>
+A: If <code>SESSION_SECRET</code> changes between restarts (e.g. it's not set in <code>.env</code> and uses a random default), all existing sessions are invalidated. Set a stable, fixed <code>SESSION_SECRET</code> in <code>.env</code>.
+</p>
+
+<hr>
+
+<h3 id="health-checks-uptime">Health Checks & Uptime</h3>
+
+<strong>Q: What's the difference between health checks and uptime monitoring?</strong>
+<p>
+A: <strong>Health checks</strong> run DNS lookup + HTTP request + SSL certificate inspection and store detailed diagnostic data. They run on-demand or on a schedule (typically every 24 hours). <strong>Uptime monitoring</strong> is a simple periodic HTTP GET ping (every 1–60 minutes) whose purpose is to track availability percentage over time and alert when a site goes down.
+</p>
+
+<strong>Q: A site is reachable in my browser but shows DNS failure. Why?</strong>
+<p>
+A: The DNS check uses Node.js's <code>dns.resolve4()</code> which goes through the server's system resolver. If the server is behind a corporate firewall, VPN, or split-horizon DNS, results may differ from what your browser sees.
+</p>
+
+<strong>Q: Some sites show HTTP failure but they load fine in my browser.</strong>
+<p>
+A: The health check sends an HTTP <code>HEAD</code> request with a 5-second timeout. Servers that block bots, require cookies, JavaScript, or specific User-Agent headers may return non-2xx responses or time out. This is expected for some hosting setups.
+</p>
+
+<strong>Q: How is the heartbeat bar visualization calculated?</strong>
+<p>
+A: <code>getAllHeartbeatData(buckets)</code> divides the last N hours into equal-width time buckets. Each cell shows the up/down ratio for checks that fell within that time window. Fully green = all checks in that bucket passed; red = all failed; gradient = mixed results.
+</p>
+
+<hr>
+
+<h3 id="email-alerts">Email & Alerts</h3>
+
+<strong>Q: I configured SMTP but no emails are sending. What should I check?</strong>
+<p>
+A: In order: (1) Go to Settings → Email → "Test Email" to send a direct test. (2) Click "Verify Connection" to see if SMTP handshake succeeds. (3) Make sure "Email Alerts" is toggled on and at least one recipient is entered. (4) Check that the domains in question actually fall within the <code>alert_days</code> window. (5) Check server logs for entries from the <code>email</code> module.
+</p>
+
+<strong>Q: Gmail requires an App Password. What is that?</strong>
+<p>
+A: Google requires App Passwords when 2-Step Verification is enabled (which is required for smtp access). Go to: Google Account → Security → 2-Step Verification → App Passwords. Generate one for "Mail" and use that as <code>SMTP_PASS</code>. Your regular Google password will not work.
+</p>
+
+<strong>Q: Why does <code>verify()</code> fail but emails still get delivered?</strong>
+<p>
+A: Some SMTP servers don't implement the <code>NOOP</code> command that Nodemailer's <code>verify()</code> uses. The transporter is kept running anyway. If "Test Email" succeeds, the connection is working regardless of <code>verify()</code> output.
+</p>
+
+<strong>Q: Will the same domain get the same expiry alert every day?</strong>
+<p>
+A: No. The <code>email_alerts</code> table tracks sent alerts per domain per alert type. Once an alert is recorded as <code>sent</code>, it won't be re-sent. The record resets when the domain's expiry date changes (i.e., after renewal).
+</p>
+
+<hr>
+
+<h3 id="webhooks">Webhooks</h3>
+
+<strong>Q: How do I verify a webhook payload came from Domain Monitor?</strong>
+<p>
+A: Compute <code>HMAC-SHA256(request_body_string, your_webhook_secret)</code> and compare to the <code>X-Domain-Monitor-Signature</code> header value (format: <code>sha256=<hex></code>). If they match, the payload is authentic and untampered.
+</p>
+
+<strong>Q: Webhook deliveries are failing. How do I debug?</strong>
+<p>
+A: Settings → Webhooks → click the webhook name → "Delivery History". Each attempt shows the HTTP status code and the first 500 characters of the response body. Also check your receiving endpoint's logs.
+</p>
+
+<strong>Q: Can I send to localhost for local testing?</strong>
+<p>
+A: No — SSRF protection blocks <code>localhost</code>, <code>127.x.x.x</code>, and all private IP ranges. Use a tunneling tool like <a href="https://ngrok.com">ngrok</a> or <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a> to expose a local endpoint with a public HTTPS URL.
+</p>
+
+<strong>Q: How many retry attempts are made when a webhook fails?</strong>
+<p>
+A: Three attempts total: immediately, after 30 seconds, and after 5 minutes. If all three fail, <code>failure_count</code> on the webhook is incremented and no further retries occur until the next event triggers a new delivery chain.
+</p>
+
+<hr>
+
+<h3 id="import-export">Import & Export</h3>
+
+<strong>Q: What columns does the CSV import expect?</strong>
+<p>
+A: Download the template from Settings → Import/Export. The only required column is <code>domain</code>. Optional columns: <code>group</code> (group name, created if absent), <code>tags</code> (comma-separated tag names, created if absent).
+</p>
+
+<strong>Q: What happens to domains that already exist during import?</strong>
+<p>
+A: They are <strong>skipped</strong> — not overwritten or modified. The response tells you how many were imported vs. skipped.
+</p>
+
+<strong>Q: Can I export and re-import to migrate to a new server?</strong>
+<p>
+A: Yes, the CSV export includes domain names, registrar, dates, nameservers, group, and tags. After importing on the new server, trigger a WHOIS refresh to populate any missing data. Health and uptime history are <strong>not</strong> included in the export.
+</p>
+
+<hr>
+
+<h3 id="performance-scalability">Performance & Scalability</h3>
+
+<strong>Q: How many domains can Domain Monitor handle?</strong>
+<p>
+A: SQLite has no practical row-count limit. The application has been used with thousands of domains. The main bottleneck is refresh speed — at 2 seconds per domain, 1,000 domains takes ~33 minutes per refresh cycle. Use the <code>status</code> filter to quickly find domains needing attention without loading all rows.
+</p>
+
+<strong>Q: The domain table feels slow with many domains. What helps?</strong>
+<p>
+A: Use the <code>limit</code> parameter (default 50) and navigate by pages. The <code>include=all</code> parameter (tags + health + uptime) adds some overhead proportional to page size — consider <code>include=health</code> or <code>include=uptime</code> individually if you only need specific enrichment.
+</p>
+
+<strong>Q: The SQLite database file is growing large. What should I do?</strong>
+<p>
+A: Enable "Auto Cleanup" in Settings → Retention. Set appropriate retention periods — 30 days for health/uptime records is usually sufficient. For audit logs, 90 days is the default. You can also run <code>VACUUM;</code> on the SQLite file after cleanup to reclaim disk space (requires stopping the server).
+</p>
+
+<strong>Q: Can I put a reverse proxy (nginx/Caddy) in front of Domain Monitor?</strong>
+<p>
+A: Yes. Forward HTTP traffic to <code>localhost:3000</code>. Ensure WebSocket upgrade headers are proxied:
+</p>
+<pre><code class="language-nginx">proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+</code></pre>
+<p>
+For Caddy, WebSocket proxying is automatic.
+</p>
+
+<hr>
+
+</em>End of Documentation*
 
     <div class="auto-generated">
-      This documentation was auto-generated from README.md<br>
-      Last updated: 2026-02-08
+      This documentation was auto-generated from DOCUMENTATION.md<br>
+      Last updated: 2026-02-21
     </div>
   </main>
 
