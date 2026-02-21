@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..');
-const README_PATH = join(ROOT_DIR, 'README.md');
+const README_PATH = join(ROOT_DIR, 'DOCUMENTATION.md');
 const DOCS_DIR = join(ROOT_DIR, 'docs');
 const OUTPUT_PATH = join(DOCS_DIR, 'index.html');
 
@@ -579,7 +579,7 @@ function generateHtml(markdown) {
   <main class="main">
     ${content}
     <div class="auto-generated">
-      This documentation was auto-generated from README.md<br>
+      This documentation was auto-generated from DOCUMENTATION.md<br>
       Last updated: ${new Date().toISOString().split('T')[0]}
     </div>
   </main>
@@ -734,9 +734,9 @@ function main() {
 
   // Watch mode
   if (watchMode) {
-    console.log('👀 Watching for changes to README.md...');
+    console.log('👀 Watching for changes to DOCUMENTATION.md...');
     watchFile(README_PATH, { interval: 1000 }, () => {
-      console.log('📝 README.md changed, regenerating...');
+      console.log('📝 DOCUMENTATION.md changed, regenerating...');
       generate();
     });
   }
