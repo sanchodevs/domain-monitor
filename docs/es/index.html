@@ -1,0 +1,2295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domain Monitor - Documentación</title>
+  <meta name="description" content="Documentación técnica completa de Domain Monitor — sistema autoalojado de gestión y monitoreo de dominios">
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fa;
+      --bg-code: #f1f3f5;
+      --text-primary: #212529;
+      --text-secondary: #495057;
+      --text-muted: #6c757d;
+      --border-color: #dee2e6;
+      --accent-color: #0066cc;
+      --accent-hover: #0052a3;
+      --success-color: #28a745;
+      --warning-color: #ffc107;
+      --danger-color: #dc3545;
+      --sidebar-width: 280px;
+      --header-height: 60px;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-code: #0f0f23;
+      --text-primary: #e4e4e7;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --border-color: #27272a;
+      --accent-color: #60a5fa;
+      --accent-hover: #93c5fd;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-height);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    .version {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: var(--accent-color);
+      color: white;
+      border-radius: 12px;
+    }
+
+    .lang-switcher {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .lang-switcher:hover {
+      background: var(--bg-code);
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .search-box { position: relative; }
+
+    .search-box input {
+      padding: 8px 12px 8px 36px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      width: 250px;
+      font-size: 0.875rem;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+
+    .search-box::before {
+      content: "🔍";
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.875rem;
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text-primary);
+    }
+
+    .theme-toggle:hover { background: var(--bg-code); }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      width: var(--sidebar-width);
+      height: calc(100vh - var(--header-height));
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+
+    .toc-link {
+      display: block;
+      padding: 8px 24px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .toc-link:hover { color: var(--accent-color); background: var(--bg-code); }
+
+    .toc-link.active {
+      color: var(--accent-color);
+      border-left-color: var(--accent-color);
+      background: var(--bg-code);
+    }
+
+    .toc-link.toc-sub { padding-left: 40px; font-size: 0.8125rem; }
+
+    /* Main Content */
+    .main {
+      margin-left: var(--sidebar-width);
+      margin-top: var(--header-height);
+      padding: 48px;
+      max-width: 900px;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    h1 { font-size: 2.5rem; margin-top: 0; }
+    h2 { font-size: 1.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); }
+    h3 { font-size: 1.375rem; }
+    h4 { font-size: 1.125rem; }
+
+    p { margin-bottom: 1rem; color: var(--text-secondary); }
+    a { color: var(--accent-color); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; color: var(--text-primary); }
+
+    /* Code */
+    code {
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+      font-size: 0.875em;
+      background: var(--bg-code);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent-color);
+    }
+
+    pre {
+      background: var(--bg-code);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border-color);
+    }
+
+    pre code { background: none; padding: 0; font-size: 0.875rem; color: var(--text-primary); }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { padding: 12px; text-align: left; border: 1px solid var(--border-color); }
+    th { background: var(--bg-secondary); font-weight: 600; }
+    tr:hover { background: var(--bg-secondary); }
+
+    /* Lists */
+    ul, ol { margin: 1rem 0; padding-left: 2rem; }
+    li { margin-bottom: 0.5rem; color: var(--text-secondary); }
+
+    /* Badges */
+    .badge { height: 20px; vertical-align: middle; margin-right: 4px; }
+
+    /* HR */
+    hr { border: none; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+
+    /* Search Results */
+    .search-results {
+      display: none;
+      position: absolute;
+      top: 100%; left: 0; right: 0;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .search-results.active { display: block; }
+
+    .search-result-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-result-item:hover { background: var(--bg-secondary); }
+    .search-result-item:last-child { border-bottom: none; }
+
+    /* Author badge */
+    .author-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+    }
+
+    .author-badge a { color: var(--accent-color); }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 24px; }
+      .search-box input { width: 150px; }
+      h1 { font-size: 1.75rem; }
+      h2 { font-size: 1.375rem; }
+      h3 { font-size: 1.125rem; }
+    }
+
+    /* Print */
+    @media print {
+      .header, .sidebar { display: none; }
+      .main { margin: 0; padding: 0; max-width: 100%; }
+    }
+
+    /* Footer notice */
+    .auto-generated {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 48px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <a href="#" class="logo">📡 Domain Monitor</a>
+      <span class="version">v2.0.0</span>
+      <span class="author-badge">Creado por <a href="https://github.com/sanchodevs" target="_blank">J.C. Sancho</a></span>
+    </div>
+    <div class="header-right">
+      <a href="../index.html" class="lang-switcher" title="Switch language">🌐 English</a>
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Buscar en la documentación..." autocomplete="off">
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="Cambiar tema">🌙</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="toc">
+      <a href="#tabla-de-contenidos" class="toc-link ">Tabla de Contenidos</a>
+        <a href="#1-descripcin-general-del-proyecto" class="toc-link ">1. Descripción General del Proyecto</a>
+        <a href="#2-stack-tecnolgico" class="toc-link ">2. Stack Tecnológico</a>
+        <a href="#3-estructura-de-directorios" class="toc-link ">3. Estructura de Directorios</a>
+        <a href="#4-configuracin-y-variables-de-entorno" class="toc-link ">4. Configuración y Variables de Entorno</a>
+        <a href="#41-variables-de-entorno" class="toc-link toc-sub">4.1 Variables de Entorno</a>
+        <a href="#42-configuraciones-en-la-aplicacin" class="toc-link toc-sub">4.2 Configuraciones en la Aplicación</a>
+        <a href="#5-inicio-del-servidor-y-ciclo-de-vida" class="toc-link ">5. Inicio del Servidor y Ciclo de Vida</a>
+        <a href="#51-secuencia-de-inicio" class="toc-link toc-sub">5.1 Secuencia de Inicio</a>
+        <a href="#52-apagado-graceful" class="toc-link toc-sub">5.2 Apagado Graceful</a>
+        <a href="#6-capa-de-base-de-datos" class="toc-link ">6. Capa de Base de Datos</a>
+        <a href="#61-conexin-srcdatabasedbts" class="toc-link toc-sub">6.1 Conexión (`src/database/db.ts`)</a>
+        <a href="#62-tablas-y-esquema" class="toc-link toc-sub">6.2 Tablas y Esquema</a>
+        <a href="#63-estrategia-de-migraciones" class="toc-link toc-sub">6.3 Estrategia de Migraciones</a>
+        <a href="#7-servicios" class="toc-link ">7. Servicios</a>
+        <a href="#71-servicio-whois-srcserviceswhoists" class="toc-link toc-sub">7.1 Servicio WHOIS (`src/services/whois.ts`)</a>
+        <a href="#72-servicio-de-comprobacin-de-salud-srcserviceshealthcheckts" class="toc-link toc-sub">7.2 Servicio de Comprobación de Salud (`src/services/healthcheck.ts`)</a>
+        <a href="#73-servicio-de-tiempo-de-actividad-srcservicesuptimets" class="toc-link toc-sub">7.3 Servicio de Tiempo de Actividad (`src/services/uptime.ts`)</a>
+        <a href="#74-servicio-scheduler-srcservicesschedulerts" class="toc-link toc-sub">7.4 Servicio Scheduler (`src/services/scheduler.ts`)</a>
+        <a href="#75-servicio-de-email-srcservicesemailts" class="toc-link toc-sub">7.5 Servicio de Email (`src/services/email.ts`)</a>
+        <a href="#76-servicio-slack-srcservicesslackts" class="toc-link toc-sub">7.6 Servicio Slack (`src/services/slack.ts`)</a>
+        <a href="#77-servicio-signalntfy-srcservicessignalts" class="toc-link toc-sub">7.7 Servicio Signal/ntfy (`src/services/signal.ts`)</a>
+        <a href="#78-servicio-webhooks-srcserviceswebhooksts" class="toc-link toc-sub">7.8 Servicio Webhooks (`src/services/webhooks.ts`)</a>
+        <a href="#79-servicio-websocket-srcserviceswebsocketts" class="toc-link toc-sub">7.9 Servicio WebSocket (`src/services/websocket.ts`)</a>
+        <a href="#710-servicio-de-limpieza-srcservicescleanupts" class="toc-link toc-sub">7.10 Servicio de Limpieza (`src/services/cleanup.ts`)</a>
+        <a href="#8-middleware" class="toc-link ">8. Middleware</a>
+        <a href="#81-autenticacin-srcmiddlewareauthts" class="toc-link toc-sub">8.1 Autenticación (`src/middleware/auth.ts`)</a>
+        <a href="#82-logging-de-requests-srcmiddlewareloggingts" class="toc-link toc-sub">8.2 Logging de Requests (`src/middleware/logging.ts`)</a>
+        <a href="#83-rate-limiting-srcmiddlewareratelimitts" class="toc-link toc-sub">8.3 Rate Limiting (`src/middleware/rateLimit.ts`)</a>
+        <a href="#84-manejo-de-errores-srcmiddlewareerrorhandlerts" class="toc-link toc-sub">8.4 Manejo de Errores (`src/middleware/errorHandler.ts`)</a>
+        <a href="#9-rutas-de-api-referencia-completa" class="toc-link ">9. Rutas de API — Referencia Completa</a>
+        <a href="#91-autenticacin-apiauth" class="toc-link toc-sub">9.1 Autenticación (`/api/auth`)</a>
+        <a href="#92-dominios-apidomains" class="toc-link toc-sub">9.2 Dominios (`/api/domains`)</a>
+        <a href="#93-grupos-apigroups" class="toc-link toc-sub">9.3 Grupos (`/api/groups`)</a>
+        <a href="#94-etiquetas-apitags" class="toc-link toc-sub">9.4 Etiquetas (`/api/tags`)</a>
+        <a href="#95-actualizacin-whois-apirefresh" class="toc-link toc-sub">9.5 Actualización WHOIS (`/api/refresh`)</a>
+        <a href="#96-verificaciones-de-salud-apihealth" class="toc-link toc-sub">9.6 Verificaciones de Salud (`/api/health`)</a>
+        <a href="#97-tiempo-de-actividad-apiuptime" class="toc-link toc-sub">9.7 Tiempo de Actividad (`/api/uptime`)</a>
+        <a href="#98-importacin-exportacin-apiimport-apiexport" class="toc-link toc-sub">9.8 Importación / Exportación (`/api/import`, `/api/export`)</a>
+        <a href="#99-configuraciones-apisettings" class="toc-link toc-sub">9.9 Configuraciones (`/api/settings`)</a>
+        <a href="#910-log-de-auditora-apiaudit" class="toc-link toc-sub">9.10 Log de Auditoría (`/api/audit`)</a>
+        <a href="#911-usuarios-apiusers" class="toc-link toc-sub">9.11 Usuarios (`/api/users`)</a>
+        <a href="#912-claves-de-api-apiapikeys" class="toc-link toc-sub">9.12 Claves de API (`/api/apikeys`)</a>
+        <a href="#913-webhooks-apiwebhooks" class="toc-link toc-sub">9.13 Webhooks (`/api/webhooks`)</a>
+        <a href="#914-mtricas-apimetrics" class="toc-link toc-sub">9.14 Métricas (`/api/metrics`)</a>
+        <a href="#915-rss-feed-rss" class="toc-link toc-sub">9.15 RSS Feed (`/rss`)</a>
+        <a href="#916-estado-pblico-apistatus" class="toc-link toc-sub">9.16 Estado Público (`/api/status`)</a>
+        <a href="#10-protocolo-websocket" class="toc-link ">10. Protocolo WebSocket</a>
+        <a href="#mensajes-del-servidor-cliente" class="toc-link toc-sub">Mensajes del Servidor → Cliente</a>
+        <a href="#11-esquemas-de-validacin" class="toc-link ">11. Esquemas de Validación</a>
+        <a href="#12-tipos-typescript" class="toc-link ">12. Tipos TypeScript</a>
+        <a href="#domain-srctypesdomaints" class="toc-link toc-sub">`Domain` (`src/types/domain.ts`)</a>
+        <a href="#auditentry-srctypesauditts" class="toc-link toc-sub">`AuditEntry` (`src/types/audit.ts`)</a>
+        <a href="#authenticatedrequest-srctypesapits" class="toc-link toc-sub">`AuthenticatedRequest` (`src/types/api.ts`)</a>
+        <a href="#13-frontend-spa" class="toc-link ">13. Frontend (SPA)</a>
+        <a href="#131-descripcin-general" class="toc-link toc-sub">13.1 Descripción General</a>
+        <a href="#132-sistema-de-rutas-hash" class="toc-link toc-sub">13.2 Sistema de Rutas Hash</a>
+        <a href="#133-widgets-del-dashboard" class="toc-link toc-sub">13.3 Widgets del Dashboard</a>
+        <a href="#134-funcin-load" class="toc-link toc-sub">13.4 Función `load()`</a>
+        <a href="#135-actualizaciones-en-tiempo-real" class="toc-link toc-sub">13.5 Actualizaciones en Tiempo Real</a>
+        <a href="#136-sistema-de-log-de-auditora-del-frontend" class="toc-link toc-sub">13.6 Sistema de Log de Auditoría del Frontend</a>
+        <a href="#14-pgina-de-estado-pblica" class="toc-link ">14. Página de Estado Pública</a>
+        <a href="#caractersticas" class="toc-link toc-sub">Características</a>
+        <a href="#estructura-de-la-pgina" class="toc-link toc-sub">Estructura de la Página</a>
+        <a href="#15-sistema-de-registro-de-auditora" class="toc-link ">15. Sistema de Registro de Auditoría</a>
+        <a href="#logauditentry-auditentry" class="toc-link toc-sub">`logAudit(entry: AuditEntry)`</a>
+        <a href="#funciones-helper" class="toc-link toc-sub">Funciones Helper</a>
+        <a href="#tipos-de-accin" class="toc-link toc-sub">Tipos de Acción</a>
+        <a href="#retencin" class="toc-link toc-sub">Retención</a>
+        <a href="#16-modelo-de-seguridad" class="toc-link ">16. Modelo de Seguridad</a>
+        <a href="#headers-http" class="toc-link toc-sub">Headers HTTP</a>
+        <a href="#autenticacin" class="toc-link toc-sub">Autenticación</a>
+        <a href="#claves-de-api" class="toc-link toc-sub">Claves de API</a>
+        <a href="#rate-limiting" class="toc-link toc-sub">Rate Limiting</a>
+        <a href="#validacin-de-entradas" class="toc-link toc-sub">Validación de Entradas</a>
+        <a href="#17-sistema-de-logging" class="toc-link ">17. Sistema de Logging</a>
+        <a href="#niveles-de-log" class="toc-link toc-sub">Niveles de Log</a>
+        <a href="#rotacin-de-archivos-de-log" class="toc-link toc-sub">Rotación de Archivos de Log</a>
+        <a href="#18-despliegue-con-docker" class="toc-link ">18. Despliegue con Docker</a>
+        <a href="#docker-composeyml" class="toc-link toc-sub">`docker-compose.yml`</a>
+        <a href="#construccin-personalizada" class="toc-link toc-sub">Construcción Personalizada</a>
+        <a href="#configuracin-de-proxy-inverso-nginx" class="toc-link toc-sub">Configuración de Proxy Inverso (Nginx)</a>
+        <a href="#19-diagramas-de-flujo-de-datos" class="toc-link ">19. Diagramas de Flujo de Datos</a>
+        <a href="#flujo-aadir-un-dominio" class="toc-link toc-sub">Flujo: Añadir un Dominio</a>
+        <a href="#flujo-trabajo-cron-de-actualizacin-whois" class="toc-link toc-sub">Flujo: Trabajo Cron de Actualización WHOIS</a>
+        <a href="#flujo-ping-de-tiempo-de-actividad" class="toc-link toc-sub">Flujo: Ping de Tiempo de Actividad</a>
+        <a href="#20-preguntas-frecuentes" class="toc-link ">20. Preguntas Frecuentes</a>
+        <a href="#instalacin-y-configuracin" class="toc-link toc-sub">Instalación y Configuración</a>
+        <a href="#funcionalidades" class="toc-link toc-sub">Funcionalidades</a>
+        <a href="#alertas-y-notificaciones" class="toc-link toc-sub">Alertas y Notificaciones</a>
+        <a href="#tcnico" class="toc-link toc-sub">Técnico</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <h1>Domain Monitor — Documentación Técnica Completa</h1>
+
+<p>
+> <strong>Última actualización:</strong> 2026-02-21
+> Este documento cubre cada parte del sistema: arquitectura, esquema de base de datos, todos los endpoints de API, cada servicio, middleware, opciones de configuración, comportamiento del frontend y preguntas frecuentes.
+>
+> <strong>Creado por <a href="https://github.com/sanchodevs">J.C. Sancho</a></strong>
+</p>
+
+<hr>
+
+<h2 id="tabla-de-contenidos">Tabla de Contenidos</h2>
+
+<ol><li><a href="#1-descripción-general-del-proyecto">Descripción General del Proyecto</a></li>
+<li><a href="#2-stack-tecnológico">Stack Tecnológico</a></li>
+<li><a href="#3-estructura-de-directorios">Estructura de Directorios</a></li>
+<li><a href="#4-configuración-y-variables-de-entorno">Configuración y Variables de Entorno</a></li>
+<li><a href="#5-inicio-del-servidor-y-ciclo-de-vida">Inicio del Servidor y Ciclo de Vida</a></li>
+<li><a href="#6-capa-de-base-de-datos">Capa de Base de Datos</a></li>
+<li><a href="#7-servicios">Servicios</a></li>
+<li><a href="#8-middleware">Middleware</a></li>
+<li><a href="#9-rutas-de-api--referencia-completa">Rutas de API — Referencia Completa</a></li>
+<li><a href="#10-protocolo-websocket">Protocolo WebSocket</a></li>
+<li><a href="#11-esquemas-de-validación">Esquemas de Validación</a></li>
+<li><a href="#12-tipos-typescript">Tipos TypeScript</a></li>
+<li><a href="#13-frontend-spa">Frontend (SPA)</a></li>
+<li><a href="#14-página-de-estado-pública">Página de Estado Pública</a></li>
+<li><a href="#15-sistema-de-registro-de-auditoría">Sistema de Registro de Auditoría</a></li>
+<li><a href="#16-modelo-de-seguridad">Modelo de Seguridad</a></li>
+<li><a href="#17-sistema-de-logging">Sistema de Logging</a></li>
+<li><a href="#18-despliegue-con-docker">Despliegue con Docker</a></li>
+<li><a href="#19-diagramas-de-flujo-de-datos">Diagramas de Flujo de Datos</a></li>
+<li><a href="#20-preguntas-frecuentes">Preguntas Frecuentes</a></li>
+</ol>
+<hr>
+
+<h2 id="1-descripcin-general-del-proyecto">1. Descripción General del Proyecto</h2>
+
+<strong>Domain Monitor</strong> es una aplicación Node.js/TypeScript autoalojada que ofrece una vista unificada de todos tus nombres de dominio. Obtiene datos de registro WHOIS, verifica la salud DNS/HTTP/SSL, monitorea el tiempo de actividad, dispara alertas antes de que los dominios expiren y escribe un registro de auditoría completo de cada acción realizada.
+
+<p>
+La aplicación es un <strong>servidor Express de proceso único</strong> respaldado por una base de datos <strong>SQLite</strong> integrada. No hay un paso de compilación del frontend separado — la carpeta <code>public/</code> se sirve como archivos estáticos directamente. Las actualizaciones en tiempo real se envían a los navegadores mediante una conexión <strong>WebSocket</strong>. Todo el trabajo en segundo plano (actualizaciones programadas, pings de tiempo de actividad, limpieza de logs) se ejecuta como temporizadores en proceso y trabajos <code>node-cron</code>.
+</p>
+
+<hr>
+
+<h2 id="2-stack-tecnolgico">2. Stack Tecnológico</h2>
+
+<table><tr><td>Capa</td><td>Librería / Herramienta</td><td>Versión</td><td>Propósito</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>Runtime</td><td>Node.js</td><td>18+</td><td>Entorno de ejecución JavaScript</td></tr>
+<tr><td>Lenguaje</td><td>TypeScript</td><td>5.3+</td><td>Tipado estático; compilado a ESM con <code>tsc</code></td></tr>
+<tr><td>Framework web</td><td>Express</td><td>4.x</td><td>Enrutamiento HTTP, pipeline de middleware</td></tr>
+<tr><td>Base de datos</td><td>better-sqlite3</td><td>12.x</td><td>Bindings SQLite síncronos — sin overhead async</td></tr>
+<tr><td>Cliente HTTP</td><td>Axios</td><td>1.x</td><td>Llamadas a la API WHOIS, entrega de webhooks, Slack/Signal</td></tr>
+<tr><td>Autenticación</td><td>bcrypt</td><td>6.x</td><td>Hash de contraseñas para usuarios locales</td></tr>
+<tr><td>Email</td><td>Nodemailer</td><td>7.x</td><td>Transporte SMTP para alertas de expiración/tiempo de actividad</td></tr>
+<tr><td>Programación</td><td>node-cron</td><td>3.x</td><td>Trabajos en segundo plano con sintaxis cron</td></tr>
+<tr><td>WHOIS fallback</td><td>whois-json</td><td>2.x</td><td>Consultas WHOIS directas cuando la API no está disponible</td></tr>
+<tr><td>WebSocket</td><td>ws</td><td>8.x</td><td>Push en tiempo real del servidor al navegador</td></tr>
+<tr><td>Validación de entrada</td><td>Zod</td><td>4.x</td><td>Validación de cuerpos y queries de requests basada en esquemas</td></tr>
+<tr><td>Headers de seguridad</td><td>Helmet</td><td>8.x</td><td>Headers HTTP de seguridad (CSP, HSTS, etc.)</td></tr>
+<tr><td>Rate limiting</td><td>express-rate-limit</td><td>8.x</td><td>Throttling de requests por IP</td></tr>
+<tr><td>Subida de archivos</td><td>Multer</td><td>2.x</td><td>Manejo multipart/form-data para importación CSV</td></tr>
+<tr><td>Parsing CSV</td><td>csv-parse</td><td>6.x</td><td>Parsear archivos CSV importados</td></tr>
+<tr><td>Logging</td><td>Pino + pino-pretty + pino-roll</td><td>10.x</td><td>Logging JSON estructurado con rotación de archivos opcional</td></tr>
+<tr><td>Gráficos</td><td>Chart.js</td><td>4.x</td><td>Gráfico de barras de línea de tiempo de expiración (cargado desde CDN)</td></tr>
+<tr><td>Iconos</td><td>Font Awesome 6</td><td>CDN</td><td>Iconos de interfaz de usuario</td></tr>
+<tr><td>Testing</td><td>Vitest</td><td>latest</td><td>Pruebas unitarias</td></tr>
+<tr><td>Runner de desarrollo</td><td>tsx</td><td>latest</td><td>Ejecución TypeScript sin paso de compilación</td></tr>
+</table>
+<hr>
+
+<h2 id="3-estructura-de-directorios">3. Estructura de Directorios</h2>
+
+<pre><code class="language-text">domain-monitor/
+├── src/                          # Todo el código fuente TypeScript (compilado → dist/)
+│   ├── index.ts                  # Re-exporta server.ts (punto de entrada)
+│   ├── server.ts                 # Configuración de la app Express, inicio, apagado
+│   │
+│   ├── config/
+│   │   ├── index.ts              # Lee variables de entorno, exporta objeto config tipado
+│   │   └── schema.ts             # Esquemas Zod para cuerpos de requests y queries
+│   │
+│   ├── database/
+│   │   ├── db.ts                 # Abre la conexión SQLite (modo WAL, FK ON)
+│   │   ├── index.ts              # Sentencias CREATE TABLE + todas las migraciones
+│   │   ├── domains.ts            # CRUD de dominios, paginación, borrado suave, restauración
+│   │   ├── groups.ts             # CRUD de grupos con conteo de dominios
+│   │   ├── tags.ts               # CRUD de etiquetas y asociaciones dominio↔etiqueta
+│   │   ├── audit.ts              # logAudit(), queryAuditLog(), funciones helper
+│   │   ├── sessions.ts           # Almacén de sesiones y limpieza
+│   │   ├── settings.ts           # Configuraciones clave/valor con caché en memoria
+│   │   ├── apikeys.ts            # Almacenamiento de claves API con cifrado AES
+│   │   ├── health.ts             # Consultas domain_health y helpers batch
+│   │   ├── users.ts              # CRUD multi-usuario con contraseñas bcrypt
+│   │   ├── webhooks.ts           # Configuración de webhooks y log de entregas
+│   │   └── alert_rules.ts        # CRUD de reglas de alerta
+│   │
+│   ├── routes/
+│   │   ├── index.ts              # Monta todos los sub-routers bajo /api
+│   │   ├── auth.ts               # /api/auth — login, logout, me, status
+│   │   ├── domains.ts            # /api/domains — CRUD completo + operaciones bulk
+│   │   ├── groups.ts             # /api/groups
+│   │   ├── tags.ts               # /api/tags
+│   │   ├── refresh.ts            # /api/refresh
+│   │   ├── health.ts             # /api/health
+│   │   ├── uptime.ts             # /api/uptime
+│   │   ├── settings.ts           # /api/settings
+│   │   ├── import.ts             # /api/import
+│   │   ├── export.ts             # /api/export
+│   │   ├── audit.ts              # /api/audit
+│   │   ├── apikeys.ts            # /api/apikeys
+│   │   ├── users.ts              # /api/users
+│   │   ├── webhooks.ts           # /api/webhooks
+│   │   ├── metrics.ts            # /api/metrics
+│   │   ├── rss.ts                # /rss
+│   │   └── status.ts             # /api/status
+│   │
+│   ├── services/
+│   │   ├── whois.ts              # Lookups WHOIS (múltiples proveedores)
+│   │   ├── healthcheck.ts        # Verificaciones DNS/HTTP/SSL
+│   │   ├── uptime.ts             # Bucle de monitoreo de tiempo de actividad
+│   │   ├── scheduler.ts          # Gestión de trabajos node-cron
+│   │   ├── email.ts              # Envío de email SMTP con Nodemailer
+│   │   ├── slack.ts              # Webhook entrante de Slack
+│   │   ├── signal.ts             # Notificaciones push ntfy/Signal
+│   │   ├── webhooks.ts           # Entrega de webhooks salientes
+│   │   ├── websocket.ts          # Broadcast WebSocket
+│   │   └── cleanup.ts            # Limpieza de retención de logs
+│   │
+│   ├── middleware/
+│   │   ├── auth.ts               # Verificación de autenticación de sesión
+│   │   ├── logging.ts            # Logger de requests (Pino)
+│   │   ├── rateLimit.ts          # Configuración express-rate-limit
+│   │   └── errorHandler.ts       # Manejadores de 404 y errores
+│   │
+│   └── types/
+│       ├── domain.ts             # Tipos Domain, Health, Group, Tag
+│       ├── api.ts                # AuthenticatedRequest + tipos de respuesta
+│       └── audit.ts              # Tipos AuditEntry, AuditRow
+│
+├── public/                       # Frontend (servido de forma estática)
+│   ├── index.html                # Shell de la SPA principal
+│   ├── app.js                    # SPA JavaScript vanilla (~5500 líneas)
+│   ├── styles.css                # Estilos globales
+│   └── status.html               # Página de estado pública autocontenida
+│
+├── scripts/
+│   └── generate-docs.js          # Genera docs/index.html y docs/es/index.html
+│
+├── docs/
+│   ├── index.html                # Documentación técnica en inglés (auto-generada)
+│   └── es/
+│       └── index.html            # Documentación técnica en español (auto-generada)
+│
+├── tests/                        # Pruebas unitarias Vitest
+├── DOCUMENTATION.md              # Documentación técnica completa (inglés)
+├── DOCUMENTACION.md              # Documentación técnica completa (español)
+├── package.json
+├── tsconfig.json
+└── docker-compose.yml
+</code></pre>
+
+<hr>
+
+<h2 id="4-configuracin-y-variables-de-entorno">4. Configuración y Variables de Entorno</h2>
+
+<h3 id="41-variables-de-entorno">4.1 Variables de Entorno</h3>
+
+<p>
+Crea un archivo <code>.env</code> en la raíz del proyecto. Todas las variables son opcionales a menos que se indique lo contrario.
+</p>
+
+<h4 id="configuracin-del-servidor">Configuración del Servidor</h4>
+
+<table><tr><td>Variable</td><td>Por defecto</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>PORT</code></td><td><code>3000</code></td><td>Puerto en el que escucha el servidor HTTP</td></tr>
+<tr><td><code>NODE_ENV</code></td><td><code>development</code></td><td><code>production</code> activa CSP completa, HSTS y otras protecciones</td></tr>
+<tr><td><code>DB_PATH</code></td><td><code>./domains.db</code></td><td>Ruta al archivo de base de datos SQLite</td></tr>
+</table>
+<h4 id="api-whois-requerida">API WHOIS (Requerida)</h4>
+
+<table><tr><td>Variable</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>APILAYER_KEY</code></td><td>Clave de API de APILayer para consultas WHOIS. Obtén una gratuita en apilayer.com</td></tr>
+</table>
+<h4 id="autenticacin">Autenticación</h4>
+
+<table><tr><td>Variable</td><td>Por defecto</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>AUTH_ENABLED</code></td><td><code>false</code></td><td>Establece <code>true</code> para requerir inicio de sesión</td></tr>
+<tr><td><code>ADMIN_USERNAME</code></td><td><code>admin</code></td><td>Nombre de usuario del administrador inicial</td></tr>
+<tr><td><code>ADMIN_PASSWORD</code></td><td>—</td><td>Contraseña del administrador (requerida si AUTH_ENABLED=true)</td></tr>
+<tr><td><code>SESSION_SECRET</code></td><td>aleatorio</td><td>Secreto para firmar cookies de sesión</td></tr>
+<tr><td><code>SESSION_TTL_HOURS</code></td><td><code>24</code></td><td>Tiempo de vida de la sesión en horas</td></tr>
+</table>
+<h4 id="email-smtp">Email SMTP</h4>
+
+<table><tr><td>Variable</td><td>Por defecto</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>SMTP_HOST</code></td><td>—</td><td>Hostname del servidor SMTP (ej. smtp.gmail.com)</td></tr>
+<tr><td><code>SMTP_PORT</code></td><td><code>587</code></td><td>Puerto SMTP (587 para STARTTLS, 465 para SSL)</td></tr>
+<tr><td><code>SMTP_SECURE</code></td><td><code>false</code></td><td><code>true</code> para conexiones SSL directas (puerto 465)</td></tr>
+<tr><td><code>SMTP_USER</code></td><td>—</td><td>Nombre de usuario SMTP</td></tr>
+<tr><td><code>SMTP_PASS</code></td><td>—</td><td>Contraseña SMTP (usa App Password de Gmail)</td></tr>
+<tr><td><code>SMTP_FROM</code></td><td>—</td><td>Dirección "De" (ej. <code>Domain Monitor <alerts@example.com></code>)</td></tr>
+</table>
+<h4 id="notificaciones-push">Notificaciones Push</h4>
+
+<table><tr><td>Variable</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>SLACK_WEBHOOK_URL</code></td><td>URL de webhook entrante de Slack para alertas</td></tr>
+<tr><td><code>NTFY_URL</code></td><td>URL del servidor ntfy (ej. <code>https://ntfy.sh</code>)</td></tr>
+<tr><td><code>NTFY_TOPIC</code></td><td>Tópico ntfy para recibir notificaciones</td></tr>
+<tr><td><code>NTFY_TOKEN</code></td><td>Token de autenticación ntfy (opcional)</td></tr>
+</table>
+<h4 id="logging">Logging</h4>
+
+<table><tr><td>Variable</td><td>Por defecto</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>LOG_LEVEL</code></td><td><code>info</code></td><td><code>debug</code>, <code>info</code>, <code>warn</code> o <code>error</code></td></tr>
+<tr><td><code>LOG_TO_FILE</code></td><td><code>false</code></td><td><code>true</code> para escribir logs en archivo</td></tr>
+<tr><td><code>LOG_DIR</code></td><td><code>./logs</code></td><td>Directorio donde se escriben los archivos de log</td></tr>
+</table>
+<h3 id="42-configuraciones-en-la-aplicacin">4.2 Configuraciones en la Aplicación</h3>
+
+<p>
+Accesibles desde el panel de Configuraciones (icono de engranaje). Se almacenan en la tabla <code>settings</code> de SQLite.
+</p>
+
+<table><tr><td>Clave</td><td>Descripción</td><td>Por defecto</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>refresh_schedule</code></td><td>Expresión cron para actualización WHOIS</td><td><code>0 2 <em> </em> 0</code> (Dom 2am)</td></tr>
+<tr><td><code>alert_schedule</code></td><td>Expresión cron para alertas de email</td><td><code>0 9 <em> </em> <em></code> (Diario 9am)</td></tr>
+<tr><td><code>alert_days</code></td><td>Días antes de expiración para alertar</td><td><code>7,14,30</code></td></tr>
+<tr><td><code>email_enabled</code></td><td>Activar alertas de email</td><td><code>false</code></td></tr>
+<tr><td><code>email_recipients</code></td><td>Destinatarios separados por comas</td><td>—</td></tr>
+<tr><td><code>uptime_enabled</code></td><td>Activar monitoreo de tiempo de actividad</td><td><code>true</code></td></tr>
+<tr><td><code>uptime_interval</code></td><td>Minutos entre pings de tiempo de actividad</td><td><code>5</code></td></tr>
+<tr><td><code>uptime_threshold</code></td><td>Fallos consecutivos antes de alertar</td><td><code>2</code></td></tr>
+<tr><td><code>audit_retention_days</code></td><td>Días para mantener logs de auditoría</td><td><code>90</code></td></tr>
+<tr><td><code>health_retention_days</code></td><td>Días para mantener registros de salud</td><td><code>30</code></td></tr>
+<tr><td><code>auto_cleanup_enabled</code></td><td>Activar limpieza automática de logs</td><td><code>true</code></td></tr>
+</table>
+<hr>
+
+<h2 id="5-inicio-del-servidor-y-ciclo-de-vida">5. Inicio del Servidor y Ciclo de Vida</h2>
+
+<h3 id="51-secuencia-de-inicio">5.1 Secuencia de Inicio</h3>
+
+<pre><code class="language-text">1. validateConfig()           — valida que las variables de entorno necesarias estén presentes
+2. runMigrations()            — ejecuta migraciones SQL acumulativas en SQLite
+3. initializeSettings()       — rellena valores por defecto en la tabla settings si faltan
+4. Express app = express()    — crea la instancia de la aplicación
+5. HTTP server = createServer(app)
+6. wsService.initialize(server) — adjunta el servidor WebSocket al servidor HTTP
+7. onRefreshUpdate(cb)        — conecta actualizaciones de progreso WHOIS al broadcast WS
+8. Middleware:
+   - helmet()                 — headers de seguridad
+   - express.json()           — parseo de cuerpo JSON
+   - cookieParser()           — parseo de cookies de sesión
+   - requestLogger            — logging de requests con Pino
+9. Rutas estáticas:           — sirve index.html con inyección de año, luego public/
+10. Rutas de API              — /api/auth (sin auth), luego /api/* (con auth opcional)
+11. initialize():
+    - initializeAuth()        — carga/crea usuario admin si AUTH_ENABLED
+    - initializeEmail()       — verifica conexión SMTP
+    - initializeScheduler()   — registra trabajos cron
+    - startSessionCleanup()   — programa limpieza de sesiones expiradas
+    - startUptimeMonitoring() — inicia bucle de pings de tiempo de actividad
+    - startAutoCleanup()      — programa retención de logs
+12. migrateFromJSON()         — importa dominios.json heredados si existe
+13. server.listen(PORT)       — acepta conexiones entrantes
+</code></pre>
+
+<h3 id="52-apagado-graceful">5.2 Apagado Graceful</h3>
+
+<p>
+En <code>SIGTERM</code> o <code>SIGINT</code>:
+</p>
+<ol><li><code>stopUptimeMonitoring()</code> — limpia el intervalo de pings</li>
+<li><code>stopAutoCleanup()</code> — limpia el intervalo de limpieza</li>
+<li><code>server.close()</code> — deja de aceptar nuevas conexiones, espera a que finalicen las existentes</li>
+<li><code>wsService.close()</code> — cierra todas las conexiones WebSocket</li>
+<li><code>closeDatabase()</code> — libera el handle de la base de datos SQLite</li>
+<li><code>process.exit(0)</code></li>
+</ol>
+<hr>
+
+<h2 id="6-capa-de-base-de-datos">6. Capa de Base de Datos</h2>
+
+<h3 id="61-conexin-codesrcdatabasedbtscode">6.1 Conexión (<code>src/database/db.ts</code>)</h3>
+
+<p>
+Abre una conexión SQLite con:
+</p>
+<ul><li data-level="0"><strong>Modo WAL</strong> (<code>PRAGMA journal_mode = WAL</code>) — escrituras concurrentes eficientes</li>
+<li data-level="0"><strong>Claves foráneas</strong> (<code>PRAGMA foreign_keys = ON</code>) — integridad referencial aplicada</li>
+<li data-level="0"><strong>Modo estricto</strong> en algunas tablas para cumplimiento de tipos</li>
+</ul>
+<p>
+La conexión es un singleton exportado como <code>db</code>. Toda la capa de base de datos usa <code>better-sqlite3</code> síncronamente — sin callbacks, sin Promises, sin async/await. Esto simplifica el manejo de errores y elimina las condiciones de carrera.
+</p>
+
+<h3 id="62-tablas-y-esquema">6.2 Tablas y Esquema</h3>
+
+<h4 id="codedomainscode"><code>domains</code></h4>
+<p>
+Registros de dominio principales.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS domains (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain          TEXT NOT NULL UNIQUE,
+  registrar       TEXT,
+  created_date    TEXT,
+  expiry_date     TEXT,
+  name_servers    TEXT,          -- array JSON serializado
+  name_servers_prev TEXT,        -- array JSON serializado (para detección de cambios NS)
+  last_checked    TEXT,          -- timestamp ISO 8601
+  error           TEXT,          -- mensaje de error del último intento WHOIS
+  group_id        INTEGER REFERENCES groups(id) ON DELETE SET NULL,
+  deleted_at      TEXT           -- NULL = activo; timestamp ISO = borrado suave
+);
+</code></pre>
+
+<strong>Índices:</strong> <code>domain</code> (único), <code>group_id</code>, <code>deleted_at</code>, <code>expiry_date</code>.
+
+<h4 id="codegroupscode"><code>groups</code></h4>
+<p>
+Organización de dominios en grupos con etiquetas de color.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS groups (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL UNIQUE,
+  color       TEXT NOT NULL DEFAULT '#6366f1',
+  description TEXT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codetagscode"><code>tags</code></h4>
+<p>
+Etiquetas para dominios (muchos-a-muchos).
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS tags (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL UNIQUE,
+  color      TEXT NOT NULL DEFAULT '#6366f1',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codedomaintagscode"><code>domain_tags</code></h4>
+<p>
+Tabla pivot para la relación muchos-a-muchos dominio↔etiqueta.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS domain_tags (
+  domain_id INTEGER NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  tag_id    INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (domain_id, tag_id)
+);
+</code></pre>
+
+<h4 id="codedomainhealthcode"><code>domain_health</code></h4>
+<p>
+Resultados de verificaciones de salud DNS/HTTP/SSL.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS domain_health (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain_id       INTEGER NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  checked_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  dns_resolved    INTEGER,  -- 1=OK, 0=fallo
+  dns_ip          TEXT,     -- IP resuelta
+  http_status     INTEGER,  -- código de estado HTTP
+  http_error      TEXT,     -- mensaje de error HTTP si lo hay
+  ssl_valid       INTEGER,  -- 1=válido, 0=inválido/faltante
+  ssl_expiry      TEXT,     -- fecha de expiración del certificado
+  ssl_error       TEXT,     -- error SSL si lo hay
+  response_time_ms INTEGER  -- tiempo de respuesta total
+);
+</code></pre>
+
+<strong>Índice:</strong> <code>(domain_id, checked_at)</code>.
+
+<h4 id="codeuptimecheckscode"><code>uptime_checks</code></h4>
+<p>
+Historial de pings de tiempo de actividad.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS uptime_checks (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain_id        INTEGER NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  checked_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  status           TEXT NOT NULL,  -- 'up' | 'down' | 'unknown'
+  response_time_ms INTEGER,
+  http_status      INTEGER,
+  error            TEXT
+);
+</code></pre>
+
+<strong>Índice:</strong> <code>(domain_id, checked_at)</code>.
+
+<h4 id="codesettingscode"><code>settings</code></h4>
+<p>
+Almacén de configuraciones clave/valor.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codeauditlogcode"><code>audit_log</code></h4>
+<p>
+Registro de auditoría inmutable de todas las acciones.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS audit_log (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity_type  TEXT NOT NULL,   -- 'domain' | 'group' | 'tag' | 'settings' | ...
+  entity_id    TEXT,            -- identificador del objeto afectado
+  action       TEXT NOT NULL,   -- 'create' | 'delete' | 'update' | 'refresh' | ...
+  old_value    TEXT,            -- JSON del valor anterior (para actualizaciones)
+  new_value    TEXT,            -- JSON del nuevo valor
+  ip_address   TEXT,            -- IP del solicitante
+  user_agent   TEXT,            -- User-Agent del solicitante
+  performed_by TEXT,            -- nombre de usuario del actor
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<strong>Índices:</strong> <code>entity_type</code>, <code>action</code>, <code>created_at</code>.
+
+<h4 id="codesessionscode"><code>sessions</code></h4>
+<p>
+Sesiones de autenticación de usuarios.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS sessions (
+  id         TEXT PRIMARY KEY,  -- UUID generado
+  user_id    INTEGER,
+  username   TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<p>
+Las sesiones expiradas se limpian automáticamente cada hora mediante <code>startSessionCleanup()</code>.
+</p>
+
+<h4 id="codeapikeyscode"><code>api_keys</code></h4>
+<p>
+Claves de API de proveedores WHOIS almacenadas con cifrado AES-256.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS api_keys (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  key_value  TEXT NOT NULL,      -- cifrado AES-256-CBC
+  provider   TEXT NOT NULL,      -- 'apilayer' | 'whoisxml' | 'custom'
+  enabled    INTEGER DEFAULT 1,
+  priority   INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codeuserscode"><code>users</code></h4>
+<p>
+Cuentas de usuario locales.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS users (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  username     TEXT NOT NULL UNIQUE,
+  password     TEXT NOT NULL,    -- hash bcrypt
+  role         TEXT DEFAULT 'viewer',  -- 'admin' | 'editor' | 'viewer'
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  last_login   TEXT
+);
+</code></pre>
+
+<h4 id="codewebhookscode"><code>webhooks</code></h4>
+<p>
+Configuraciones de webhooks salientes.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS webhooks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  url        TEXT NOT NULL,
+  events     TEXT NOT NULL,      -- JSON array: ['domain.created', 'domain.expired', ...]
+  secret     TEXT,               -- HMAC-SHA256 para verificación de payload
+  enabled    INTEGER DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codewebhooklogscode"><code>webhook_logs</code></h4>
+<p>
+Historial de entregas de webhooks.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS webhook_logs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  webhook_id  INTEGER REFERENCES webhooks(id) ON DELETE CASCADE,
+  event       TEXT NOT NULL,
+  payload     TEXT NOT NULL,     -- JSON del payload enviado
+  status_code INTEGER,
+  response    TEXT,
+  error       TEXT,
+  delivered_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codealertrulescode"><code>alert_rules</code></h4>
+<p>
+Definiciones de condiciones de alerta.
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS alert_rules (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain_id   INTEGER REFERENCES domains(id) ON DELETE CASCADE,  -- NULL = global
+  type        TEXT NOT NULL,   -- 'expiry' | 'downtime' | 'dns_change' | 'ssl_expiry'
+  threshold   INTEGER,         -- días (para reglas de expiración)
+  channels    TEXT NOT NULL,   -- JSON array: ['email', 'slack', 'ntfy']
+  enabled     INTEGER DEFAULT 1,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+</code></pre>
+
+<h4 id="codeuptimealertscode"><code>uptime_alerts</code></h4>
+<p>
+Seguimiento del estado de alertas de tiempo de actividad (para evitar alertas duplicadas).
+</p>
+
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS uptime_alerts (
+  domain_id    INTEGER PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
+  alerted_at   TEXT,
+  alert_status TEXT   -- 'down' | 'recovered'
+);
+</code></pre>
+
+<h3 id="63-estrategia-de-migraciones">6.3 Estrategia de Migraciones</h3>
+
+<p>
+Todas las migraciones se ejecutan en <code>runMigrations()</code> en <code>src/database/index.ts</code> mediante SQL idempotente:
+</p>
+<ul><li data-level="0">Las tablas se crean con <code>CREATE TABLE IF NOT EXISTS</code></li>
+<li data-level="0">Las columnas se añaden con <code>PRAGMA table_info()</code> + <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code></li>
+<li data-level="0">Los índices se crean con <code>CREATE INDEX IF NOT EXISTS</code></li>
+<li data-level="0">Las migraciones se ejecutan en secuencia al inicio del servidor — sin archivos de versión separados</li>
+</ul>
+<hr>
+
+<h2 id="7-servicios">7. Servicios</h2>
+
+<h3 id="71-servicio-whois-codesrcserviceswhoistscode">7.1 Servicio WHOIS (<code>src/services/whois.ts</code>)</h3>
+
+<p>
+Orquesta la obtención de datos de registro WHOIS con múltiples proveedores de fallback.
+</p>
+
+<strong>Cadena de proveedores:</strong>
+<ol><li><strong>APILayer</strong> — API REST con tu <code>APILAYER_KEY</code>. Devuelve datos estructurados JSON.</li>
+<li><strong>whois-json</strong> — Consulta directa al servidor WHOIS del TLD. Parseo de texto sin procesar.</li>
+<li><strong>RDAP</strong> — Para TLDs como <code>.info</code> que usan RDAP (Registration Data Access Protocol).</li>
+</ol>
+<strong>Campos devueltos:</strong> <code>registrar</code>, <code>created_date</code>, <code>expiry_date</code>, <code>name_servers</code>, <code>error</code>.
+
+<strong><code>onRefreshUpdate(callback)</code></strong> — registra un callback que recibe eventos de progreso durante actualizaciones bulk. Usado por el servidor WebSocket para transmitir actualizaciones en tiempo real.
+
+<h3 id="72-servicio-de-comprobacin-de-salud-codesrcserviceshealthchecktscode">7.2 Servicio de Comprobación de Salud (<code>src/services/healthcheck.ts</code>)</h3>
+
+<p>
+Realiza tres comprobaciones por dominio:
+</p>
+<ul><li data-level="0"><strong>DNS</strong> — <code>dns.resolve4(domain)</code> en Node.js. Devuelve el primer IPv4 resuelto.</li>
+<li data-level="0"><strong>HTTP</strong> — petición HEAD con Axios, timeout de 5 segundos. Registra el código de estado.</li>
+<li data-level="0"><strong>SSL</strong> — conexión TLS en puerto 443 con <code>tls.connect()</code>. Lee la fecha de expiración del certificado.</li>
+</ul>
+<p>
+Los resultados se insertan en <code>domain_health</code>. Un broadcast WebSocket <code>health_update</code> se envía después de cada comprobación.
+</p>
+
+<h3 id="73-servicio-de-tiempo-de-actividad-codesrcservicesuptimetscode">7.3 Servicio de Tiempo de Actividad (<code>src/services/uptime.ts</code>)</h3>
+
+<p>
+Bucle de monitoreo en segundo plano:
+</p>
+<ul><li data-level="0">Inicia con <code>startUptimeMonitoring()</code>, que programa un intervalo en base al ajuste <code>uptime_interval</code></li>
+<li data-level="0">En cada tick, recorre todos los dominios activos y realiza peticiones HEAD</li>
+<li data-level="0">Registra los resultados en <code>uptime_checks</code></li>
+<li data-level="0">Calcula el porcentaje de tiempo de actividad en los últimos 24h/7d/30d</li>
+<li data-level="0">Si el dominio cambia de <code>up</code> a <code>down</code> (y se supera el threshold), dispara notificaciones</li>
+</ul>
+<h3 id="74-servicio-scheduler-codesrcservicesschedulertscode">7.4 Servicio Scheduler (<code>src/services/scheduler.ts</code>)</h3>
+
+<p>
+Gestiona trabajos cron usando <code>node-cron</code>:
+</p>
+
+<table><tr><td>Trabajo</td><td>Cron por defecto</td><td>Acción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td>WHOIS Refresh</td><td><code>0 2 </em> <em> 0</code></td><td>Llama a <code>refreshAllDomains()</code></td></tr>
+<tr><td>Alertas de email</td><td><code>0 9 </em> <em> </em></code></td><td>Comprueba expiración, envía emails</td></tr>
+<tr><td>Limpieza de datos</td><td><code>0 3 <em> </em> <em></code></td><td>Llama a <code>runAutoCleanup()</code></td></tr>
+</table>
+<p>
+El schedule se puede actualizar en tiempo de ejecución mediante <code>reinitializeScheduler()</code> cuando se guardan las configuraciones.
+</p>
+
+<h3 id="75-servicio-de-email-codesrcservicesemailtscode">7.5 Servicio de Email (<code>src/services/email.ts</code>)</h3>
+
+<p>
+Usa Nodemailer con transporte SMTP:
+</p>
+<ul><li data-level="0"><strong><code>initializeEmail()</code></strong> — verifica la conexión SMTP al inicio</li>
+<li data-level="0"><strong><code>sendExpiryAlerts(domains)</code></strong> — envía email HTML con lista de dominios a punto de expirar</li>
+<li data-level="0"><strong><code>sendUptimeAlert(domain, status)</code></strong> — notifica cuando un dominio cae o se recupera</li>
+<li data-level="0"><strong><code>sendTestEmail(to)</code></strong> — endpoint de prueba desde Settings</li>
+</ul>
+<p>
+Soporta todos los proveedores SMTP: Gmail (App Password), SendGrid, Mailgun, servidores personalizados.
+</p>
+
+<h3 id="76-servicio-slack-codesrcservicesslacktscode">7.6 Servicio Slack (<code>src/services/slack.ts</code>)</h3>
+
+<p>
+Entrega notificaciones a Slack mediante webhooks entrantes:
+</p>
+<ul><li data-level="0">Formatea mensajes como bloques de Slack con iconos de estado color-codificados</li>
+<li data-level="0">Usado para alertas de tiempo de actividad y expiración</li>
+</ul>
+<h3 id="77-servicio-signalntfy-codesrcservicessignaltscode">7.7 Servicio Signal/ntfy (<code>src/services/signal.ts</code>)</h3>
+
+<p>
+Envía notificaciones push al servidor ntfy configurado:
+</p>
+<ul><li data-level="0">Soporta autenticación con bearer token (<code>NTFY_TOKEN</code>)</li>
+<li data-level="0">La prioridad del mensaje se establece en base a la urgencia de la alerta</li>
+</ul>
+<h3 id="78-servicio-webhooks-codesrcserviceswebhookstscode">7.8 Servicio Webhooks (<code>src/services/webhooks.ts</code>)</h3>
+
+<p>
+Entrega webhooks salientes a URLs configuradas:
+</p>
+<ul><li data-level="0">Construye payload JSON con <code>event</code>, <code>domain</code>, <code>timestamp</code>, <code>data</code></li>
+<li data-level="0">Firma el payload con HMAC-SHA256 usando el <code>secret</code> del webhook (header <code>X-Signature</code>)</li>
+<li data-level="0">Registra cada intento en <code>webhook_logs</code> (éxito o fallo)</li>
+<li data-level="0">Reintenta en fallidos con backoff exponencial</li>
+</ul>
+<h3 id="79-servicio-websocket-codesrcserviceswebsockettscode">7.9 Servicio WebSocket (<code>src/services/websocket.ts</code>)</h3>
+
+<p>
+Gestiona el broadcasting en tiempo real:
+</p>
+<ul><li data-level="0">Adjunto al mismo servidor HTTP en el path <code>/ws</code></li>
+<li data-level="0">Eventos emitidos: <code>connected</code>, <code>refresh_progress</code>, <code>refresh_complete</code>, <code>domain_updated</code>, <code>domain_added</code>, <code>health_update</code>, <code>uptime_update</code></li>
+<li data-level="0">El objeto singleton <code>wsService</code> es importado por rutas y otros servicios para emitir eventos</li>
+</ul>
+<h3 id="710-servicio-de-limpieza-codesrcservicescleanuptscode">7.10 Servicio de Limpieza (<code>src/services/cleanup.ts</code>)</h3>
+
+<p>
+Elimina registros de logs antiguos según los ajustes de retención:
+</p>
+<ul><li data-level="0"><code>audit_log</code> — elimina registros más antiguos que <code>audit_retention_days</code></li>
+<li data-level="0"><code>domain_health</code> — elimina registros más antiguos que <code>health_retention_days</code></li>
+<li data-level="0"><code>uptime_checks</code> — elimina registros más antiguos que <code>health_retention_days</code></li>
+<li data-level="0"><code>webhook_logs</code> — elimina registros más antiguos que 30 días</li>
+</ul>
+<hr>
+
+<h2 id="8-middleware">8. Middleware</h2>
+
+<h3 id="81-autenticacin-codesrcmiddlewareauthtscode">8.1 Autenticación (<code>src/middleware/auth.ts</code>)</h3>
+
+<p>
+Dos funciones de middleware:
+</p>
+
+<strong><code>optionalAuthMiddleware</code></strong> — intenta parsear la sesión de la cookie. Si es válida, establece <code>req.username</code> y <code>req.userId</code>. Si no, sigue sin error.
+
+<strong><code>authMiddleware</code></strong> — igual que <code>optionalAuthMiddleware</code>, pero devuelve <code>401 Unauthorized</code> si no hay sesión válida. Aplicado a todas las rutas <code>/api/</em></code> cuando <code>AUTH_ENABLED=true</code>.
+
+<strong><code>initializeAuth()</code></strong> — ejecutado al inicio. Si <code>AUTH_ENABLED=true</code> y no existe ningún usuario admin, crea el usuario admin usando <code>ADMIN_USERNAME</code>/<code>ADMIN_PASSWORD</code> del entorno.
+
+<h3 id="82-logging-de-requests-codesrcmiddlewareloggingtscode">8.2 Logging de Requests (<code>src/middleware/logging.ts</code>)</h3>
+
+<p>
+Registra cada request HTTP con Pino:
+</p>
+<ul><li data-level="0">Método, path, código de estado, tiempo de respuesta (ms)</li>
+<li data-level="0">Excluye <code>/api/health</code> de los logs para reducir el ruido</li>
+</ul>
+<h3 id="83-rate-limiting-codesrcmiddlewareratelimittscode">8.3 Rate Limiting (<code>src/middleware/rateLimit.ts</code>)</h3>
+
+<p>
+Usando <code>express-rate-limit</code>:
+</p>
+<ul><li data-level="0"><strong><code>standardLimiter</code></strong> — aplicado a todas las rutas <code>/api/<em></code>: 100 requests por IP por 15 minutos</li>
+<li data-level="0">Responde con <code>429 Too Many Requests</code> al superar el límite</li>
+</ul>
+<h3 id="84-manejo-de-errores-codesrcmiddlewareerrorhandlertscode">8.4 Manejo de Errores (<code>src/middleware/errorHandler.ts</code>)</h3>
+<ul><li data-level="0"><strong><code>notFoundHandler</code></strong> — catch-all para rutas no encontradas, devuelve <code>404 { error: "Not found" }</code></li>
+<li data-level="0"><strong><code>errorHandler</code></strong> — captura todos los errores Express no manejados, registra con Pino, devuelve <code>500 { error: "Internal server error" }</code></li>
+</ul>
+<hr>
+
+<h2 id="9-rutas-de-api-referencia-completa">9. Rutas de API — Referencia Completa</h2>
+
+<h3 id="91-autenticacin-codeapiauthcode">9.1 Autenticación (<code>/api/auth</code>)</h3>
+
+<h4 id="codepost-apiauthlogincode"><code>POST /api/auth/login</code></h4>
+<strong>Cuerpo:</strong> <code>{ username: string, password: string }</code>
+<strong>Respuesta:</strong> <code>{ success: true, username: string }</code>
+<p>
+Verifica credenciales con bcrypt, crea sesión, establece cookie <code>session_id</code>.
+</p>
+
+<h4 id="codepost-apiauthlogoutcode"><code>POST /api/auth/logout</code></h4>
+<strong>Respuesta:</strong> <code>{ success: true }</code>
+<p>
+Elimina la sesión de la DB, borra la cookie.
+</p>
+
+<h4 id="codeget-apiauthmecode"><code>GET /api/auth/me</code></h4>
+<strong>Respuesta:</strong> <code>{ username: string, role: string }</code> o <code>401</code>.
+
+<h4 id="codeget-apiauthstatuscode"><code>GET /api/auth/status</code></h4>
+<strong>Respuesta:</strong> <code>{ auth_enabled: boolean }</code>
+<p>
+Endpoint público para que el frontend sepa si mostrar la pantalla de login.
+</p>
+
+<hr>
+
+<h3 id="92-dominios-codeapidomainscode">9.2 Dominios (<code>/api/domains</code>)</h3>
+
+<h4 id="codeget-apidomainscode"><code>GET /api/domains</code></h4>
+<p>
+Lista dominios con paginación, búsqueda y filtros.
+</p>
+
+<strong>Query params:</strong>
+<table><tr><td>Parámetro</td><td>Tipo</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>include</code></td><td><code>all</code> \</td><td><code>active</code></td><td><code>all</code> incluye borrados suavemente. Por defecto: <code>active</code></td></tr>
+<tr><td><code>page</code></td><td>number</td><td>Número de página (empieza en 1)</td></tr>
+<tr><td><code>limit</code></td><td>number</td><td>Elementos por página (máx 500)</td></tr>
+<tr><td><code>search</code></td><td>string</td><td>Filtra por nombre de dominio, registrar, nameservers</td></tr>
+<tr><td><code>status</code></td><td>string</td><td><code>expired</code>, <code>expiring15</code>, <code>expiring30</code>, <code>expiring90</code>, <code>healthy</code></td></tr>
+<tr><td><code>group_id</code></td><td>number</td><td>Filtra por grupo</td></tr>
+<tr><td><code>tag_id</code></td><td>number</td><td>Filtra por etiqueta</td></tr>
+<tr><td><code>registrar</code></td><td>string</td><td>Filtra por registrar</td></tr>
+<tr><td><code>sort</code></td><td>string</td><td>Campo por el que ordenar</td></tr>
+<tr><td><code>order</code></td><td><code>asc</code> \</td><td><code>desc</code></td><td>Dirección de ordenación</td></tr>
+</table>
+<strong>Respuesta:</strong>
+<pre><code class="language-json">{
+  "domains": [...],
+  "total": 150,
+  "page": 1,
+  "limit": 50,
+  "pages": 3
+}
+</code></pre>
+
+<h4 id="codepost-apidomainscode"><code>POST /api/domains</code></h4>
+<strong>Cuerpo:</strong> <code>{ domain: string, group_id?: number }</code>
+<p>
+Valida el formato del dominio, comprueba duplicados, inserta, inicia obtención de WHOIS en segundo plano.
+</p>
+
+<h4 id="codeget-apidomainsidcode"><code>GET /api/domains/:id</code></h4>
+<p>
+Devuelve dominio con datos de salud y tiempo de actividad actuales.
+</p>
+
+<h4 id="codedelete-apidomainsdomaincode"><code>DELETE /api/domains/:domain</code></h4>
+<p>
+Borrado suave — establece <code>deleted_at</code> al timestamp actual. Registra en audit_log.
+</p>
+
+<h4 id="codeget-apidomainsdeletedcode"><code>GET /api/domains/deleted</code></h4>
+<p>
+Lista todos los dominios borrados suavemente (donde <code>deleted_at IS NOT NULL</code>).
+</p>
+
+<h4 id="codepost-apidomainsidrestorecode"><code>POST /api/domains/:id/restore</code></h4>
+<p>
+Restablece <code>deleted_at</code> a NULL. Registra en audit_log.
+</p>
+
+<h4 id="codepost-apidomainsidvalidate-nscode"><code>POST /api/domains/:id/validate-ns</code></h4>
+<p>
+Copia <code>name_servers</code> a <code>name_servers_prev</code> para reconocer el cambio de NS actual.
+</p>
+
+<h4 id="codepost-apidomainsidgroupcode"><code>POST /api/domains/:id/group</code></h4>
+<strong>Cuerpo:</strong> <code>{ group_id: number | null }</code>
+<p>
+Asigna o elimina la asignación de grupo.
+</p>
+
+<h4 id="codeput-apidomainsidtagscode"><code>PUT /api/domains/:id/tags</code></h4>
+<strong>Cuerpo:</strong> <code>{ tag_ids: number[] }</code>
+<p>
+Reemplaza todas las asociaciones de etiquetas con el conjunto proporcionado.
+</p>
+
+<hr>
+
+<h3 id="93-grupos-codeapigroupscode">9.3 Grupos (<code>/api/groups</code>)</h3>
+
+<h4 id="codeget-apigroupscode"><code>GET /api/groups</code></h4>
+<p>
+Lista todos los grupos con <code>domain_count</code>.
+</p>
+
+<h4 id="codepost-apigroupscode"><code>POST /api/groups</code></h4>
+<strong>Cuerpo:</strong> <code>{ name: string, color: string, description?: string }</code>
+
+<h4 id="codeput-apigroupsidcode"><code>PUT /api/groups/:id</code></h4>
+<strong>Cuerpo:</strong> <code>{ name?: string, color?: string, description?: string }</code>
+
+<h4 id="codedelete-apigroupsidcode"><code>DELETE /api/groups/:id</code></h4>
+<p>
+Elimina el grupo. Los dominios del grupo obtienen <code>group_id = NULL</code>.
+</p>
+
+<hr>
+
+<h3 id="94-etiquetas-codeapitagscode">9.4 Etiquetas (<code>/api/tags</code>)</h3>
+
+<h4 id="codeget-apitagscode"><code>GET /api/tags</code></h4>
+<p>
+Lista todas las etiquetas.
+</p>
+
+<h4 id="codepost-apitagscode"><code>POST /api/tags</code></h4>
+<strong>Cuerpo:</strong> <code>{ name: string, color: string }</code>
+
+<h4 id="codedelete-apitagsidcode"><code>DELETE /api/tags/:id</code></h4>
+
+<h4 id="codepost-apidomainsidtagstagidcode"><code>POST /api/domains/:id/tags/:tagId</code></h4>
+<p>
+Añade una etiqueta a un dominio.
+</p>
+
+<h4 id="codedelete-apidomainsidtagstagidcode"><code>DELETE /api/domains/:id/tags/:tagId</code></h4>
+<p>
+Elimina una etiqueta de un dominio.
+</p>
+
+<hr>
+
+<h3 id="95-actualizacin-whois-codeapirefreshcode">9.5 Actualización WHOIS (<code>/api/refresh</code>)</h3>
+
+<h4 id="codeget-apirefreshstatuscode"><code>GET /api/refresh/status</code></h4>
+<p>
+Devuelve el estado actual de progreso de actualización:
+</p>
+<pre><code class="language-json">{ "running": true, "total": 150, "completed": 42, "current": "example.com", "errors": 2 }
+</code></pre>
+
+<h4 id="codepost-apirefreshcode"><code>POST /api/refresh</code></h4>
+<p>
+Inicia una actualización WHOIS bulk de todos los dominios activos. Ejecuta en segundo plano; las actualizaciones de progreso se emiten vía WebSocket.
+</p>
+
+<h4 id="codepost-apirefreshdomaincode"><code>POST /api/refresh/:domain</code></h4>
+<p>
+Actualiza un único dominio. Espera a que se complete y devuelve los datos actualizados.
+</p>
+
+<hr>
+
+<h3 id="96-verificaciones-de-salud-codeapihealthcode">9.6 Verificaciones de Salud (<code>/api/health</code>)</h3>
+
+<h4 id="codeget-apihealthcode"><code>GET /api/health</code></h4>
+<p>
+Estado de salud de la aplicación:
+</p>
+<pre><code class="language-json">{ "status": "ok", "uptime": 12345, "database": "ok", "version": "2.0.0" }
+</code></pre>
+
+<h4 id="codeget-apihealthsummarycode"><code>GET /api/health/summary</code></h4>
+<p>
+Conteos de salud de dominios:
+</p>
+<pre><code class="language-json">{ "dns_ok": 120, "dns_fail": 5, "http_ok": 118, "http_fail": 7, "ssl_ok": 115, "ssl_fail": 10 }
+</code></pre>
+
+<h4 id="codeget-apihealthdomainidcode"><code>GET /api/health/domain/:id</code></h4>
+<p>
+Historial de comprobaciones de salud para un dominio.
+</p>
+
+<h4 id="codepost-apihealthdomainidcode"><code>POST /api/health/domain/:id</code></h4>
+<p>
+Ejecuta una comprobación de salud para un dominio de forma síncrona.
+</p>
+
+<h4 id="codepost-apihealthcheck-allcode"><code>POST /api/health/check-all</code></h4>
+<p>
+Inicia comprobaciones de salud para todos los dominios activos en segundo plano.
+</p>
+
+<hr>
+
+<h3 id="97-tiempo-de-actividad-codeapiuptimecode">9.7 Tiempo de Actividad (<code>/api/uptime</code>)</h3>
+
+<h4 id="codeget-apiuptimestatscode"><code>GET /api/uptime/stats</code></h4>
+<p>
+Estadísticas de tiempo de actividad de todos los dominios:
+</p>
+<pre><code class="language-json">[{ "domain_id": 1, "domain": "example.com", "uptime_24h": 99.8, "uptime_7d": 99.5, "current_status": "up", "response_time_avg": 145 }]
+</code></pre>
+
+<h4 id="codeget-apiuptimedomainidcode"><code>GET /api/uptime/domain/:id</code></h4>
+<p>
+Historial de tiempo de actividad para un dominio (últimas 24h de pings).
+</p>
+
+<h4 id="codepost-apiuptimedomainidcode"><code>POST /api/uptime/domain/:id</code></h4>
+<p>
+Activa una comprobación de tiempo de actividad manual.
+</p>
+
+<h4 id="codepost-apiuptimerestartcode"><code>POST /api/uptime/restart</code></h4>
+<p>
+Reinicia el servicio de monitoreo (útil después de cambiar el intervalo en Settings).
+</p>
+
+<hr>
+
+<h3 id="98-importacin-exportacin-codeapiimportcode-codeapiexportcode">9.8 Importación / Exportación (<code>/api/import</code>, <code>/api/export</code>)</h3>
+
+<h4 id="codeget-apiimporttemplatecode"><code>GET /api/import/template</code></h4>
+<p>
+Descarga una plantilla CSV con columnas: <code>domain,group_name,tags</code>.
+</p>
+
+<h4 id="codepost-apiimportcsvcode"><code>POST /api/import/csv</code></h4>
+<p>
+Cuerpo multipart/form-data con campo <code>file</code>. Parsea el CSV, omite duplicados, inserta dominios nuevos.
+</p>
+
+<strong>Respuesta:</strong>
+<pre><code class="language-json">{ "imported": 45, "skipped": 5, "errors": ["bad-domain: formato inválido"] }
+</code></pre>
+
+<h4 id="codeget-apiexportcsvcode"><code>GET /api/export/csv</code></h4>
+<p>
+Descarga todos los dominios activos como CSV.
+</p>
+
+<h4 id="codeget-apiexportjsoncode"><code>GET /api/export/json</code></h4>
+<p>
+Descarga todos los dominios activos como JSON.
+</p>
+
+<hr>
+
+<h3 id="99-configuraciones-codeapisettingscode">9.9 Configuraciones (<code>/api/settings</code>)</h3>
+
+<h4 id="codeget-apisettingscode"><code>GET /api/settings</code></h4>
+<p>
+Devuelve todas las configuraciones como objeto clave/valor.
+</p>
+
+<h4 id="codeput-apisettingscode"><code>PUT /api/settings</code></h4>
+<strong>Cuerpo:</strong> objeto clave/valor con configuraciones a actualizar.
+<p>
+Invalida el caché de configuraciones en memoria. Si se cambian los schedules, reinicia el scheduler.
+</p>
+
+<h4 id="codepost-apisettingsemailtestcode"><code>POST /api/settings/email/test</code></h4>
+<p>
+Envía un email de prueba a los destinatarios configurados. Devuelve éxito/error.
+</p>
+
+<hr>
+
+<h3 id="910-log-de-auditora-codeapiauditcode">9.10 Log de Auditoría (<code>/api/audit</code>)</h3>
+
+<h4 id="codeget-apiauditcode"><code>GET /api/audit</code></h4>
+<strong>Query params:</strong> <code>limit</code> (por defecto 100), <code>entity_type</code>, <code>action</code>, <code>performed_by</code>, <code>from</code>, <code>to</code>
+
+<strong>Respuesta:</strong>
+<pre><code class="language-json">[{
+  "id": 1,
+  "entity_type": "domain",
+  "entity_id": "example.com",
+  "action": "create",
+  "old_value": null,
+  "new_value": "{\"domain\":\"example.com\"}",
+  "ip_address": "127.0.0.1",
+  "performed_by": "admin",
+  "created_at": "2026-02-21T10:30:00.000Z"
+}]
+</code></pre>
+
+<hr>
+
+<h3 id="911-usuarios-codeapiuserscode">9.11 Usuarios (<code>/api/users</code>)</h3>
+
+<h4 id="codeget-apiuserscode"><code>GET /api/users</code></h4>
+<p>
+Lista todos los usuarios (sin contraseñas en la respuesta).
+</p>
+
+<h4 id="codepost-apiuserscode"><code>POST /api/users</code></h4>
+<strong>Cuerpo:</strong> <code>{ username: string, password: string, role: "admin" | "editor" | "viewer" }</code>
+
+<h4 id="codeput-apiusersidcode"><code>PUT /api/users/:id</code></h4>
+<strong>Cuerpo:</strong> <code>{ username?: string, password?: string, role?: string }</code>
+
+<h4 id="codedelete-apiusersidcode"><code>DELETE /api/users/:id</code></h4>
+<p>
+No se puede eliminar el último usuario admin.
+</p>
+
+<hr>
+
+<h3 id="912-claves-de-api-codeapiapikeyscode">9.12 Claves de API (<code>/api/apikeys</code>)</h3>
+
+<h4 id="codeget-apiapikeyscode"><code>GET /api/apikeys</code></h4>
+<p>
+Lista claves de API (valores cifrados no expuestos).
+</p>
+
+<h4 id="codepost-apiapikeyscode"><code>POST /api/apikeys</code></h4>
+<strong>Cuerpo:</strong> <code>{ name: string, key_value: string, provider: string, priority?: number }</code>
+<p>
+Cifra <code>key_value</code> con AES-256 antes de almacenar.
+</p>
+
+<h4 id="codeput-apiapikeysidcode"><code>PUT /api/apikeys/:id</code></h4>
+<p>
+Actualiza metadatos. Si se proporciona <code>key_value</code>, lo vuelve a cifrar.
+</p>
+
+<h4 id="codedelete-apiapikeysidcode"><code>DELETE /api/apikeys/:id</code></h4>
+
+<hr>
+
+<h3 id="913-webhooks-codeapiwebhookscode">9.13 Webhooks (<code>/api/webhooks</code>)</h3>
+
+<h4 id="codeget-apiwebhookscode"><code>GET /api/webhooks</code></h4>
+<p>
+Lista webhooks configurados.
+</p>
+
+<h4 id="codepost-apiwebhookscode"><code>POST /api/webhooks</code></h4>
+<strong>Cuerpo:</strong> <code>{ name: string, url: string, events: string[], secret?: string }</code>
+
+<p>
+Eventos disponibles: <code>domain.created</code>, <code>domain.deleted</code>, <code>domain.expired</code>, <code>domain.expiring</code>, <code>domain.down</code>, <code>domain.recovered</code>, <code>domain.ns_changed</code>.
+</p>
+
+<h4 id="codeput-apiwebhooksidcode"><code>PUT /api/webhooks/:id</code></h4>
+
+<h4 id="codedelete-apiwebhooksidcode"><code>DELETE /api/webhooks/:id</code></h4>
+
+<h4 id="codeget-apiwebhooksidlogcode"><code>GET /api/webhooks/:id/log</code></h4>
+<p>
+Historial de entregas de un webhook.
+</p>
+
+<hr>
+
+<h3 id="914-mtricas-codeapimetricscode">9.14 Métricas (<code>/api/metrics</code>)</h3>
+
+<p>
+Devuelve métricas en formato texto compatible con Prometheus:
+</p>
+
+<pre><code class="language-text"># HELP domain_monitor_domains_total Total domains tracked
+# TYPE domain_monitor_domains_total gauge
+domain_monitor_domains_total 150
+
+# HELP domain_monitor_domains_expired Expired domains
+# TYPE domain_monitor_domains_expired gauge
+domain_monitor_domains_expired 3
+</code></pre>
+
+<hr>
+
+<h3 id="915-rss-feed-codersscode">9.15 RSS Feed (<code>/rss</code>)</h3>
+
+<p>
+Devuelve un feed RSS 2.0 con los eventos de dominio recientes del log de auditoría. Compatible con cualquier lector de feeds.
+</p>
+
+<hr>
+
+<h3 id="916-estado-pblico-codeapistatuscode">9.16 Estado Público (<code>/api/status</code>)</h3>
+
+<p>
+Devuelve datos de estado para la página <code>status.html</code>:
+</p>
+
+<pre><code class="language-json">{
+  "status": "operational",
+  "updated_at": "2026-02-21T10:00:00.000Z",
+  "summary": { "total": 150, "healthy": 140, "errors": 5, "expiring_30d": 8, "expired": 2 },
+  "groups": [{
+    "id": 1, "name": "Production", "color": "#22c55e",
+    "domains": 45, "status": "operational",
+    "health": { "dns_ok": 44, "dns_fail": 1, "http_ok": 43, "http_fail": 2, "ssl_ok": 44, "ssl_fail": 1 },
+    "expiry": { "expiring_30d": 3, "expired": 0 }
+  }]
+}
+</code></pre>
+
+<hr>
+
+<h2 id="10-protocolo-websocket">10. Protocolo WebSocket</h2>
+
+<p>
+Conéctate a <code>ws://localhost:3000/ws</code> (o <code>wss://</code> en producción).
+</p>
+
+<h3 id="mensajes-del-servidor-cliente">Mensajes del Servidor → Cliente</h3>
+
+<p>
+Todos los mensajes son <code>JSON.parse</code>-ados objetos con <code>type</code> y <code>payload</code>.
+</p>
+
+<table><tr><td>Tipo</td><td>Payload</td><td>Cuándo se envía</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>connected</code></td><td><code>{ message: "Connected to Domain Monitor" }</code></td><td>Al conectar</td></tr>
+<tr><td><code>refresh_progress</code></td><td><code>{ total, completed, current, errors }</code></td><td>Durante actualización WHOIS bulk</td></tr>
+<tr><td><code>refresh_complete</code></td><td><code>{ total, errors, duration_ms }</code></td><td>Cuando termina la actualización</td></tr>
+<tr><td><code>domain_updated</code></td><td>Objeto dominio completo</td><td>Después de actualización WHOIS o comprobación de salud</td></tr>
+<tr><td><code>domain_added</code></td><td>Objeto dominio</td><td>Cuando se añade un nuevo dominio</td></tr>
+<tr><td><code>health_update</code></td><td><code>{ domain_id, ...health_data }</code></td><td>Después de comprobación de salud</td></tr>
+<tr><td><code>uptime_update</code></td><td><code>{ domain_id, status, response_time_ms }</code></td><td>Después de ping de tiempo de actividad</td></tr>
+</table>
+<hr>
+
+<h2 id="11-esquemas-de-validacin">11. Esquemas de Validación</h2>
+
+<p>
+Definidos en <code>src/config/schema.ts</code> con Zod. Ejemplos:
+</p>
+
+<pre><code class="language-typescript">// Añadir un dominio
+const AddDomainSchema = z.object({
+  domain: z.string().min(1).max(253).regex(/^[a-zA-Z0-9][a-zA-Z0-9-_.]*\.[a-zA-Z]{2,}$/),
+  group_id: z.number().int().positive().optional()
+});
+
+// Crear un grupo
+const CreateGroupSchema = z.object({
+  name: z.string().min(1).max(50),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  description: z.string().max(200).optional()
+});
+
+// Parámetros de consulta para listar dominios
+const DomainQuerySchema = z.object({
+  include: z.enum(['active', 'all']).optional().default('active'),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(500).optional().default(50),
+  search: z.string().optional(),
+  status: z.string().optional(),
+  group_id: z.coerce.number().int().optional(),
+  sort: z.string().optional(),
+  order: z.enum(['asc', 'desc']).optional().default('asc')
+});
+</code></pre>
+
+<hr>
+
+<h2 id="12-tipos-typescript">12. Tipos TypeScript</h2>
+
+<h3 id="codedomaincode-codesrctypesdomaintscode"><code>Domain</code> (<code>src/types/domain.ts</code>)</h3>
+
+<pre><code class="language-typescript">interface Domain {
+  id?: number;
+  domain: string;
+  registrar: string;
+  created_date: string;
+  expiry_date: string;
+  name_servers: string[];
+  name_servers_prev: string[];
+  last_checked: string | null;
+  error: string | null;
+  group_id?: number | null;
+  deleted_at?: string | null;
+  // Campos enriquecidos del join
+  group_name?: string;
+  group_color?: string;
+  tags?: Tag[];
+  health?: DomainHealth;
+  uptime?: UptimeStats;
+}
+
+interface DomainHealth {
+  dns_resolved: boolean;
+  dns_ip?: string;
+  http_status?: number;
+  ssl_valid: boolean;
+  ssl_expiry?: string;
+  checked_at: string;
+}
+
+interface UptimeStats {
+  current_status: 'up' | 'down' | 'unknown';
+  uptime_24h: number;
+  uptime_7d: number;
+  response_time_avg: number;
+}
+</code></pre>
+
+<h3 id="codeauditentrycode-codesrctypesaudittscode"><code>AuditEntry</code> (<code>src/types/audit.ts</code>)</h3>
+
+<pre><code class="language-typescript">interface AuditEntry {
+  id?: number;
+  entity_type: string;
+  entity_id?: string;
+  action: string;
+  old_value?: string;
+  new_value?: string;
+  ip_address?: string;
+  user_agent?: string;
+  performed_by?: string;
+  created_at?: string;
+}
+</code></pre>
+
+<h3 id="codeauthenticatedrequestcode-codesrctypesapitscode"><code>AuthenticatedRequest</code> (<code>src/types/api.ts</code>)</h3>
+
+<pre><code class="language-typescript">interface AuthenticatedRequest extends Request {
+  username?: string;
+  userId?: number;
+  sessionId?: string;
+}
+</code></pre>
+
+<hr>
+
+<h2 id="13-frontend-spa">13. Frontend (SPA)</h2>
+
+<h3 id="131-descripcin-general">13.1 Descripción General</h3>
+
+<p>
+El frontend es una <strong>Aplicación de Página Única (SPA)</strong> de JavaScript vanilla en <code>public/app.js</code> (~5500 líneas). Sin React, sin Vue — solo JavaScript DOM directo, Chart.js y Font Awesome.
+</p>
+
+<p>
+El estado se gestiona mediante el objeto global <code>state</code>:
+</p>
+<pre><code class="language-javascript">const state = {
+  domains: [],          // array de dominios completo
+  groups: [],           // todos los grupos
+  tags: [],             // todas las etiquetas
+  settings: {},         // configuraciones de la app
+  pagination: { enabled: false, page: 1, limit: 50, total: 0 },
+  filters: { search: '', status: '', group: '', registrar: '', tag: '' },
+  sort: { field: 'domain', direction: 'asc' },
+  charts: {},           // referencias a instancias de Chart.js
+  ws: null,             // instancia WebSocket
+};
+</code></pre>
+
+<h3 id="132-sistema-de-rutas-hash">13.2 Sistema de Rutas Hash</h3>
+
+<p>
+La SPA usa hash routing:
+</p>
+
+<table><tr><td>Hash</td><td>Vista mostrada</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>#dashboard</code></td><td>Panel principal con widgets</td></tr>
+<tr><td><code>#domains</code></td><td>Tabla de dominios</td></tr>
+<tr><td><code>#audit</code></td><td>Log de auditoría</td></tr>
+<tr><td><code>#settings</code></td><td>Panel de configuraciones</td></tr>
+<tr><td><code>#settings/groups</code></td><td>Sub-tab de grupos</td></tr>
+<tr><td><code>#settings/tags</code></td><td>Sub-tab de etiquetas</td></tr>
+<tr><td><code>#settings/email</code></td><td>Sub-tab de email</td></tr>
+<tr><td><code>#settings/uptime</code></td><td>Sub-tab de tiempo de actividad</td></tr>
+<tr><td><code>#settings/users</code></td><td>Sub-tab de usuarios</td></tr>
+<tr><td><code>#settings/webhooks</code></td><td>Sub-tab de webhooks</td></tr>
+</table>
+<h3 id="133-widgets-del-dashboard">13.3 Widgets del Dashboard</h3>
+
+<p>
+Los widgets son divs <code>draggable="true"</code> con atributo <code>data-widget-id</code>. El orden se persiste en <code>localStorage</code> como JSON array de IDs. Los widgets disponibles:
+</p>
+
+<table><tr><td><code>data-widget-id</code></td><td>Función de actualización</td><td>Descripción</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>uptime-status</code></td><td><code>updateUptimeStatusWidget()</code></td><td>Up/Down/Unknown conteos grandes</td></tr>
+<tr><td><code>critical-alerts</code></td><td>parte de <code>load()</code></td><td>Lista alertas urgentes</td></tr>
+<tr><td><code>groups-status</code></td><td><code>updateGroupsStatusWidget()</code></td><td>Estado por grupo</td></tr>
+<tr><td><code>mammoth</code></td><td><code>updateMammothWidget()</code></td><td>Métricas del grupo Mammoth</td></tr>
+<tr><td><code>timeline</code></td><td><code>updateCharts()</code></td><td>Gráfico de línea de tiempo Chart.js</td></tr>
+<tr><td><code>activity</code></td><td><code>updateActivityLog()</code></td><td>Feed de actividad reciente</td></tr>
+</table>
+<h3 id="134-funcin-codeloadcode">13.4 Función <code>load()</code></h3>
+
+<p>
+La función principal que obtiene y renderiza todos los datos:
+</p>
+
+<ol><li><code>GET /api/domains</code> — obtiene dominios (paginados o todos)</li>
+<li><code>GET /api/groups</code> — obtiene grupos (en caché si ya están en state)</li>
+<li><code>GET /api/tags</code> — obtiene etiquetas</li>
+<li>Calcula estadísticas de expiración (expired/exp15/exp30/exp90/exp6m)</li>
+<li>Calcula alertas críticas desde <code>state.domains</code> (lista completa, deduplicadas por clave <code>dominio:tipo</code>)</li>
+<li><code>renderDomains(displayDomains)</code> — construye filas de tabla</li>
+<li><code>updateCharts(state.domains)</code> — actualiza gráfico de línea de tiempo</li>
+<li><code>updateGroupsStatusWidget(state.domains)</code> — actualiza widget de grupos</li>
+<li><code>updateMammothWidget(state.domains)</code> — actualiza widget Mammoth</li>
+<li><code>updateActivityLog()</code> — obtiene y muestra log de auditoría reciente</li>
+</ol>
+<h3 id="135-actualizaciones-en-tiempo-real">13.5 Actualizaciones en Tiempo Real</h3>
+
+<p>
+El cliente WebSocket en <code>initWebSocket()</code> escucha mensajes y actualiza selectivamente el DOM:
+</p>
+<ul><li data-level="0"><code>domain_updated</code> — actualiza la fila de un solo dominio en la tabla y recalcula estadísticas</li>
+<li data-level="0"><code>domain_added</code> — llama a <code>load()</code> para obtener la lista completa actualizada</li>
+<li data-level="0"><code>refresh_progress</code> — actualiza la barra de progreso en el widget de alertas críticas</li>
+<li data-level="0"><code>health_update</code> — actualiza los indicadores de salud en la fila del dominio</li>
+<li data-level="0"><code>uptime_update</code> — actualiza la barra de latidos y el estado en la fila del dominio</li>
+</ul>
+<h3 id="136-sistema-de-log-de-auditora-del-frontend">13.6 Sistema de Log de Auditoría del Frontend</h3>
+
+<strong><code>formatAuditLog(log)</code></strong> — convierte entradas de auditoría sin procesar en mensajes legibles:
+
+<table><tr><td>Tipo de entidad + Acción</td><td>Mensaje generado</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>domain</code> + <code>create</code></td><td>"Added domain example.com"</td></tr>
+<tr><td><code>domain</code> + <code>delete</code></td><td>"Deleted domain example.com"</td></tr>
+<tr><td><code>domain</code> + <code>refresh</code></td><td>"Refreshed WHOIS for example.com"</td></tr>
+<tr><td><code>group</code> + <code>create</code></td><td>"Created group Production"</td></tr>
+<tr><td><code>settings</code> + <code>update</code></td><td>"Updated settings"</td></tr>
+</table>
+<strong><code>loadAuditLog()</code></strong> — renderiza entradas usando <code>formatAuditLog()</code>, muestra el username del actor (campo <code>performed_by</code>) con icono de usuario.
+
+<hr>
+
+<h2 id="14-pgina-de-estado-pblica">14. Página de Estado Pública</h2>
+
+<code>public/status.html</code> es una página HTML autocontenida que muestra el estado del sistema a visitantes externos sin necesidad de autenticación.
+
+<h3 id="caractersticas">Características</h3>
+<ul><li data-level="0"><strong>Sin dependencias de framework</strong> — JavaScript vanilla, sin React/Vue</li>
+<li data-level="0"><strong>Sin credenciales de autenticación</strong> — llama al endpoint público <code>/api/status</code></li>
+<li data-level="0"><strong>Se refresca automáticamente</strong> — cada 60 segundos vuelve a obtener datos</li>
+<li data-level="0"><strong>Soporte de modo oscuro</strong> — respeta <code>prefers-color-scheme</code></li>
+</ul>
+<h3 id="estructura-de-la-pgina">Estructura de la Página</h3>
+
+<ol><li><strong>Banner de estado</strong> — "Operational" / "Warning" / "Degraded" con icono de color</li>
+<li><strong>Cuadrícula de estadísticas</strong> — Total / Healthy / Expiring 30d / Expired / Errors (5 tarjetas)</li>
+<li><strong>Sección de grupos</strong> — por cada grupo:</li>
+</ol><ul><li data-level="1">Nombre del grupo (punto de color) + conteo de dominios + pastilla de estado</li>
+<li data-level="1">Fila de salud: DNS OK/Fail • HTTP OK/Fail • SSL OK/Fail</li>
+<li data-level="1">Fila de expiración: X expirando en 30d, Y expirados</li>
+<li data-level="1">Enlace "Ver en la app →"</li>
+</ul>4. <strong>Sección de enlaces rápidos</strong> — Dashboard, Dominios, Log de Auditoría, Configuraciones
+<ol><li><strong>Footer</strong> — nota de auto-refresco, timestamp de última actualización</li>
+</ol>
+<hr>
+
+<h2 id="15-sistema-de-registro-de-auditora">15. Sistema de Registro de Auditoría</h2>
+
+<p>
+Cada acción que modifica datos registra una entrada en <code>audit_log</code> mediante la función <code>logAudit()</code>.
+</p>
+
+<h3 id="codelogauditentry-auditentrycode"><code>logAudit(entry: AuditEntry)</code></h3>
+
+<pre><code class="language-typescript">logAudit({
+  entity_type: 'domain',
+  entity_id: 'example.com',
+  action: 'create',
+  new_value: JSON.stringify(domainData),
+  ip_address: req.ip,
+  user_agent: req.headers['user-agent'],
+  performed_by: (req as AuthenticatedRequest).username
+});
+</code></pre>
+
+<h3 id="funciones-helper">Funciones Helper</h3>
+
+<table><tr><td>Función</td><td>Qué registra</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>auditDomainCreate(domain, data, ip, ua, by)</code></td><td>Creación de dominio</td></tr>
+<tr><td><code>auditDomainDelete(domain, oldData, ip, ua, by)</code></td><td>Borrado de dominio</td></tr>
+<tr><td><code>auditBulkRefresh(count, domains, by)</code></td><td>Actualización WHOIS bulk</td></tr>
+<tr><td><code>auditBulkHealthCheck(count, domains, by)</code></td><td>Comprobación de salud bulk</td></tr>
+<tr><td><code>auditImport(count, skipped, ip, ua, by)</code></td><td>Importación CSV</td></tr>
+</table>
+<h3 id="tipos-de-accin">Tipos de Acción</h3>
+
+<code>create</code>, <code>delete</code>, <code>update</code>, <code>restore</code>, <code>refresh</code>, <code>health_check</code>, <code>import</code>, <code>export</code>, <code>login</code>, <code>logout</code>, <code>validate_ns</code>, <code>bulk_refresh</code>, <code>bulk_health_check</code>
+
+<h3 id="retencin">Retención</h3>
+
+<p>
+Configurada mediante <code>audit_retention_days</code> en Settings (por defecto: 90 días). La limpieza se ejecuta según <code>auto_cleanup_enabled</code>.
+</p>
+
+<hr>
+
+<h2 id="16-modelo-de-seguridad">16. Modelo de Seguridad</h2>
+
+<h3 id="headers-http">Headers HTTP</h3>
+
+<p>
+En producción (<code>NODE_ENV=production</code>), Helmet aplica:
+</p>
+<ul><li data-level="0"><strong>Content Security Policy</strong> — limita la ejecución de scripts/estilos a fuentes de confianza</li>
+<li data-level="0"><strong>Strict-Transport-Security</strong> — 1 año, incluye subdominios (HSTS)</li>
+<li data-level="0"><strong>X-Frame-Options</strong> — <code>SAMEORIGIN</code> (anti-clickjacking)</li>
+<li data-level="0"><strong>X-Content-Type-Options</strong> — <code>nosniff</code></li>
+</ul>
+<p>
+En desarrollo, Helmet se aplica con mínimas restricciones para evitar interferir con el servidor local.
+</p>
+
+<h3 id="autenticacin">Autenticación</h3>
+<ul><li data-level="0">Sesiones basadas en cookies con ID de sesión UUID almacenado en SQLite</li>
+<li data-level="0">Las contraseñas se hashean con bcrypt (factor de coste 12)</li>
+<li data-level="0">Las sesiones expiran según <code>SESSION_TTL_HOURS</code></li>
+<li data-level="0">Las sesiones expiradas se limpian cada hora</li>
+</ul>
+<h3 id="claves-de-api">Claves de API</h3>
+
+<p>
+Las claves de API de proveedores WHOIS se almacenan cifradas con AES-256-CBC. La clave de cifrado se deriva del <code>SESSION_SECRET</code> del entorno.
+</p>
+
+<h3 id="rate-limiting">Rate Limiting</h3>
+
+<p>
+100 requests por IP por ventana de 15 minutos en todas las rutas <code>/api/</em></code>. Responde <code>429</code> con header <code>Retry-After</code>.
+</p>
+
+<h3 id="validacin-de-entradas">Validación de Entradas</h3>
+
+<p>
+Todos los cuerpos de requests y query params se validan con esquemas Zod antes de llegar a los handlers de ruta. Las entradas inválidas devuelven <code>400 Bad Request</code> con detalles del error.
+</p>
+
+<hr>
+
+<h2 id="17-sistema-de-logging">17. Sistema de Logging</h2>
+
+<p>
+Usando <strong>Pino</strong> con <code>pino-pretty</code> para desarrollo y JSON estructurado para producción.
+</p>
+
+<h3 id="niveles-de-log">Niveles de Log</h3>
+
+<table><tr><td>Nivel</td><td>Uso</td></tr>
+</table>__TABLE_HEADER__
+<table><tr><td><code>debug</code></td><td>Flujo detallado de operaciones (activado con <code>LOG_LEVEL=debug</code>)</td></tr>
+<tr><td><code>info</code></td><td>Eventos normales del sistema (inicio del servidor, trabajos cron)</td></tr>
+<tr><td><code>warn</code></td><td>Fallos recuperables (timeout WHOIS, fallo de entrega de email)</td></tr>
+<tr><td><code>error</code></td><td>Errores que afectan funcionalidad (DB bloqueada, SMTP no disponible)</td></tr>
+</table>
+<h3 id="rotacin-de-archivos-de-log">Rotación de Archivos de Log</h3>
+
+<p>
+Si <code>LOG_TO_FILE=true</code>, <code>pino-roll</code> rota los archivos de log diariamente en el directorio <code>LOG_DIR</code>.
+</p>
+
+<pre><code class="language-bash"># Ver logs en tiempo real (si LOG_TO_FILE=true)
+tail -f logs/app.log | npx pino-pretty
+
+# Con Docker
+docker-compose logs -f
+</code></pre>
+
+<hr>
+
+<h2 id="18-despliegue-con-docker">18. Despliegue con Docker</h2>
+
+<h3 id="codedocker-composeymlcode"><code>docker-compose.yml</code></h3>
+
+<pre><code class="language-yaml">version: '3.8'
+services:
+  domain-monitor:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data      # Persistencia de la base de datos SQLite
+      - ./logs:/app/logs      # Logs (si LOG_TO_FILE=true)
+    environment:
+      - NODE_ENV=production
+      - APILAYER_KEY=${APILAYER_KEY}
+      - AUTH_ENABLED=true
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
+    restart: unless-stopped
+</code></pre>
+
+<h3 id="construccin-personalizada">Construcción Personalizada</h3>
+
+<pre><code class="language-bash"># Construir imagen
+docker build -t domain-monitor .
+
+# Ejecutar con variables de entorno
+docker run -d \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -e APILAYER_KEY=tu_clave \
+  -e AUTH_ENABLED=true \
+  -e ADMIN_PASSWORD=secreto \
+  domain-monitor
+</code></pre>
+
+<h3 id="configuracin-de-proxy-inverso-nginx">Configuración de Proxy Inverso (Nginx)</h3>
+
+<pre><code class="language-nginx">server {
+    listen 80;
+    server_name monitor.example.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";  # Requerido para WebSocket
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+</code></pre>
+
+<hr>
+
+<h2 id="19-diagramas-de-flujo-de-datos">19. Diagramas de Flujo de Datos</h2>
+
+<h3 id="flujo-aadir-un-dominio">Flujo: Añadir un Dominio</h3>
+
+<pre><code class="language-text">Usuario escribe "example.com" → hace clic en Añadir
+       │
+       ▼
+Frontend: POST /api/domains { domain: "example.com" }
+       │
+       ▼
+Server: valida formato → comprueba unicidad → inserta en DB
+       │
+       ▼
+WS Broadcast: domain_added → todos los navegadores conectados actualizan
+       │
+       ▼
+Background: inicia obtención WHOIS (APILayer → fallback whois-json → RDAP)
+       │
+       ├─► Comprobación de salud: DNS + HTTP + SSL
+       │
+       └─► DB: actualiza dominio con todos los datos obtenidos
+              │
+              ▼
+          WS Broadcast: domain_updated → UI se refresca con datos completos
+</code></pre>
+
+<h3 id="flujo-trabajo-cron-de-actualizacin-whois">Flujo: Trabajo Cron de Actualización WHOIS</h3>
+
+<pre><code class="language-text">node-cron: dispara "0 2 * * 0"
+       │
+       ▼
+scheduler.ts: llama refreshAllDomains()
+       │
+       ▼
+Bucle sobre todos los dominios activos:
+  ├─► whois.ts: obtiene datos WHOIS (con reintentos)
+  ├─► DB: actualiza registro del dominio
+  ├─► WS: emite refresh_progress { total, completed, current }
+  └─► Email/Slack: comprueba expiración, envía alertas si necesario
+       │
+       ▼
+WS: emite refresh_complete { total, errors, duration_ms }
+</code></pre>
+
+<h3 id="flujo-ping-de-tiempo-de-actividad">Flujo: Ping de Tiempo de Actividad</h3>
+
+<pre><code class="language-text">Intervalo (cada N minutos)
+       │
+       ▼
+uptime.ts: recorre todos los dominios activos
+       │
+       ▼
+Para cada dominio:
+  ├─► HEAD request con timeout de 5s
+  ├─► DB: inserta registro uptime_check
+  ├─► WS: emite uptime_update
+  └─► Si estado cambia (up→down o down→up):
+       ├─► Email/Slack/ntfy: envía alerta
+       ├─► Webhooks: dispara evento domain.down o domain.recovered
+       └─► DB: actualiza uptime_alerts
+</code></pre>
+
+<hr>
+
+<h2 id="20-preguntas-frecuentes">20. Preguntas Frecuentes</h2>
+
+<h3 id="instalacin-y-configuracin">Instalación y Configuración</h3>
+
+<strong>P: ¿Cómo obtengo una clave de API WHOIS?</strong>
+<p>
+R: Ve a <a href="https://apilayer.com/marketplace/whois-api">apilayer.com/marketplace/whois-api</a>. El plan gratuito incluye 500 requests/mes. Coloca la clave en <code>APILAYER_KEY</code> en tu archivo <code>.env</code>.
+</p>
+
+<strong>P: ¿Puedo ejecutar Domain Monitor sin una clave de API WHOIS?</strong>
+<p>
+R: Sí, pero los datos WHOIS serán menos fiables. El sistema recurre automáticamente a consultas WHOIS directas y RDAP, que pueden estar limitadas por los registros de TLD.
+</p>
+
+<strong>P: ¿Funciona detrás de un proxy inverso?</strong>
+<p>
+R: Sí. Asegúrate de que el proxy reenvía el header <code>Upgrade</code> para soporte WebSocket. Consulta el ejemplo de configuración Nginx en la Sección 18.
+</p>
+
+<strong>P: ¿Cómo activo la autenticación?</strong>
+<p>
+R: Establece <code>AUTH_ENABLED=true</code>, <code>ADMIN_USERNAME=admin</code>, <code>ADMIN_PASSWORD=tu_contraseña</code> en <code>.env</code>. Reinicia el servidor.
+</p>
+
+<strong>P: ¿Dónde se almacenan los datos?</strong>
+<p>
+R: En el archivo SQLite especificado por <code>DB_PATH</code> (por defecto <code>./domains.db</code>). Haz copia de seguridad de este archivo para no perder datos.
+</p>
+
+<strong>P: ¿Puedo importar dominios que ya tengo en una hoja de cálculo?</strong>
+<p>
+R: Sí. Ve a Settings > Import/Export, descarga la plantilla CSV, rellena tus dominios y sube el archivo. También puedes pegar dominios directamente en el modo de adición bulk.
+</p>
+
+<hr>
+
+<h3 id="funcionalidades">Funcionalidades</h3>
+
+<strong>P: ¿Con qué frecuencia se actualizan los datos WHOIS?</strong>
+<p>
+R: Por defecto los domingos a las 2am (configurable en Settings > General). También puedes actualizar manualmente cualquier dominio con el icono de refresco, o todos a la vez con el botón Refresh All.
+</p>
+
+<strong>P: ¿Qué hace el campo "NS Status"?</strong>
+<p>
+R: Compara los nameservers actuales con los nameservers "validados previamente". Si son diferentes aparece "Changed". Haz clic en Validate para reconocer el cambio actual. Esto ayuda a detectar secuestros de DNS.
+</p>
+
+<strong>P: ¿Puedo monitorear sitios sin registrar los dominios?</strong>
+<p>
+R: Los dominios se registran para su seguimiento WHOIS, pero las comprobaciones de salud y uptime funcionan sobre la base del nombre de dominio. No necesitas ser el propietario del registro del dominio para monitorearlo.
+</p>
+
+<strong>P: ¿Cómo funcionan los grupos?</strong>
+<p>
+R: Los grupos son carpetas de color que organizan dominios. Un dominio solo puede pertenecer a un grupo. Los grupos aparecen en los filtros de la tabla, en el widget del dashboard y en la página de estado.
+</p>
+
+<strong>P: ¿Cuál es la diferencia entre Tags y Grupos?</strong>
+<p>
+R: Un dominio puede tener múltiples etiquetas pero solo un grupo. Usa grupos para la categoría principal (por cliente, por proyecto) y etiquetas para atributos adicionales (producción, crítico, renovación automática).
+</p>
+
+<strong>P: ¿Qué es el widget "Mammoth"?</strong>
+<p>
+R: Un widget dedicado para el grupo específicamente nombrado "Mammoth". Si tienes un grupo con ese nombre, el widget muestra conteos de Up/Down/Unknown más chips de salud DNS/HTTP/SSL. Si el grupo no existe, el widget muestra "Group not found".
+</p>
+
+<strong>P: ¿Cómo funciona el widget "Sites per Group"?</strong>
+<p>
+R: Muestra una fila por cada grupo con al menos un dominio. Cada fila tiene el nombre del grupo, conteo de dominios y una pastilla verde "OK" o ámbar "Issues" (basada en si algún dominio tiene errores o está expirado).
+</p>
+
+<hr>
+
+<h3 id="alertas-y-notificaciones">Alertas y Notificaciones</h3>
+
+<strong>P: ¿Cómo configuro alertas de email?</strong>
+<p>
+R: Ve a Settings > Email. Activa las alertas de email, introduce las direcciones de destinatarios (separadas por comas), establece los días de aviso (ej. 7,14,30) y haz clic en Test Email para verificar.
+</p>
+
+<strong>P: Para Gmail ¿cómo obtengo una App Password?</strong>
+<p>
+R: Ve a tu cuenta Google > Seguridad > Verificación en dos pasos (debe estar activada) > App passwords. Genera una contraseña para "Mail" y úsala como <code>SMTP_PASS</code>.
+</p>
+
+<strong>P: ¿Cómo configuro alertas de Slack?</strong>
+<p>
+R: En tu espacio de trabajo de Slack, crea una Incoming Webhook App, copia la URL del webhook y pégala en Settings > Notifications > Slack Webhook URL.
+</p>
+
+<strong>P: ¿Qué es ntfy/Signal?</strong>
+<p>
+R: <a href="https://ntfy.sh">ntfy.sh</a> es un servicio de notificaciones push. Puedes usar la instancia pública gratuita o autoalojar la tuya. Domain Monitor publicará en el tópico que configures, y puedes recibir esas notificaciones en la app móvil de ntfy o integrarlas con Signal a través de bridges.
+</p>
+
+<strong>P: ¿Qué son los webhooks salientes?</strong>
+<p>
+R: Webhooks salientes envían solicitudes HTTP POST a una URL de tu elección cuando ocurren eventos (dominio creado, dominio caído, dominio expirado, etc.). Úsalos para integrar con cualquier sistema externo: PagerDuty, sistemas de tickets, automatizaciones propias.
+</p>
+
+<strong>P: ¿Cómo funciona la firma de webhook?</strong>
+<p>
+R: Si configuras un <code>secret</code> para un webhook, cada payload se firma con HMAC-SHA256. La firma se envía en el header <code>X-Signature</code>. Verifica esto en tu endpoint receptor para asegurar que la solicitud proviene de Domain Monitor.
+</p>
+
+<hr>
+
+<h3 id="tcnico">Técnico</h3>
+
+<strong>P: ¿Por qué SQLite en lugar de PostgreSQL?</strong>
+<p>
+R: SQLite es perfectamente adecuado para este caso de uso (una sola instancia, escrituras moderadas, sin conexiones concurrentes de múltiples procesos). Elimina la necesidad de ejecutar un servidor de base de datos separado, simplificando enormemente el despliegue y las copias de seguridad.
+</p>
+
+<strong>P: ¿Puedo ejecutar múltiples instancias del servidor?</strong>
+<p>
+R: No sin modificaciones. SQLite no admite múltiples escritores concurrentes desde diferentes procesos. Para alta disponibilidad, úsalo detrás de un balanceador de carga con sticky sessions y una sola instancia de servidor, o migra a PostgreSQL.
+</p>
+
+<strong>P: ¿Cómo hago una copia de seguridad de los datos?</strong>
+<p>
+R: Copia el archivo <code>domains.db</code> mientras el servidor está apagado, o usa el comando integrado <code>sqlite3 domains.db ".backup backup.db"</code> que es seguro durante la ejecución gracias al modo WAL.
+</p>
+
+<strong>P: ¿Cómo actualizo a una versión nueva?</strong>
+<p>
+R:
+</p>
+<ol><li><code>git pull origin master</code></li>
+<li><code>npm install</code> (en caso de nuevas dependencias)</li>
+<li><code>npm run build</code></li>
+<li>Reinicia el servidor</li>
+</ol>
+<p>
+Las migraciones de base de datos se ejecutan automáticamente al inicio del servidor.
+</p>
+
+<strong>P: ¿Qué hace exactamente <code>performed_by</code> en el log de auditoría?</strong>
+<p>
+R: Cada entrada del log de auditoría registra el nombre de usuario del usuario autenticado que realizó la acción. Si la autenticación está desactivada, <code>performed_by</code> es null. Esto permite ver quién añadió, eliminó o modificó qué en un entorno multiusuario.
+</p>
+
+<strong>P: ¿Cómo funciona la deduplicación de alertas críticas?</strong>
+<p>
+R: Las alertas críticas del dashboard se calculan a partir de la lista de dominios completa (<code>state.domains</code>), no solo de la página actual. Esto significa que cambiar de página no cambia el conjunto de alertas. Además, las alertas se deduplicado por <code>dominio:tipo</code> para que el mismo dominio no aparezca en la lista dos veces por el mismo problema.
+</p>
+
+<strong>P: ¿Cómo funciona la autenticación con roles de usuario?</strong>
+<p>
+R: Los usuarios tienen roles <code>admin</code>, <code>editor</code> o <code>viewer</code>. Los administradores pueden hacer todo. Los editores pueden gestionar dominios y ejecutar comprobaciones. Los visualizadores solo pueden leer datos. El sistema de roles se aplica a nivel de middleware en cada endpoint de API.
+</p>
+
+<strong>P: ¿Qué pasa si la API WHOIS alcanza su cuota?</strong>
+<p>
+R: El sistema automáticamente recurre a <code>whois-json</code> (consultas WHOIS directas). Algunos TLDs pueden no estar disponibles con el fallback. Puedes añadir múltiples claves de API en Settings > API Keys para aumentar la cuota total.
+</p>
+
+<strong>P: ¿Cómo funciona el borrado suave?</strong>
+<p>
+R: Cuando eliminas un dominio, el campo <code>deleted_at</code> se establece al timestamp actual en lugar de borrar la fila. El dominio desaparece de las vistas normales. Puedes ver y restaurar dominios borrados en Settings > Deleted Domains.
+</p>
+
+<strong>P: ¿Cómo puedo acceder a la documentación técnica completa?</strong>
+<p>
+R: Navega a <code>http://localhost:3000/docs</code> para la documentación en inglés o <code>http://localhost:3000/docs/es/</code> para la documentación en español. Ambas tienen barra lateral de navegación, modo oscuro y búsqueda de texto completo.
+</p>
+
+<strong>P: ¿Cómo funciona el modo paginado?</strong>
+<p>
+R: Cuando tienes más dominios de los que caben en pantalla, se activa la paginación. Los filtros y la búsqueda aplican sobre todos los dominios del servidor. Las estadísticas del panel superior muestran totales de toda la colección. Las alertas críticas siempre se calculan sobre la lista completa sin importar en qué página estés.
+</p>
+
+    <div class="auto-generated">
+      Generado automáticamente desde DOCUMENTACION.md<br>
+      Last updated: 2026-02-21
+    </div>
+  </main>
+
+  <script>
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    function setTheme(dark) {
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      themeToggle.textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+
+    const savedTheme = localStorage.getItem('theme');
+    setTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
+
+    themeToggle.addEventListener('click', () => {
+      setTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+    });
+
+    // Active section highlighting
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = document.querySelectorAll('h2[id], h3[id]');
+
+    function updateActiveSection() {
+      const scrollPos = window.scrollY + 100;
+      let current = '';
+      sections.forEach(section => {
+        if (section.offsetTop <= scrollPos) current = section.getAttribute('id');
+      });
+      tocLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveSection);
+    updateActiveSection();
+
+    // Search
+    const searchInput = document.getElementById('search');
+    const searchResults = document.getElementById('searchResults');
+
+    const searchableContent = [];
+    sections.forEach(section => {
+      const id = section.getAttribute('id');
+      const title = section.textContent;
+      let content = '';
+      let sibling = section.nextElementSibling;
+      while (sibling && !sibling.matches('h2, h3')) {
+        content += sibling.textContent + ' ';
+        sibling = sibling.nextElementSibling;
+      }
+      searchableContent.push({ id, title, content: content.toLowerCase() });
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      if (query.length < 2) { searchResults.classList.remove('active'); return; }
+
+      const results = searchableContent.filter(item =>
+        item.title.toLowerCase().includes(query) || item.content.includes(query)
+      ).slice(0, 8);
+
+      searchResults.innerHTML = results.length === 0
+        ? '<div class="search-result-item">No results found</div>'
+        : results.map(item => `<div class="search-result-item" data-id="${item.id}">${item.title}</div>`).join('');
+
+      searchResults.classList.add('active');
+    });
+
+    searchResults.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (item && item.dataset.id) {
+        window.location.hash = item.dataset.id;
+        searchResults.classList.remove('active');
+        searchInput.value = '';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-box')) searchResults.classList.remove('active');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); }
+      if (e.key === 'Escape') { searchResults.classList.remove('active'); searchInput.blur(); }
+    });
+  </script>
+</body>
+</html>
